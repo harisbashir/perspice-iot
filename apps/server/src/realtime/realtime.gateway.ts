@@ -85,6 +85,7 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
   private async authenticate(socket: Socket): Promise<AuthUser | null> {
     const token = (socket.handshake.auth as { token?: unknown })?.token;
     if (typeof token !== 'string') return null;
+    if (token.startsWith('pk_')) return this.auth.authUserForApiKey(token);
     const claims = await this.sessions.verifyAccess(token);
     return claims ? this.auth.authUserForSession(claims.sub, claims.sid) : null;
   }

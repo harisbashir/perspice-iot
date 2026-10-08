@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Runs the test suites. Default: --unit --integration --e2e. Stops at the first failing suite.
 #   --unit | --integration | --e2e | --load | --live <url> | --all
+# --load runs the simulator against a running stack: set PERSPICE_LOAD_URL, PERSPICE_LOAD_MQTT and
+# PERSPICE_LOAD_API_KEY (optionally PERSPICE_LOAD_COUNT, _DURATION, _PROFILE).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +15,7 @@ while [[ $# -gt 0 ]]; do
     --unit | --integration | --e2e | --load) suites+=("${1#--}"); shift ;;
     --live) LIVE_URL="${2:?--live needs a URL}"; suites+=(live); shift 2 ;;
     --all) suites+=(unit integration e2e load); shift ;;
-    -h | --help) sed -n '2,3p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,5p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 64 ;;
   esac
 done
@@ -26,7 +28,13 @@ run_suite() {
     unit) pnpm test:unit ;;
     integration) pnpm test:integration ;;
     e2e) pnpm --filter @perspice/e2e test ;;
-    load) pnpm --filter @perspice/simulator load ;;
+    load)
+      : "${PERSPICE_LOAD_URL:?set PERSPICE_LOAD_URL}" "${PERSPICE_LOAD_MQTT:?set PERSPICE_LOAD_MQTT}" "${PERSPICE_LOAD_API_KEY:?set PERSPICE_LOAD_API_KEY}"
+      pnpm --filter @perspice/shared build && pnpm --filter @perspice/simulator build
+      node apps/simulator/dist/index.js --url "$PERSPICE_LOAD_URL" --mqtt "$PERSPICE_LOAD_MQTT" --api-key "$PERSPICE_LOAD_API_KEY" \
+        --profile "${PERSPICE_LOAD_PROFILE:-Generic Sensor}" --create --count "${PERSPICE_LOAD_COUNT:-1000}" --interval 10 \
+        --duration "${PERSPICE_LOAD_DURATION:-120}" --measure-latency --max-p95-ms 2000
+      ;;
     live) PERSPICE_LIVE_URL="$LIVE_URL" pnpm --filter @perspice/e2e test:live ;;
   esac
 }

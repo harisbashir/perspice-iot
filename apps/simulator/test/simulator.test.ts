@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import { percentile } from '../src/run.js';
+import { boundsFor, randomWalk, valueGenerator } from '../src/values.js';
+
+describe('random walk', () => {
+  it('stays within the bounds and moves at most one step', () => {
+    const bounds = { min: 10, max: 20, step: 3 };
+    const next = randomWalk(bounds, 15);
+    let prev = 15;
+    for (let i = 0; i < 5000; i++) {
+      const v = next();
+      expect(v).toBeGreaterThanOrEqual(10);
+      expect(v).toBeLessThanOrEqual(20);
+      expect(Math.abs(v - prev)).toBeLessThanOrEqual(3.01);
+      prev = v;
+    }
+  });
+
+  it('uses plausible bounds for known keys', () => {
+    expect(boundsFor('mains_v').min).toBeGreaterThan(100);
+    expect(boundsFor('fuel_level')).toMatchObject({ min: 0, max: 100 });
+  });
+
+  it('generates values for every profile key with the right type', () => {
+    const gen = valueGenerator([
+      { key: 'fuel_level', label: 'Fuel', type: 'number' },
+      { key: 'door_open', label: 'Door', type: 'boolean' },
+      { key: 'state', label: 'State', type: 'string' },
+    ]);
+    const v = gen();
+    expect(typeof v.fuel_level).toBe('number');
+    expect(typeof v.door_open).toBe('boolean');
+    expect(v.state).toBe('ok');
+  });
+});
+
+describe('percentile', () => {
+  it('computes nearest-rank percentiles', () => {
+    const data = Array.from({ length: 100 }, (_, i) => i + 1);
+    expect(percentile(data, 50)).toBe(50);
+    expect(percentile(data, 95)).toBe(95);
+    expect(percentile([], 95)).toBeNull();
+  });
+});

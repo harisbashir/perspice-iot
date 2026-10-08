@@ -178,6 +178,28 @@ importers:
         specifier: ^3
         version: 3.2.7(@types/debug@4.1.13)(@types/node@24.19.1)(jiti@1.21.7)(jsdom@30.1.2(@noble/hashes@2.4.0))(msw@3.0.2(@types/node@24.19.1)(typescript@5.9.3)(vite@6.4.4(@types/node@24.19.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)))(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/simulator:
+    dependencies:
+      '@perspice/shared':
+        specifier: workspace:^
+        version: link:../../packages/shared
+      mqtt:
+        specifier: ^5.16.0
+        version: 5.16.0
+      socket.io-client:
+        specifier: 4.8.3
+        version: 4.8.3
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.19.1
+      typescript:
+        specifier: ^5.6
+        version: 5.9.3
+      vitest:
+        specifier: ^3
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.19.1)(jiti@1.21.7)(jsdom@30.1.2(@noble/hashes@2.4.0))(msw@3.0.2(@types/node@24.19.1)(typescript@5.9.3)(vite@6.4.4(@types/node@24.19.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)))(tsx@4.23.15)(yaml@2.9.1)
+
   apps/web:
     dependencies:
       '@perspice/shared':
@@ -4848,6 +4870,10 @@ packages:
 
   socket.io-adapter@2.5.8:
     resolution: {integrity: sha512-6Oy52pbg+kvdCVvjcN+FnY7BvxZ7cIHNScbvztT/It5d0vbwoJoVZmF2gjJmnV0/4WlXRfG15zc45ySk9Ah8bw==}
+
+  socket.io-client@4.8.3:
+    resolution: {integrity: sha512-uP0bpjWrjQmUt5DTHq9RuoCBdFJF10cdX9X+a368j/Ft0wmaVgxlrjvK3kjvgCODOMMOz9lcaRzxmso0bTWZ/g==}
+    engines: {node: '>=10.0.0'}
 
   socket.io-client@4.8.4:
     resolution: {integrity: sha512-7wjKAvVXYOJsbmUgkWbnhPD4bFpkqrUR0++XOjpGFmqDqsqV1CI93VTraeExLxpjxEqrWgFoSRZu1ihjLWfkAA==}
@@ -10436,6 +10462,17 @@ snapshots:
     dependencies:
       debug: 4.4.3
       ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  socket.io-client@4.8.3:
+    dependencies:
+      '@socket.io/component-emitter': 3.1.2
+      debug: 4.4.3
+      engine.io-client: 6.6.7
+      socket.io-parser: 4.2.7
     transitivePeerDependencies:
       - bufferutil
       - supports-color
