@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { AppModule } from './app.module';
 import { HealthRegistry } from './common/health.registry';
 import { ProblemFilter } from './common/problem.filter';
+import { setupOpenApi } from './openapi';
 import { RedisIoAdapter } from './realtime/redis-io.adapter';
 import { appVersion } from './common/version';
 import { type Config, loadConfig } from './config/config';
@@ -35,6 +36,7 @@ export async function bootstrap(config: Config = loadConfig(process.env)): Promi
     const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
     app.useLogger(app.get(Logger));
     configureHttpApp(app, config);
+    await setupOpenApi(app, config);
     app.enableShutdownHooks();
     await app.listen(config.PORT);
     return;

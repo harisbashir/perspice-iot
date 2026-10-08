@@ -18,6 +18,7 @@ import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { DocsModule } from './openapi';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
@@ -59,7 +60,7 @@ export class AppModule {
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
         NotificationsModule.forRoot({ rules: runsRole(role, 'rules') }),
-        ...(runsRole(role, 'api') ? [RealtimeModule] : []),
+        ...(runsRole(role, 'api') ? [RealtimeModule, DocsModule] : []),
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),
       ],
     };
