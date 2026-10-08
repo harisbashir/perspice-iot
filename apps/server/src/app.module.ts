@@ -11,6 +11,7 @@ import { BrandingModule } from './branding/branding.module';
 import { RbacModule } from './rbac/rbac.module';
 import { DevicesModule } from './devices/devices.module';
 import { EventsModule } from './events/event-bus';
+import { EmqxModule } from './emqx/emqx.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
@@ -45,6 +46,7 @@ export class AppModule {
         RbacModule,
         EventsModule,
         DevicesModule,
+        EmqxModule.forRoot({ api: runsRole(role, 'api') }),
       ],
     };
   }

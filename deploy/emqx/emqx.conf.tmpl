@@ -1,0 +1,114 @@
+## Perspice IoT — EMQX 5.8 broker configuration (template).
+## EMQX's HOCON cannot read arbitrary environment variables, so entrypoint.sh renders this
+## file to /opt/emqx/etc/emqx.conf, replacing:
+##   __PERSPICE_API_URL__   base URL of the `api` service, e.g. http://api:3000
+##   __INTERNAL_SECRET__    shared secret for the /internal/emqx/* hooks
+
+node {
+  name = "emqx@127.0.0.1"
+  cookie = "perspice"
+  data_dir = "data"
+}
+
+cluster {
+  name = perspice
+  discovery_strategy = manual
+}
+
+dashboard {
+  listeners.http.bind = 18083
+}
+
+## Devices and the ingest worker authenticate through the API.
+authentication = [
+  {
+    mechanism = password_based
+    backend = http
+    enable = true
+    method = post
+    url = "__PERSPICE_API_URL__/internal/emqx/auth"
+    headers {
+      "content-type" = "application/json"
+      "x-internal-secret" = "__INTERNAL_SECRET__"
+    }
+    body {
+      clientid = "${clientid}"
+      username = "${username}"
+      password = "${password}"
+    }
+    connect_timeout = "5s"
+    request_timeout = "5s"
+    pool_size = 8
+  }
+]
+
+## Topic ACL is decided by the API; results are cached by EMQX for 60 s.
+authorization {
+  no_match = deny
+  deny_action = ignore
+  cache {
+    enable = true
+    max_size = 64
+    ttl = 60s
+  }
+  sources = [
+    {
+      type = http
+      enable = true
+      method = post
+      url = "__PERSPICE_API_URL__/internal/emqx/acl"
+      headers {
+        "content-type" = "application/json"
+        "x-internal-secret" = "__INTERNAL_SECRET__"
+      }
+      body {
+        clientid = "${clientid}"
+        username = "${username}"
+        topic = "${topic}"
+        action = "${action}"
+      }
+      connect_timeout = "5s"
+      request_timeout = "5s"
+      pool_size = 8
+    }
+  ]
+}
+
+mqtt {
+  max_packet_size = 64KB
+  max_clientid_len = 128
+}
+
+## Client connect/disconnect events drive device presence (published under $SYS).
+sys_topics {
+  sys_event_messages {
+    client_connected = true
+    client_disconnected = true
+  }
+}
+
+listeners.tcp.default {
+  bind = "0.0.0.0:1883"
+  max_connections = infinity
+}
+
+listeners.ssl.default {
+  bind = "0.0.0.0:8883"
+  max_connections = infinity
+  ssl_options {
+    certfile = "/opt/emqx/etc/certs/cert.pem"
+    keyfile = "/opt/emqx/etc/certs/key.pem"
+  }
+}
+
+listeners.ws.default.enable = false
+listeners.wss.default.enable = false
+
+## REST API key used by the API service (kick clients, list clients). Format: key:secret:role
+api_key {
+  bootstrap_file = "/opt/emqx/etc/api_key.bootstrap"
+}
+
+log.console {
+  level = warning
+}

@@ -3,10 +3,12 @@ import type { INestApplication, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Redis from 'ioredis';
 import { Client } from 'pg';
+import { GenericContainer, type StartedTestContainer, TestContainers, Wait } from 'testcontainers';
 import request from 'supertest';
 import { inject } from 'vitest';
 import { AppModule } from '../src/app.module';
@@ -18,6 +20,9 @@ import { configureHttpApp } from '../src/main';
 
 export interface TestApp {
   app: INestApplication;
+  /** Set when started with `emqx: true`: broker URL for test MQTT clients. */
+  mqttUrl?: string;
+  emqxContainer?: StartedTestContainer;
   http: ReturnType<typeof request.agent>;
   db: DB;
   redis: Redis;
@@ -32,6 +37,56 @@ export interface TestAppOptions {
   databaseUrl?: string;
   /** Extra controllers mounted for a test (e.g. to exercise a decorator). */
   controllers?: Type[];
+  /** Start a dedicated EMQX broker wired to this app's auth/ACL hooks. */
+  emqx?: boolean;
+}
+
+export const INGEST_PASSWORD = 'ingest-test-password';
+const EMQX_API_KEY = 'perspice';
+const EMQX_API_SECRET = 'test-emqx-api-secret';
+const DEPLOY_EMQX = join(__dirname, '../../../deploy/emqx');
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, () => {
+      const { port } = srv.address() as { port: number };
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
+
+interface BrokerPorts {
+  api: number;
+  mqtt: number;
+  dashboard: number;
+}
+
+/**
+ * Starts EMQX with the production config template, calling back to the API on `ports.api`.
+ * The API must already be listening: EMQX opens its HTTP connection pools at boot and a pool
+ * that fails then (through the Testcontainers host tunnel) never recovers.
+ */
+async function startEmqx(ports: BrokerPorts): Promise<StartedTestContainer> {
+  const apiPort = ports.api;
+  await TestContainers.exposeHostPorts(apiPort);
+  return new GenericContainer('emqx/emqx:5.8.6')
+    .withCopyFilesToContainer([
+      { source: join(DEPLOY_EMQX, 'emqx.conf.tmpl'), target: '/opt/perspice/emqx.conf.tmpl' },
+      { source: join(DEPLOY_EMQX, 'entrypoint.sh'), target: '/opt/perspice/entrypoint.sh', mode: 0o755 },
+    ])
+    .withEntrypoint(['/opt/perspice/entrypoint.sh'])
+    .withEnvironment({
+      PERSPICE_API_URL: `http://host.testcontainers.internal:${apiPort}`,
+      INTERNAL_SECRET: 'test-internal-secret',
+      PERSPICE_EMQX_API_KEY: EMQX_API_KEY,
+      PERSPICE_EMQX_API_SECRET: EMQX_API_SECRET,
+    })
+    .withExposedPorts({ container: 1883, host: ports.mqtt }, { container: 18083, host: ports.dashboard })
+    .withWaitStrategy(Wait.forLogMessage(/is running now/))
+    .withStartupTimeout(120_000)
+    .start();
 }
 
 // Each Vitest worker gets its own Redis logical DB so parallel files cannot collide.
@@ -68,6 +123,9 @@ export function testEnv(databaseUrl: string): NodeJS.ProcessEnv {
     PUBLIC_URL: 'http://localhost',
     BASE_DOMAIN: 'localhost',
     LOG_LEVEL: 'silent',
+    MQTT_INGEST_PASSWORD: INGEST_PASSWORD,
+    EMQX_API_KEY,
+    EMQX_API_SECRET,
     AUTH_RATE_LIMIT_PER_MIN: '1000',
   };
 }
@@ -76,12 +134,26 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
   const ownsDatabase = !opts.databaseUrl;
   const databaseUrl = opts.databaseUrl ?? (await createTestDatabase());
   const storageDir = mkdtempSync(join(tmpdir(), 'perspice-storage-'));
+  const ports: BrokerPorts | undefined = opts.emqx
+    ? { api: await freePort(), mqtt: await freePort(), dashboard: await freePort() }
+    : undefined;
+  const brokerEnv = ports
+    ? { MQTT_URL: `mqtt://localhost:${ports.mqtt}`, EMQX_API_URL: `http://localhost:${ports.dashboard}` }
+    : {};
   const config = loadConfig({
     ...testEnv(databaseUrl),
+    ...brokerEnv,
     STORAGE_LOCAL_PATH: storageDir,
     PERSPICE_ROLE: opts.role ?? 'all',
     ...opts.overrides,
   });
+
+  // Flush before the app starts: modules create Redis state (e.g. stream consumer groups) at init.
+  if (openApps === 0) {
+    const flusher = new Redis(config.REDIS_URL);
+    await flusher.flushdb();
+    await flusher.quit();
+  }
 
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule.forRoot(config)],
@@ -90,19 +162,27 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
   const app = moduleRef.createNestApplication({ logger: false });
   configureHttpApp(app);
   await app.init();
+  let emqx: StartedTestContainer | undefined;
+  if (ports) {
+    await app.listen(ports.api, '0.0.0.0');
+    emqx = await startEmqx(ports);
+  }
 
   const redis = app.get<Redis>(REDIS);
-  if (openApps === 0) await redis.flushdb();
   openApps++;
 
   return {
     app,
+    emqxContainer: emqx,
+    mqttUrl: brokerEnv.MQTT_URL,
     http: request.agent(app.getHttpServer()),
     db: app.get<DB>(DB),
     redis,
     config,
     async close() {
       openApps--;
+      // Stop the broker first so its pooled connections don't hit a closed API port.
+      await emqx?.stop();
       await app.close();
       rmSync(storageDir, { recursive: true, force: true });
       if (ownsDatabase) {
