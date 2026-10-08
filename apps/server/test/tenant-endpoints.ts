@@ -1,4 +1,4 @@
-import { ensureRole } from './factories';
+import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
 
 export interface TenantSide {
@@ -75,3 +75,34 @@ TENANT_ENDPOINTS.push({
   body: () => ({ productName: 'Hacked' }),
   create: async ({ b }) => ({ customerId: b.customer.id }),
 });
+
+/** Customer B's device (created by B's admin through the API, like a real tenant would). */
+const bDevice = async ({ t, b }: TenantContext): Promise<Ids> => {
+  const profile = await createProfile(t.db);
+  const { device } = await createDevice(t.db, { profileId: profile.id, customerId: b.customer.id });
+  return { deviceId: device.id, profileId: profile.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: 'get device', method: 'get', path: (i) => `/api/devices/${i.deviceId}`, create: bDevice },
+  { name: 'patch device', method: 'patch', path: (i) => `/api/devices/${i.deviceId}`, body: () => ({ name: 'Hacked' }), create: bDevice },
+  { name: 'delete device', method: 'delete', path: (i) => `/api/devices/${i.deviceId}`, create: bDevice },
+  { name: 'list devices', method: 'list', path: () => '/api/devices', create: bDevice },
+  {
+    name: 'put server attributes',
+    method: 'put',
+    path: (i) => `/api/devices/${i.deviceId}/attributes/server`,
+    body: () => ({ x: 1 }),
+    create: bDevice,
+  },
+  {
+    name: 'put shared attributes',
+    method: 'put',
+    path: (i) => `/api/devices/${i.deviceId}/attributes/shared`,
+    body: () => ({ x: 1 }),
+    create: bDevice,
+  },
+  { name: 'get device debug log', method: 'get', path: (i) => `/api/devices/${i.deviceId}/debug`, create: bDevice },
+  { name: "get profile used only by B's devices", method: 'get', path: (i) => `/api/device-profiles/${i.profileId}`, create: bDevice },
+  { name: 'list profiles', method: 'list', path: () => '/api/device-profiles', create: bDevice },
+);
