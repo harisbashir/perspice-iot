@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, sql } from 'drizzle-orm';
+import mqtt from 'mqtt';
+import { generateKeyPairSync } from 'node:crypto';
+import { randomToken, sha256Hex } from './common/crypto';
 import Redis from 'ioredis';
 import { Pool } from 'pg';
 import { TokenService } from './auth/token.service';
@@ -25,7 +28,10 @@ const USAGE = `Usage: cli <command>
   seed                                      built-in roles, default profiles, email templates
   create-admin --email <e> --name <n> [--force]
                                             create a super admin and print an activation link
-  health                                    check database and Redis connectivity`;
+  health [--mqtt-roundtrip]                 check database and Redis (and an MQTT publish round trip)
+  vapid-keys                                print a new VAPID key pair for web push
+  configure-smtp --host <h> --port <p> --from <addr> [--user <u> --pass <p>] [--secure]
+                                            store SMTP settings (encrypted) and select the SMTP driver`;
 
 function flags(args: string[]): Record<string, string | true> {
   const out: Record<string, string | true> = {};
@@ -95,7 +101,90 @@ async function createAdmin(config: Config, f: Record<string, string | true>, io:
   });
 }
 
-async function health(config: Config, io: CliIo): Promise<number> {
+/**
+ * Creates a temporary device, publishes one value over MQTT and waits for it in the latest-value
+ * cache (i.e. EMQX auth → ingest → Redis all work), then removes the device again.
+ */
+async function mqttRoundtrip(config: Config, io: CliIo): Promise<boolean> {
+  return withDb(config, async (db) => {
+    const [profile] = await db
+      .insert(schema.deviceProfile)
+      .values({ name: `health-check-${Date.now()}` })
+      .returning();
+    const token = randomToken('pdt_');
+    const [dev] = await db
+      .insert(schema.device)
+      .values({ name: 'health-check', profileId: profile!.id, credentialsHash: sha256Hex(token) })
+      .returning();
+    const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 1 });
+    const client = mqtt.connect(config.MQTT_URL, {
+      clientId: dev!.id,
+      username: dev!.id,
+      password: token,
+      reconnectPeriod: 0,
+      connectTimeout: 10_000,
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        client.once('connect', () => resolve());
+        client.once('error', reject);
+      });
+      const value = Math.round(Math.random() * 1e6);
+      await client.publishAsync(`perspice/v1/${dev!.id}/telemetry`, JSON.stringify({ values: { health: value } }), { qos: 1 });
+      for (let i = 0; i < 40; i++) {
+        const cached = await redis.hget(`latest:${dev!.id}`, 'health');
+        if (cached && (JSON.parse(cached) as { v: number }).v === value) {
+          io.out('mqtt roundtrip: ok');
+          return true;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      io.out('mqtt roundtrip: FAILED (value not ingested within 10 s)');
+      return false;
+    } catch (e) {
+      io.out(`mqtt roundtrip: FAILED (${(e as Error).message})`);
+      return false;
+    } finally {
+      client.end(true);
+      await db.delete(schema.device).where(eq(schema.device.id, dev!.id));
+      await db.delete(schema.deviceProfile).where(eq(schema.deviceProfile.id, profile!.id));
+      await redis.del(`latest:${dev!.id}`, `devmeta:${dev!.id}`, `devtok:${dev!.id}`);
+      redis.disconnect();
+    }
+  });
+}
+
+function vapidKeys(io: CliIo): number {
+  const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const pub = publicKey.export({ format: 'jwk' });
+  const priv = privateKey.export({ format: 'jwk' });
+  const raw = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x!, 'base64url'), Buffer.from(pub.y!, 'base64url')]);
+  io.out(`VAPID_PUBLIC_KEY=${raw.toString('base64url')}`);
+  io.out(`VAPID_PRIVATE_KEY=${priv.d}`);
+  return 0;
+}
+
+async function configureSmtp(config: Config, f: Record<string, string | true>, io: CliIo): Promise<number> {
+  const str = (k: string) => (typeof f[k] === 'string' ? (f[k] as string) : '');
+  const port = Number(str('port') || '587');
+  if (!str('host') || !str('from') || !Number.isInteger(port)) {
+    io.err('configure-smtp requires --host, --from and a numeric --port');
+    return 2;
+  }
+  await withDb(config, async (db) => {
+    const settings = new SettingsService(db, config);
+    await settings.set(
+      'email.smtp',
+      { host: str('host'), port, secure: f.secure === true || port === 465, user: str('user'), pass: str('pass'), from: str('from') },
+      { secret: true },
+    );
+    await settings.set('email.driver', 'smtp');
+  });
+  io.out(`SMTP configured (${str('host')}:${port}).`);
+  return 0;
+}
+
+async function health(config: Config, io: CliIo, roundtrip = false): Promise<number> {
   let ok = true;
   try {
     await withDb(config, (db) => db.execute(sql`SELECT 1`));
@@ -115,6 +204,7 @@ async function health(config: Config, io: CliIo): Promise<number> {
   } finally {
     redis.disconnect();
   }
+  if (ok && roundtrip) ok = await mqttRoundtrip(config, io);
   return ok ? 0 : 1;
 }
 
@@ -141,7 +231,11 @@ export async function runCli(args: string[], io: CliIo): Promise<number> {
       case 'create-admin':
         return await createAdmin(config, flags(rest), io);
       case 'health':
-        return await health(config, io);
+        return await health(config, io, flags(rest)['mqtt-roundtrip'] === true);
+      case 'vapid-keys':
+        return vapidKeys(io);
+      case 'configure-smtp':
+        return await configureSmtp(config, flags(rest), io);
       default:
         io.err(USAGE);
         return 2;

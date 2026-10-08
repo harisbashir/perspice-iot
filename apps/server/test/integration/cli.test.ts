@@ -4,7 +4,7 @@ import { runCli } from '../../src/cli';
 import { setupOpenApi } from '../../src/openapi';
 import { tokenFor } from '../auth-helpers';
 import { createUser } from '../factories';
-import { deviceProfile, emailTemplate, role, user } from '../../src/db/schema';
+import { deviceProfile, emailTemplate, role, systemSetting, user } from '../../src/db/schema';
 import { type TestApp, createTestApp, testEnv } from '../harness';
 
 async function cli(t: TestApp, ...args: string[]) {
@@ -69,6 +69,19 @@ describe('cli', () => {
     const res = await cli(t, 'health');
     expect(res.code).toBe(0);
     expect(res.out).toContain('database: ok');
+  });
+
+  it('generates VAPID keys', async () => {
+    const res = await cli(t, 'vapid-keys');
+    expect(res.out).toMatch(/^VAPID_PUBLIC_KEY=[A-Za-z0-9_-]{87}\nVAPID_PRIVATE_KEY=[A-Za-z0-9_-]{43}$/);
+  });
+
+  it('configures SMTP with the password encrypted', async () => {
+    const res = await cli(t, 'configure-smtp', '--host', 'smtp.example.com', '--port', '587', '--from', 'IoT <iot@example.com>', '--user', 'u', '--pass', 'secret-pass');
+    expect(res.code).toBe(0);
+    const row = await t.db.query.systemSetting.findFirst({ where: eq(systemSetting.key, 'email.smtp') });
+    expect(row?.secret).toBe(true);
+    expect(JSON.stringify(row?.value)).not.toContain('secret-pass');
   });
 
   it('rejects unknown commands', async () => {

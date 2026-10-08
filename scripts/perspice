@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Day-to-day management of a Perspice installation (installed to /usr/local/bin/perspice).
+set -euo pipefail
+
+PERSPICE_HOME="${PERSPICE_HOME:-/opt/perspice}"
+# Library next to this script (repo checkout or /opt/perspice/scripts), else the installed copy.
+_self="$(readlink -f "${BASH_SOURCE[0]}")"
+_lib="$(dirname "$_self")/lib/common.sh"
+[[ -f "$_lib" ]] || _lib="$PERSPICE_HOME/scripts/lib/common.sh"
+# shellcheck source=lib/common.sh
+source "$_lib"
+
+usage() {
+  cat <<'USAGE'
+Usage: perspice <command>
+
+  status                  Show services and their health
+  logs [service]          Follow logs (all services, or one)
+  restart [service]       Restart all services, or one
+  cli <args>              Run the server CLI (e.g. perspice cli create-admin --email … --name …)
+  version                 Show the installed version
+  db-snapshot [file]      Dump the database (default: backups/snapshot-<time>.dump)
+  db-restore <file>       Restore a database dump (stops the app services meanwhile)
+  update [options]        Upgrade to a new release (see update.sh --help)
+USAGE
+}
+
+db_snapshot() {
+  local file="${1:-$PERSPICE_HOME/backups/snapshot-$(date -u +%Y%m%dT%H%M%SZ).dump}"
+  db_snapshot_to "$file"
+  printf '%s\n' "$file"
+}
+
+db_restore() {
+  db_restore_from "${1:?usage: perspice db-restore <file>}"
+  ok "Restored $1"
+}
+
+cmd="${1:-}"
+[[ $# -gt 0 ]] && shift
+case "$cmd" in
+  status) compose ps ;;
+  logs) compose logs -f --tail 200 "$@" ;;
+  restart) compose restart "$@" ;;
+  cli) compose exec -T api node dist/cli.js "$@" ;;
+  version) env_get PERSPICE_VERSION ;;
+  db-snapshot) db_snapshot "$@" ;;
+  db-restore) db_restore "$@" ;;
+  update) exec "$PERSPICE_HOME/scripts/update.sh" "$@" ;;
+  -h | --help | help | "") usage ;;
+  *) usage >&2; exit 64 ;;
+esac
