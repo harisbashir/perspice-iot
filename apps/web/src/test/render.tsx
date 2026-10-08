@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { session } from '@/api/client';
 import { AuthProvider } from '@/auth/AuthProvider';
-import { BrandingProvider, FALLBACK_BRANDING } from '@/branding/BrandingProvider';
+import { BrandingProvider } from '@/branding/BrandingProvider';
 import { Toaster } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { routes } from '@/router';
@@ -28,10 +28,9 @@ export function makeUser(overrides: Partial<MeResponse> = {}): MeResponse {
   };
 }
 
-/** Base handlers: platform branding; signed out unless `user` is given (restored via refresh). */
+/** Signed out unless `user` is given (the session is restored through refresh). */
 export function baseHandlers(user?: MeResponse) {
   return [
-    http.get('*/api/public/branding', () => HttpResponse.json(FALLBACK_BRANDING)),
     http.post('*/api/auth/refresh', () =>
       user
         ? HttpResponse.json({ accessToken: 'token-1', user })

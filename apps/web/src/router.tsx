@@ -6,8 +6,12 @@ import { RequireAuth, RequirePermission } from './auth/RequirePermission';
 import { ResetPage } from './auth/ResetPage';
 import { AppShell } from './layout/AppShell';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { Placeholder } from './pages/Placeholder';
 import { AuditPage } from './pages/audit/AuditPage';
+import { DeviceDetailPage } from './pages/devices/DeviceDetailPage';
+import { DevicesPage } from './pages/devices/DevicesPage';
+import { OverviewPage } from './pages/overview/OverviewPage';
+import { ProfileEditor } from './pages/profiles/ProfileEditor';
+import { ProfilesPage } from './pages/profiles/ProfilesPage';
 import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
 import { CustomersPage } from './pages/customers/CustomersPage';
 import { RolesPage } from './pages/roles/RolesPage';
@@ -26,10 +30,11 @@ export const routes: RouteObject[] = [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Placeholder title="Overview" /> },
-      { path: 'devices', element: <RequirePermission perm="device.read"><Placeholder title="Devices" /></RequirePermission> },
-      { path: 'devices/:id', element: <RequirePermission perm="device.read"><Placeholder title="Device" /></RequirePermission> },
-      { path: 'profiles', element: <RequirePermission perm="profile.read"><Placeholder title="Device profiles" /></RequirePermission> },
+      { index: true, element: <OverviewPage /> },
+      { path: 'devices', element: <RequirePermission perm="device.read"><DevicesPage /></RequirePermission> },
+      { path: 'devices/:id', element: <RequirePermission perm="device.read"><DeviceDetailPage /></RequirePermission> },
+      { path: 'profiles', element: <RequirePermission perm="profile.read"><ProfilesPage /></RequirePermission> },
+      { path: 'profiles/:id', element: <RequirePermission perm="profile.write"><ProfileEditor /></RequirePermission> },
       { path: 'customers', element: <RequirePermission perm="customer.read"><CustomersPage /></RequirePermission> },
       { path: 'customers/:id', element: <RequirePermission perm="customer.read"><CustomerDetailPage /></RequirePermission> },
       { path: 'users', element: <RequirePermission perm="user.read"><UsersPage /></RequirePermission> },

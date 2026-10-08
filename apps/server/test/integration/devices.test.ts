@@ -201,4 +201,16 @@ describe('devices', () => {
     expect(res.body[99].summary).toBe('msg 5');
     expect(res.body[0].raw.length).toBeLessThanOrEqual(2048);
   });
+
+  it('counts devices by status within the caller scope', async () => {
+    const c = await createCustomer(t.db);
+    const p = await createProfile(t.db);
+    for (const status of ['online', 'online', 'offline', 'never'] as const) {
+      const res = await t.http.post('/api/devices').set('Authorization', platformAuth).send({ name: status, profileId: p.id, customerId: c.id });
+      await t.db.update(device).set({ status }).where(eq(device.id, res.body.device.id));
+    }
+    const auth = await customerAuth('customer_viewer', c.id, c.slug);
+    const stats = await t.http.get('/api/devices/stats').set('Authorization', auth);
+    expect(stats.body).toEqual({ total: 4, online: 2, offline: 1, dead: 0, never: 1 });
+  });
 });

@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NotificationsBell } from './NotificationsBell';
 import { ThemeToggle } from './ThemeToggle';
 
 export function Topbar({ onMenu, actions }: { onMenu: () => void; actions?: ReactNode }) {
@@ -23,6 +24,7 @@ export function Topbar({ onMenu, actions }: { onMenu: () => void; actions?: Reac
       </Button>
       <div className="flex-1" />
       {actions}
+      <NotificationsBell />
       <ThemeToggle />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

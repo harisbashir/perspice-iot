@@ -43,6 +43,12 @@ export class DevicesController {
     return this.devices.list(actor, ListQuery.parse(raw));
   }
 
+  @Get('stats')
+  @Require('device.read')
+  stats(@CurrentUser() actor: AuthUser) {
+    return this.devices.stats(actor);
+  }
+
   @Get(':id')
   @Require('device.read')
   get(@CurrentUser() actor: AuthUser, @Param('id') id: string) {

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { DeviceDto, LatestValue } from '@perspice/shared';
-import { type SQL, and, arrayContains, asc, eq, gt, ilike, or } from 'drizzle-orm';
+import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { AuthUser } from '../auth/auth.types';
 import { forbidden, notFound, validation } from '../common/app-error';
@@ -112,6 +112,22 @@ export class DevicesService {
       items: await this.toDtos(page),
       nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!) : null,
     };
+  }
+
+  /** Device counts by status in the caller's scope (overview KPI tiles). */
+  async stats(actor: AuthUser): Promise<Record<DeviceDto['status'] | 'total', number>> {
+    const scope = await this.scopes.forUser(actor);
+    const rows = await this.db
+      .select({ status: device.status, n: count() })
+      .from(device)
+      .where(scoped(device, scope))
+      .groupBy(device.status);
+    const out = { total: 0, online: 0, offline: 0, dead: 0, never: 0 };
+    for (const r of rows) {
+      out[r.status] = r.n;
+      out.total += r.n;
+    }
+    return out;
   }
 
   async find(actor: AuthUser, id: string): Promise<DeviceRow> {

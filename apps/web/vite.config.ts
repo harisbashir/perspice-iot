@@ -16,5 +16,6 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3000', ws: true, changeOrigin: false },
     },
   },
-  build: { outDir: 'dist', sourcemap: true },
+  // The app chunk is ~640 kB (≈200 kB gzipped); ECharts is split into the History tab chunk.
+  build: { outDir: 'dist', sourcemap: true, chunkSizeWarningLimit: 800 },
 });
