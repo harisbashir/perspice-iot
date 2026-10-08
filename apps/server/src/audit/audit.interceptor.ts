@@ -34,7 +34,7 @@ export class AuditInterceptor implements NestInterceptor {
           customerId: field(target, 'customerId') ?? user?.customerId ?? null,
           action: meta.action,
           targetType: meta.targetType,
-          targetId: (req.params as Record<string, string | undefined>).id ?? field(target, 'id'),
+          targetId: field(target, 'id') ?? (req.params as Record<string, string | undefined>).id ?? null,
           diff: req.body && Object.keys(req.body as object).length ? redact(req.body) : null,
           ip: req.ip,
         });

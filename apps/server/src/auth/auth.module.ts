@@ -2,6 +2,7 @@ import { Global, type MiddlewareConsumer, Module, type NestModule } from '@nestj
 import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PermissionsGuard } from '../rbac/permissions.guard';
 import { JwtGuard } from './jwt.guard';
 import { LockoutService } from './lockout.service';
 import { SessionService } from './session.service';
@@ -19,7 +20,9 @@ import { TotpService } from './totp.service';
     TokenService,
     TotpService,
     TenantHostResolver,
+    // Order matters: authenticate first, then check @Require permissions.
     { provide: APP_GUARD, useClass: JwtGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
   exports: [AuthService, SessionService, TokenService, TenantHostResolver],
 })

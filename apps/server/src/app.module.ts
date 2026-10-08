@@ -8,6 +8,7 @@ import { DbModule } from './db/db.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { BrandingModule } from './branding/branding.module';
+import { RbacModule } from './rbac/rbac.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
@@ -39,6 +40,7 @@ export class AppModule {
         EmailModule.forRoot({ processor: runsRole(role, 'api') || runsRole(role, 'rules') }),
         AuditModule,
         AuthModule,
+        RbacModule,
       ],
     };
   }
