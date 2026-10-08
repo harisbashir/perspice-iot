@@ -5,6 +5,7 @@ import type Redis from 'ioredis';
 import { AppError, conflict, unauthenticated, validation } from '../common/app-error';
 import { sha256Hex } from '../common/crypto';
 import { REDIS } from '../common/redis.module';
+import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { CONFIG, type Config } from '../config/config';
 import { DB } from '../db/db.module';
@@ -56,27 +57,30 @@ export class AuthService {
     private readonly totp: TotpService,
     private readonly email: EmailService,
     private readonly branding: BrandingService,
+    private readonly audit: AuditService,
   ) {}
 
   async login(email: string, password: string, totpCode: string | undefined, meta: RequestMeta): Promise<LoginResult> {
     const u = await this.findByEmail(email);
     if (!u || !u.passwordHash || u.status !== 'active' || !userMatchesHost(u, meta.host)) {
       await verifyDummy(password);
+      await this.auditAuth('auth.login_failed', u ?? null, meta, { email: email.trim().toLowerCase() });
       throw invalidCredentials();
     }
 
     await this.assertNotLocked(u.id);
     if (!(await verifyPassword(u.passwordHash, password))) {
-      await this.failLogin(u.id);
+      await this.failLogin(u, meta, 'password');
     }
     if (u.totpEnabled) {
       if (!totpCode) throw new AppError(ErrorCode.TOTP_REQUIRED, 'Two-factor code required', 401);
-      if (!this.totp.verify(u.totpSecret, totpCode)) await this.failLogin(u.id);
+      if (!this.totp.verify(u.totpSecret, totpCode)) await this.failLogin(u, meta, 'totp');
     }
 
     await this.lockout.reset(u.id);
     await this.db.update(user).set({ lastLogin: new Date() }).where(eq(user.id, u.id));
     const { sessionId, refreshToken } = await this.sessions.create(u.id, meta);
+    await this.auditAuth('auth.login', u, meta);
     return {
       accessToken: await this.sessions.signAccess({
         sub: u.id,
@@ -123,7 +127,7 @@ export class AuthService {
     );
   }
 
-  async reset(token: string, password: string): Promise<void> {
+  async reset(token: string, password: string, meta: { ip?: string } = {}): Promise<void> {
     assertPasswordPolicy(password);
     const userId = await this.tokens.consume(token, 'reset');
     const [u] = await this.db
@@ -133,6 +137,7 @@ export class AuthService {
       .returning();
     await this.sessions.revokeAllForUser(userId);
     await this.lockout.reset(userId);
+    await this.auditAuth('auth.password_reset', u!, meta);
     await this.email.send('password_changed', u!.email, { name: u!.name }, { customerId: u!.customerId });
   }
 
@@ -261,10 +266,29 @@ export class AuthService {
     if (until) throw this.locked(until);
   }
 
-  private async failLogin(userId: string): Promise<never> {
-    const until = await this.lockout.registerFailure(userId);
+  private async failLogin(u: UserRow, meta: RequestMeta, reason: 'password' | 'totp'): Promise<never> {
+    const until = await this.lockout.registerFailure(u.id);
+    await this.auditAuth('auth.login_failed', u, meta, { reason, locked: until !== null });
     if (until) throw this.locked(until);
     throw invalidCredentials();
+  }
+
+  async auditAuth(
+    action: string,
+    u: Pick<UserRow, 'id' | 'customerId'> | null,
+    meta: { ip?: string },
+    diff?: Record<string, unknown>,
+  ): Promise<void> {
+    await this.audit.record({
+      actorType: 'user',
+      actorId: u?.id ?? null,
+      customerId: u?.customerId ?? null,
+      action,
+      targetType: 'user',
+      targetId: u?.id ?? null,
+      diff,
+      ip: meta.ip,
+    });
   }
 
   private locked(until: Date) {

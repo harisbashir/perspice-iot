@@ -112,9 +112,12 @@ export class SessionService {
     return { userId: row.userId, ...next };
   }
 
-  async revokeByToken(refreshToken: string): Promise<void> {
+  /** Returns the session's user id, if the token matched a session. */
+  async revokeByToken(refreshToken: string): Promise<string | null> {
     const row = await this.db.query.session.findFirst({ where: eq(session.tokenHash, sha256Hex(refreshToken)) });
-    if (row) await this.revokeFamily(row.familyId);
+    if (!row) return null;
+    await this.revokeFamily(row.familyId);
+    return row.userId;
   }
 
   async revoke(sessionId: string): Promise<void> {

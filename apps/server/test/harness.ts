@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { randomBytes } from 'node:crypto';
 import Redis from 'ioredis';
@@ -27,6 +27,8 @@ export interface TestAppOptions {
   overrides?: Partial<Record<keyof Config, string>>;
   /** Reuse an existing test database (e.g. a second instance of the same deployment). */
   databaseUrl?: string;
+  /** Extra controllers mounted for a test (e.g. to exercise a decorator). */
+  controllers?: Type[];
 }
 
 // Each Vitest worker gets its own Redis logical DB so parallel files cannot collide.
@@ -76,7 +78,10 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
     ...opts.overrides,
   });
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] }).compile();
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule.forRoot(config)],
+    controllers: opts.controllers ?? [],
+  }).compile();
   const app = moduleRef.createNestApplication({ logger: false });
   configureHttpApp(app);
   await app.init();

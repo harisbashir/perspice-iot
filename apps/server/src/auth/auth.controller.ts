@@ -69,7 +69,11 @@ export class AuthController {
   @HttpCode(204)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const token = this.cookie(req);
-    if (token) await this.sessions.revokeByToken(token);
+    const userId = token ? await this.sessions.revokeByToken(token) : null;
+    if (userId) {
+      const u = await this.auth.me(userId);
+      await this.auth.auditAuth('auth.logout', { id: u.id, customerId: u.customerId }, { ip: req.ip });
+    }
     res.clearCookie(REFRESH_COOKIE, this.cookieOptions());
   }
 
@@ -86,9 +90,9 @@ export class AuthController {
   @Post('reset')
   @Public()
   @HttpCode(200)
-  async reset(@Body() raw: unknown) {
+  async reset(@Body() raw: unknown, @Req() req: Request) {
     const body = TokenPasswordBody.parse(raw);
-    await this.auth.reset(body.token, body.password);
+    await this.auth.reset(body.token, body.password, { ip: req.ip });
     return {};
   }
 
