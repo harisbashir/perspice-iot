@@ -184,7 +184,7 @@ export class DevicesService {
     if (patch.groupId !== undefined) set.groupId = await this.resolveGroup(customerId ?? null, patch.groupId);
 
     const [row] = await this.db.update(device).set(set).where(eq(device.id, id)).returning();
-    await this.redis.del(devMetaKey(id));
+    await this.redis.del(devMetaKey(id), `timeouts:${id}`);
     if (set.disabled !== undefined || set.customerId !== undefined) {
       await this.credentials.invalidate(id);
       if (set.disabled) await this.emit('device.credentials_changed', row!);

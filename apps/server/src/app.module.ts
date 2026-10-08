@@ -13,6 +13,8 @@ import { DevicesModule } from './devices/devices.module';
 import { EventsModule } from './events/event-bus';
 import { EmqxModule } from './emqx/emqx.module';
 import { IngestModule } from './ingest/ingest.module';
+import { PresenceModule } from './presence/presence.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
@@ -48,6 +50,8 @@ export class AppModule {
         EventsModule,
         DevicesModule,
         EmqxModule.forRoot({ api: runsRole(role, 'api') }),
+        SchedulerModule,
+        PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest') }),
       ],
     };
