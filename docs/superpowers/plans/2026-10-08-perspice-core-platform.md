@@ -14,7 +14,7 @@
 
 - Target OS for scripts: Ubuntu 22.04+ / Debian 12+, amd64 and arm64.
 - Images pinned: `timescale/timescaledb:2.17.2-pg16`, `redis:7.4-alpine`, `emqx/emqx:5.8.6` (stay on 5.8.x — 5.9+ is BSL-licensed), `caddy:2.8`, `axllent/mailpit:v1.21` (tests only).
-- One active alarm/notification stream design is out of scope here; sub-project 1 only does **device status notifications** (online/offline/dead).
+- Alarm rules are out of scope (sub-project 3); sub-project 1 only sends **device status notifications** (online/offline/dead). Device credentials are token-only here; X.509 and basic auth arrive with AWS IoT in sub-project 4.
 - Tenant isolation: cross-tenant object access returns **404**, never 403 (§12).
 - Error shape everywhere: `{ code: ErrorCode, message: string, details?: unknown }` (§12).
 - Passwords: Argon2id, minimum length 10 (§9). Access JWT 15 min; refresh token 30 days, rotating, reuse revokes the family (§9).
@@ -32,9 +32,9 @@
 
 ## Review Focus
 
-1. **Bad device timestamps** — devices before NTP sync send `ts` in 1970, or in seconds instead of ms. Expect: `ts < 1e11` → treated as seconds (×1000); a resulting ts before 2020-01-01 or more than 1 h in the future → replaced by server receive time and flagged in the debug log. Test in Task 13.
-2. **Stale disconnect after reconnect** — a device reconnects quickly and EMQX's `disconnected` event for the old session arrives after the new `connected`. Expect: device stays online (disconnect ignored if its `connected_at` is older than the stored session's). Test in Task 14.
-3. **Oversized/hostile payloads** — 1 MB payloads, 10,000 keys, key names with `/` or SQL characters. Expect: messages > 64 KB rejected, > 200 keys rejected, keys must match `^[A-Za-z0-9_.-]{1,64}$`; rejection logged to the device debug view, worker keeps running. Test in Task 13.
+1. **Bad device timestamps** — devices before NTP sync send `ts` in 1970, or in seconds instead of ms. Expect: `ts < 1e11` → treated as seconds (×1000); a resulting ts before 2020-01-01 or more than 1 h in the future → replaced by server receive time and flagged in the debug log. Test in Task 12.
+2. **Stale disconnect after reconnect** — a device reconnects quickly and EMQX's `disconnected` event for the old session arrives after the new `connected`. Expect: device stays online (disconnect ignored if its `connected_at` is older than the stored session's). Test in Task 13.
+3. **Oversized/hostile payloads** — 1 MB payloads, 10,000 keys, key names with `/` or SQL characters. Expect: messages > 64 KB rejected, > 200 keys rejected, keys must match `^[A-Za-z0-9_.-]{1,64}$`; rejection logged to the device debug view, worker keeps running. Test in Task 12.
 4. **Device deleted or token regenerated while connected** — expect the existing MQTT session to be kicked (EMQX REST `DELETE /api/v5/clients/{id}`) and new auth to fail within the 60 s EMQX auth cache window. Test in Task 11.
 5. **Cross-subdomain account confusion** — a password reset or login for a user of customer B submitted on customer A's subdomain (or a platform user on a customer subdomain). Expect: login fails with the generic invalid-credentials error, reset sends no email and returns the same 202 response. Test in Task 6.
 
@@ -271,9 +271,10 @@ e2e/  (Playwright)
   - Customers (`customer.manage`, platform only): `POST/GET/PATCH/DELETE /api/customers[/:id]`, body `{name, slug (^[a-z0-9-]{3,40}$, unique, not in reserved list ['www','api','admin','mqtt','app','mail']), status}`. Customer groups: `/api/customers/:id/groups` CRUD.
   - Users: `GET /api/users`, `POST /api/users/invite {email,name,roleId,customerId?,groupId?}` (customer users can only invite into their own customer; role must satisfy `canGrant`), `PATCH /api/users/:id {name,roleId,status}`, `DELETE /api/users/:id`, `POST /api/users/:id/resend-invite`. 409 `CONFLICT` on duplicate email.
   - Roles: `GET /api/roles`, `POST/PATCH/DELETE /api/roles[/:id]` (`role.manage`) for custom roles; built-ins immutable.
+  - API keys: `GET/POST/DELETE /api/api-keys[/:id]` — body `{name, permissions: Permission[], expiresAt?}`; permissions must satisfy `canGrant(creator, requested)`; key `pk_` + 43-char base64url returned once, stored as SHA-256; scope = creator's scope.
   - Tenant-isolation suite: a table-driven test `describe.each(TENANT_ENDPOINTS)` where `TENANT_ENDPOINTS: Array<{ name; method; path: (ids) => string; body?; create: (ctx) => Promise<ids> }>` lives in `test/tenant-endpoints.ts`; every later task that adds a customer-owned endpoint **appends an entry**. Asserts customer-A admin gets 404 on customer-B objects for GET/PATCH/DELETE and that list endpoints never include B's rows.
 
-- [ ] **Step 1:** Write tests: viewer calling `POST /users/invite` → 403; customer admin inviting `customer_admin` succeeds, inviting `platform_admin` → 403; customer admin inviting into another customer → 404; duplicate email → 409; invite sends `user_invite` email to Mailpit; slug `admin` rejected; tenant-isolation suite with entries for users and customer groups.
+- [ ] **Step 1:** Write tests: viewer calling `POST /users/invite` → 403; customer admin inviting `customer_admin` succeeds, inviting `platform_admin` → 403; customer admin inviting into another customer → 404; duplicate email → 409; invite sends `user_invite` email to Mailpit; slug `admin` rejected; API key with a permission the creator lacks → 403, created key authenticates `GET /api/devices`, expired key → 401; tenant-isolation suite with entries for users and customer groups.
 - [ ] **Step 2:** Run — FAIL. **Step 3:** Implement. **Step 4:** Run — PASS.
 - [ ] **Step 5:** Commit `feat(rbac): permissions, scoped repo, customers/users/roles API, isolation suite`.
 
@@ -358,7 +359,7 @@ e2e/  (Playwright)
   - `normalizeTelemetry(raw: Buffer, now: number): { ok: true; rows: TelemetryRow[]; adjusted: number } | { ok: false; reason: string }` where `TelemetryRow = { key; ts; valueNum|null; valueStr|null; valueBool|null; valueJson|null }`. Rules: payload > `MAX_PAYLOAD_BYTES` → reject; invalid JSON / schema → reject; any key failing `KEY_PATTERN` or > `MAX_KEYS_PER_MESSAGE` keys in a message → reject message; `ts` absent → `now`; `ts < 1e11` → `ts*1000`; resulting `ts < 1577836800000` (2020-01-01) or `ts > now + 3_600_000` → `now` and `adjusted++`.
   - `TelemetryWriter.enqueue(deviceId, rows)`; flushes at 1,000 rows or 250 ms via multi-row `INSERT … ON CONFLICT DO NOTHING` and upserts `telemetry_latest` (only when newer `ts`); on DB error, pushes batch to Redis stream `ingest:buffer` (MAXLEN 1,000,000) and retries with backoff 1 s → 30 s; replays the buffer when healthy.
   - `LatestCache.update(deviceId, rows)` → Redis hash `latest:{deviceId}` field `key` = JSON `{ts,v}` only if newer; `LatestCache.get(deviceId): Promise<Record<string,{ts:number;v:unknown}>>`.
-  - `MessageRouter.handle(topic, payload)`: telemetry → normalize → writer + latest + presence touch + `EventBus.publish({type:'telemetry', deviceId, customerId, keys, ts})` + Redis `PUBLISH ws:telemetry:{deviceId}` with the latest values; attributes → merge into `device.attributes.client` (+ `firmware_version` if key `fw`); `cmd/ack` → `CommandsService.handleAck` (Task 15; injected interface `AckHandler`); `$SYS …/connected|disconnected` → `PresenceService.onConnected/onDisconnected` (Task 13 interface `SessionEvents`).
+  - `MessageRouter.handle(topic, payload)`: telemetry → normalize → writer + latest + presence touch + `EventBus.publish({type:'telemetry', deviceId, customerId, keys, ts})` + Redis `PUBLISH ws:telemetry:{deviceId}` with the latest values; attributes → merge into `device.attributes.client` (+ `firmware_version` if key `fw`); `cmd/ack` → injected `AckHandler { handleAck(deviceId, ack: CommandAck): Promise<void> }` (no-op until Task 15 binds `CommandsService`); `$SYS …/connected|disconnected` → `PresenceService.onConnected/onDisconnected` (Task 13 interface `SessionEvents`).
   - Device→customer lookup cached in Redis `devmeta:{id}` → `{customerId, profileId}` 60 s, invalidated on device update.
   - `MqttIngestClient` (role `ingest`/`all`): clean session false, clientId `perspice-ingest-{hostname}-{pid}`, subscribes QoS 1 to `$share/ingest/perspice/v1/+/+`, `$share/ingest/perspice/v1/+/+/+`, and the two `$SYS` client event topics.
   - Metrics counters: `ingest_messages_total{result}`, `ingest_rows_total`, `ingest_buffer_length`.
@@ -403,7 +404,7 @@ e2e/  (Playwright)
 - Test: `test/integration/http-device.test.ts`
 
 **Interfaces:**
-- Consumes: `CredentialsService.verifyToken`, `MessageRouter.handle`, `CommandsService` (Task 15: `pollPending(deviceId, waitS): Promise<CommandMessage[]>`, `handleAck`) — implement the command endpoints in Task 15, not here.
+- Consumes: `CredentialsService.verifyToken`, `MessageRouter.handle`. (Command poll/ack endpoints are added to this controller in Task 15.)
 - Produces:
   - Device auth header `X-Device-Token`; device id derived from token lookup (`devtokidx:{sha}` → id, plus DB fallback on `credentials_hash` unique index).
   - `POST /api/v1/device/telemetry` (body = `TelemetryPayload`) → 202; `POST /api/v1/device/attributes` → 202; `GET /api/v1/device/config` → shared attributes.
@@ -455,7 +456,7 @@ e2e/  (Playwright)
   - `GET /api/devices/:id/telemetry/keys` → keys seen for device (from `telemetry_latest`).
   - Perm `telemetry.read`; tenant entries appended to isolation suite.
 
-- [ ] **Step 1:** Tests: `selectSource` for 1 h → raw, 7 d → 1h? (7 d / 1 min = 10,080 > 2000 → `1h` = 168 points) → `1h`, 2 y → `1d`; integration: 100 rows inserted, query returns them in ascending ts; cross-tenant → 404.
+- [ ] **Step 1:** Tests: `selectSource` for 1 h → `raw`, 24 h → `1m` (1,440 points), 7 d → `1h` (10,080 one-minute buckets exceed 2,000), 2 y → `1d`; integration: 100 rows inserted, query returns them in ascending ts; cross-tenant → 404.
 - [ ] **Step 2:** Run — FAIL. **Step 3:** Implement (call `refresh_continuous_aggregate` in tests before asserting aggregate sources). **Step 4:** Run — PASS.
 - [ ] **Step 5:** Commit `feat(telemetry): latest and history query API with automatic aggregation`.
 
@@ -568,7 +569,7 @@ e2e/  (Playwright)
   - Compose services: `caddy` (ports 80, 443; volumes `caddy_data`, `caddy_config`; serves `/srv/web`, proxies `/api/*`, `/health` to `api:3000`), `api` (`PERSPICE_ROLE=api`), `ingest`, `rules`, `scheduler`, `postgres` (volume `pg_data`, `shm_size: 1g`), `redis` (`appendonly yes`, volume `redis_data`), `emqx` (ports 1883, 8883; volumes `emqx_data`, `./emqx/emqx.conf`, `./certs`), profile `mail-test` with `mailpit`. All services `restart: unless-stopped`, healthchecks, `depends_on: condition: service_healthy`. Image names `ghcr.io/${PERSPICE_IMAGE_OWNER}/perspice-server:${PERSPICE_VERSION}` and `perspice-web:${PERSPICE_VERSION}`.
   - A one-off `migrate` service (`command: ["node","dist/cli.js","migrate"]`, `restart: "no"`) that `api` depends on with `service_completed_successfully`.
   - Caddyfile: site `{$BASE_DOMAIN}, *.{$BASE_DOMAIN}`; `tls { on_demand }` with global `on_demand_tls { ask http://api:3000/internal/caddy/ask }` unless `CADDY_DNS_PROVIDER` set (then DNS-01 wildcard — documented, plugin build `caddy-dns/cloudflare` and `route53` via a `Dockerfile.caddy` with xcaddy); security headers (HSTS, `X-Content-Type-Options`, `Referrer-Policy`, CSP allowing self + OSM tiles); `/internal/*` returns 404 from outside.
-  - EMQX TLS: installer copies Caddy-issued cert for `mqtt.{BASE_DOMAIN}` — **simpler choice:** Caddy obtains a cert for `mqtt.{BASE_DOMAIN}` and a small `cert-sync` sidecar (alpine + inotify) copies it into `./certs` and calls `emqx ctl` reload. Plain 1883 enabled by default (`MQTT_PLAIN_ENABLED=true`), shown as a warning on the System page later.
+  - EMQX TLS: Caddy obtains a cert for `mqtt.{BASE_DOMAIN}` and a small `cert-sync` sidecar (alpine + inotify) copies it into `./certs` and calls `emqx ctl` reload. Plain 1883 enabled by default (`MQTT_PLAIN_ENABLED=true`), shown as a warning on the System page later.
 
 - [ ] **Step 1:** Write `compose-smoke.sh`: brings stack up with `deploy/env.example` values (`BASE_DOMAIN=localhost`), waits ≤ 180 s for `curl -fsS http://localhost/health`, creates admin via `docker compose exec api node dist/cli.js create-admin`, publishes one MQTT message with `mosquitto_pub` (from `eclipse-mosquitto` container) using a device created through the API, asserts `/api/devices/:id/telemetry/latest` returns it, tears down.
 - [ ] **Step 2:** Run `bash deploy/test/compose-smoke.sh` — Expected: FAIL (no images).
