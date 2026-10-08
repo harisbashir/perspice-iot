@@ -1,0 +1,9 @@
+# Smoke-test overrides: alternate host ports so the stack can run beside other services.
+services:
+  caddy:
+    ports: !override
+      - '18080:80'
+      - '18443:443'
+  emqx:
+    ports: !override
+      - '11883:1883'

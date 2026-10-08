@@ -1,0 +1,195 @@
+# Perspice IoT stack. Configuration comes from .env (see env.example).
+name: perspice
+
+x-server: &server
+  image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-server:${PERSPICE_VERSION:-latest}
+  restart: unless-stopped
+  environment: &server-env
+    NODE_ENV: production
+    PERSPICE_VERSION: ${PERSPICE_VERSION:-}
+    DATABASE_URL: postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice
+    REDIS_URL: redis://redis:6379
+    MQTT_URL: mqtt://emqx:1883
+    MQTT_INGEST_USERNAME: perspice-ingest
+    MQTT_INGEST_PASSWORD: ${MQTT_INGEST_PASSWORD}
+    EMQX_API_URL: http://emqx:18083
+    EMQX_API_KEY: ${EMQX_API_KEY}
+    EMQX_API_SECRET: ${EMQX_API_SECRET}
+    INTERNAL_SECRET: ${INTERNAL_SECRET}
+    JWT_SECRET: ${JWT_SECRET}
+    MASTER_KEY: ${MASTER_KEY}
+    PUBLIC_URL: ${PUBLIC_URL}
+    BASE_DOMAIN: ${BASE_DOMAIN}
+    STORAGE_DRIVER: local
+    STORAGE_LOCAL_PATH: /var/lib/perspice/storage
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+    VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+  volumes:
+    - storage_data:/var/lib/perspice/storage
+  logging: &logging
+    driver: json-file
+    options: { max-size: 20m, max-file: '5' }
+
+services:
+  postgres:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      POSTGRES_USER: perspice
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: perspice
+      TIMESCALEDB_TELEMETRY: 'off'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U perspice -d perspice']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging: *logging
+
+  # Applies database migrations and seed data, then exits; api waits for it.
+  migrate:
+    <<: *server
+    restart: 'no'
+    command: ['sh', '-c', 'node dist/cli.js migrate && node dist/cli.js seed']
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: api
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  ingest:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: ingest
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      emqx: { condition: service_healthy }
+
+  rules:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: rules
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  scheduler:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: scheduler
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  emqx:
+    image: emqx/emqx:5.8.6
+    restart: unless-stopped
+    entrypoint: ['/opt/perspice/entrypoint.sh']
+    environment:
+      PERSPICE_API_URL: http://api:3000
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      PERSPICE_EMQX_API_KEY: ${EMQX_API_KEY}
+      PERSPICE_EMQX_API_SECRET: ${EMQX_API_SECRET}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD}
+      EMQX_LISTENERS__TCP__DEFAULT__ENABLE: ${MQTT_PLAIN_ENABLED:-true}
+    ports:
+      - '1883:1883'
+      - '8883:8883'
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - ./emqx/emqx.conf.tmpl:/opt/perspice/emqx.conf.tmpl:ro
+      - ./emqx/entrypoint.sh:/opt/perspice/entrypoint.sh:ro
+      - mqtt_certs:/opt/perspice/certs:ro
+    healthcheck:
+      test: ['CMD', '/opt/emqx/bin/emqx', 'ctl', 'status']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    # EMQX opens its HTTP auth pools at boot, so the API must already be up.
+    depends_on:
+      api: { condition: service_healthy }
+      cert-sync: { condition: service_healthy }
+    logging: *logging
+
+  cert-sync:
+    build: ./cert-sync
+    image: perspice-cert-sync:local
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      EMQX_API_KEY: ${EMQX_API_KEY}
+      EMQX_API_SECRET: ${EMQX_API_SECRET}
+    volumes:
+      - caddy_data:/caddy-data:ro
+      - mqtt_certs:/certs
+    healthcheck:
+      test: ['CMD', 'test', '-s', '/certs/cert.pem']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  caddy:
+    image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-web:${PERSPICE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (address for certificate expiry notices)}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: { condition: service_healthy }
+    logging: *logging
+
+  # Local SMTP catcher for testing email (`docker compose --profile mail-test up`).
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ['mail-test']
+    ports:
+      - '8025:8025'
+    logging: *logging
+
+volumes:
+  pg_data:
+  redis_data:
+  emqx_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
+  mqtt_certs:

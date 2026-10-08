@@ -1,0 +1,30 @@
+# Shared site configuration, imported by Caddyfile and Caddyfile.dns.
+encode zstd gzip
+
+header {
+	Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	X-Content-Type-Options "nosniff"
+	Referrer-Policy "strict-origin-when-cross-origin"
+	X-Frame-Options "DENY"
+	Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; frame-ancestors 'none'"
+	-Server
+}
+
+# Internal hooks (EMQX auth, Caddy ask) are only for containers on the private network.
+@internal path /internal/*
+respond @internal 404
+
+handle /api/* {
+	reverse_proxy api:3000
+}
+handle /health {
+	reverse_proxy api:3000
+}
+handle /ready {
+	reverse_proxy api:3000
+}
+handle {
+	root * /srv/web
+	try_files {path} /index.html
+	file_server
+}

@@ -96,8 +96,8 @@ listeners.ssl.default {
   bind = "0.0.0.0:8883"
   max_connections = infinity
   ssl_options {
-    certfile = "/opt/emqx/etc/certs/cert.pem"
-    keyfile = "/opt/emqx/etc/certs/key.pem"
+    certfile = "__MQTT_CERTFILE__"
+    keyfile = "__MQTT_KEYFILE__"
   }
 }
 

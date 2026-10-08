@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+# Perspice server: one image, role chosen by PERSPICE_ROLE (api | ingest | rules | scheduler | all).
+
+FROM node:24-bookworm-slim AS build
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/server/package.json apps/server/
+RUN pnpm install --frozen-lockfile --filter "@perspice/server..."
+COPY packages/shared packages/shared
+COPY apps/server apps/server
+RUN pnpm --filter @perspice/shared build \
+ && pnpm --filter @perspice/server build \
+ && pnpm --filter @perspice/server deploy --prod /out
+
+FROM node:24-bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /var/lib/perspice/storage \
+ && chown node:node /var/lib/perspice/storage
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=node:node /out ./
+COPY VERSION ./VERSION
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "dist/main.js"]

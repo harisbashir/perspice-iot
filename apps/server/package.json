@@ -57,7 +57,11 @@
     "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1",
     "testcontainers": "^12.2.0",
+    "typescript": "^5.6",
     "unplugin-swc": "^2.0.0",
     "vitest": "^3"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

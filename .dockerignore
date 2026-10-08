@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+.git
+.github
+e2e
+firmware
+docs
+**/*.log
+.env
+.env.*

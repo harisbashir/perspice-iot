@@ -1,0 +1,27 @@
+# Perspice IoT — Caddy front end.
+# BASE_DOMAIN (required): customers are served on <slug>.BASE_DOMAIN.
+# Certificates for customer subdomains are issued on demand; Caddy first asks the API whether
+# the name belongs to an active customer, so random names can't exhaust ACME rate limits.
+# For a wildcard certificate via DNS-01 instead, use Caddyfile.dns with Dockerfile.caddy.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://api:3000/internal/caddy/ask
+	}
+}
+
+(perspice) {
+	import /etc/caddy/perspice.caddy
+}
+
+{$BASE_DOMAIN}, *.{$BASE_DOMAIN} {
+	tls {
+		on_demand
+	}
+	import perspice
+}
+
+# Certificate for the MQTT broker's TLS listener (copied to EMQX by the cert-sync service).
+mqtt.{$BASE_DOMAIN} {
+	respond "MQTT broker: connect with an MQTT client on port 8883." 200
+}
