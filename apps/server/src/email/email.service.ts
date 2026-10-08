@@ -30,7 +30,7 @@ export class EmailService implements OnApplicationShutdown {
   private readonly connection: Redis;
 
   constructor(
-    @Inject(CONFIG) config: Config,
+    @Inject(CONFIG) private readonly config: Config,
     @Inject(DB) private readonly db: DB,
     private readonly settings: SettingsService,
     private readonly branding: BrandingService,
@@ -75,6 +75,11 @@ export class EmailService implements OnApplicationShutdown {
       this.branding.resolve(job.customerId),
       this.override(job.templateKey, job.customerId),
     ]);
+    // Uploaded assets are stored as relative URLs; mail clients need absolute ones.
+    const origin = new URL(this.config.PUBLIC_URL).origin;
+    for (const k of ['logoLightUrl', 'logoDarkUrl'] as const) {
+      if (branding[k]?.startsWith('/')) branding[k] = origin + branding[k];
+    }
     const rendered = await renderTemplate(job.templateKey, job.vars, branding, override);
     await transport.driver.send({ from: transport.from, to: job.to, ...rendered });
     return true;

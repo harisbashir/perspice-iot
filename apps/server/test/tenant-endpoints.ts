@@ -67,3 +67,11 @@ TENANT_ENDPOINTS.push(
   },
   { name: 'delete group', method: 'delete', path: (i) => `/api/customers/${i.customerId}/groups/${i.groupId}`, create: bGroup },
 );
+
+TENANT_ENDPOINTS.push({
+  name: 'put customer branding',
+  method: 'put',
+  path: (i) => `/api/customers/${i.customerId}/branding`,
+  body: () => ({ productName: 'Hacked' }),
+  create: async ({ b }) => ({ customerId: b.customer.id }),
+});

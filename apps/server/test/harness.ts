@@ -2,6 +2,9 @@ import 'reflect-metadata';
 import type { INestApplication, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 import request from 'supertest';
@@ -72,8 +75,10 @@ export function testEnv(databaseUrl: string): NodeJS.ProcessEnv {
 export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp> {
   const ownsDatabase = !opts.databaseUrl;
   const databaseUrl = opts.databaseUrl ?? (await createTestDatabase());
+  const storageDir = mkdtempSync(join(tmpdir(), 'perspice-storage-'));
   const config = loadConfig({
     ...testEnv(databaseUrl),
+    STORAGE_LOCAL_PATH: storageDir,
     PERSPICE_ROLE: opts.role ?? 'all',
     ...opts.overrides,
   });
@@ -99,6 +104,7 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
     async close() {
       openApps--;
       await app.close();
+      rmSync(storageDir, { recursive: true, force: true });
       if (ownsDatabase) {
         const name = new URL(databaseUrl).pathname.slice(1);
         await withAdminClient((c) => c.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`));
