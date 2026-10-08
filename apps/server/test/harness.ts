@@ -28,6 +28,8 @@ export interface TestApp {
   db: DB;
   redis: Redis;
   config: Config;
+  /** Starts listening on a real port if needed (for socket clients) and returns the base URL. */
+  baseUrl(): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -164,7 +166,7 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
   const app = moduleRef.createNestApplication({
     logger: process.env.PERSPICE_TEST_LOGS ? ['error', 'warn', 'log'] : false,
   });
-  configureHttpApp(app);
+  configureHttpApp(app, config);
   await app.init();
   let emqx: StartedTestContainer | undefined;
   if (ports) {
@@ -191,6 +193,11 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
     db: app.get<DB>(DB),
     redis,
     config,
+    async baseUrl() {
+      const server = app.getHttpServer();
+      if (!server.listening) await app.listen(0, '127.0.0.1');
+      return `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    },
     async close() {
       openApps--;
       // Stop the broker first so its pooled connections don't hit a closed API port.

@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { AppModule } from './app.module';
 import { HealthRegistry } from './common/health.registry';
 import { ProblemFilter } from './common/problem.filter';
+import { RedisIoAdapter } from './realtime/redis-io.adapter';
 import { appVersion } from './common/version';
 import { type Config, loadConfig } from './config/config';
 
@@ -18,12 +19,13 @@ export const API_PREFIX_EXCLUDE = [
 ];
 
 /** HTTP setup shared by `bootstrap` and the integration-test harness. */
-export function configureHttpApp(app: INestApplication): void {
+export function configureHttpApp(app: INestApplication, config: Config): void {
   // Caddy terminates TLS on the same host/network; trust it for client IPs.
   (app as NestExpressApplication).set('trust proxy', 'loopback, linklocal, uniquelocal');
   app.use(cookieParser());
   app.setGlobalPrefix('api', { exclude: API_PREFIX_EXCLUDE });
   app.useGlobalFilters(new ProblemFilter());
+  app.useWebSocketAdapter(new RedisIoAdapter(app, config.REDIS_URL));
 }
 
 export async function bootstrap(config: Config = loadConfig(process.env)): Promise<void> {
@@ -32,7 +34,7 @@ export async function bootstrap(config: Config = loadConfig(process.env)): Promi
   if (role === 'api' || role === 'all') {
     const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
     app.useLogger(app.get(Logger));
-    configureHttpApp(app);
+    configureHttpApp(app, config);
     app.enableShutdownHooks();
     await app.listen(config.PORT);
     return;
