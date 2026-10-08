@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import { SignJWT, jwtVerify } from 'jose';
 import { randomUUID } from 'node:crypto';
@@ -137,12 +137,20 @@ export class SessionService {
     await this.markRevoked(all.map((r) => r.id));
   }
 
-  async revokeAllForUser(userId: string): Promise<void> {
+  /** Revokes every session of the user, except the family of `keepSessionId` when given. */
+  async revokeAllForUser(userId: string, keepSessionId?: string | null): Promise<void> {
+    const keep = keepSessionId
+      ? (await this.db.query.session.findFirst({ where: eq(session.id, keepSessionId), columns: { familyId: true } }))?.familyId
+      : undefined;
+    const notKept = keep ? ne(session.familyId, keep) : undefined;
     await this.db
       .update(session)
       .set({ revokedAt: new Date() })
-      .where(and(eq(session.userId, userId), isNull(session.revokedAt)));
-    const all = await this.db.query.session.findMany({ where: eq(session.userId, userId), columns: { id: true } });
+      .where(and(eq(session.userId, userId), isNull(session.revokedAt), notKept));
+    const all = await this.db.query.session.findMany({
+      where: and(eq(session.userId, userId), notKept),
+      columns: { id: true },
+    });
     await this.markRevoked(all.map((r) => r.id));
   }
 

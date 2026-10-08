@@ -23,6 +23,11 @@ const SesBody = z.object({
   from: z.string().min(3),
 });
 
+const SecurityBody = z.object({
+  enforceTotpForSuperAdmin: z.boolean().optional(),
+  docsPublic: z.boolean().optional(),
+});
+
 const EmailSettingsBody = z.object({
   driver: z.enum(['smtp', 'ses']),
   smtp: SmtpBody.optional(),
@@ -67,6 +72,24 @@ export class SettingsController {
     }
     await this.settings.set('email.driver', body.driver);
     return this.getEmail();
+  }
+
+  @Get('security')
+  @Require('system.settings')
+  async getSecurity() {
+    return {
+      enforceTotpForSuperAdmin: (await this.settings.get('auth.enforceTotpForSuperAdmin')) ?? true,
+      docsPublic: (await this.settings.get('api.docsPublic')) ?? false,
+    };
+  }
+
+  @Put('security')
+  @Require('system.settings')
+  async putSecurity(@Body() raw: unknown) {
+    const body = SecurityBody.parse(raw);
+    if (body.enforceTotpForSuperAdmin !== undefined) await this.settings.set('auth.enforceTotpForSuperAdmin', body.enforceTotpForSuperAdmin);
+    if (body.docsPublic !== undefined) await this.settings.set('api.docsPublic', body.docsPublic);
+    return this.getSecurity();
   }
 
   @Post('email/test')

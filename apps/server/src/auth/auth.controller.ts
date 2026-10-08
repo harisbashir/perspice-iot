@@ -29,6 +29,7 @@ const TokenPasswordBody = z.object({
   name: z.string().trim().min(1).max(200).optional(),
 });
 const CodeBody = z.object({ code: z.string().regex(/^\d{6}$/) });
+const ChangePasswordBody = z.object({ currentPassword: z.string().min(1).max(1024), newPassword: z.string().max(1024) });
 
 @Controller('auth')
 @AllowWithoutTotp()
@@ -108,6 +109,13 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @Post('password')
+  @HttpCode(204)
+  async changePassword(@CurrentUser() user: AuthUser, @Body() raw: unknown, @Req() req: Request) {
+    const body = ChangePasswordBody.parse(raw);
+    await this.auth.changePassword(user, body.currentPassword, body.newPassword, { ip: req.ip });
   }
 
   @Post('totp/setup')

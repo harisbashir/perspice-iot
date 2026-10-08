@@ -150,6 +150,19 @@ export class AuthService {
       .where(eq(user.id, userId));
   }
 
+  /** Changes the caller's password and signs out every other session. */
+  async changePassword(u: AuthUser, current: string, next: string, meta: { ip?: string }): Promise<void> {
+    const row = await this.db.query.user.findFirst({ where: eq(user.id, u.id) });
+    if (!row?.passwordHash || !(await verifyPassword(row.passwordHash, current))) {
+      throw validation([{ path: ['currentPassword'], message: 'Current password is incorrect' }], 'Current password is incorrect');
+    }
+    assertPasswordPolicy(next);
+    await this.db.update(user).set({ passwordHash: await hashPassword(next) }).where(eq(user.id, u.id));
+    await this.sessions.revokeAllForUser(u.id, u.sessionId);
+    await this.auditAuth('auth.password_change', row, meta);
+    await this.email.send('password_changed', row.email, { name: row.name }, { customerId: row.customerId });
+  }
+
   async totpSetup(u: AuthUser): Promise<{ otpauthUrl: string; secret: string }> {
     if (u.totpEnabled) throw conflict('Two-factor authentication is already enabled');
     const { productName } = await this.branding.resolve(u.customerId);
