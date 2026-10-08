@@ -63,6 +63,7 @@ export function testEnv(databaseUrl: string): NodeJS.ProcessEnv {
     PUBLIC_URL: 'http://localhost',
     BASE_DOMAIN: 'localhost',
     LOG_LEVEL: 'silent',
+    AUTH_RATE_LIMIT_PER_MIN: '1000',
   };
 }
 

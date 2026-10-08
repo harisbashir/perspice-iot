@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, inject } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, inject } from 'vitest';
 import { systemSetting } from '../../src/db/schema';
 import { EmailService } from '../../src/email/email.service';
 import { SettingsService } from '../../src/settings/settings.service';
 import { type TestApp, createTestApp } from '../harness';
-import { clearMailpit, configureMailpit, waitForMail } from '../mailpit';
+import { configureMailpit, waitForMail } from '../mailpit';
 
 describe('email', () => {
   let t: TestApp;
@@ -12,10 +12,6 @@ describe('email', () => {
   beforeAll(async () => {
     t = await createTestApp();
     await configureMailpit(t);
-  });
-
-  beforeEach(async () => {
-    await clearMailpit();
   });
 
   afterAll(async () => {

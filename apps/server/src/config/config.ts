@@ -24,6 +24,8 @@ const ConfigSchema = z.object({
   BASE_DOMAIN: z.string().min(1).default('localhost'),
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   STORAGE_LOCAL_PATH: z.string().default('/var/lib/perspice/storage'),
+  /** Requests per minute per IP on /auth/login and /auth/forgot. */
+  AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),

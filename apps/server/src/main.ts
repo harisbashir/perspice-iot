@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { type INestApplication, RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { createServer } from 'node:http';
 import { AppModule } from './app.module';
@@ -17,6 +19,9 @@ export const API_PREFIX_EXCLUDE = [
 
 /** HTTP setup shared by `bootstrap` and the integration-test harness. */
 export function configureHttpApp(app: INestApplication): void {
+  // Caddy terminates TLS on the same host/network; trust it for client IPs.
+  (app as NestExpressApplication).set('trust proxy', 'loopback, linklocal, uniquelocal');
+  app.use(cookieParser());
   app.setGlobalPrefix('api', { exclude: API_PREFIX_EXCLUDE });
   app.useGlobalFilters(new ProblemFilter());
 }

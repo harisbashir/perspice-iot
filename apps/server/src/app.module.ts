@@ -5,6 +5,7 @@ import { RedisModule } from './common/redis.module';
 import type { Config, Role } from './config/config';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
+import { AuthModule } from './auth/auth.module';
 import { BrandingModule } from './branding/branding.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
@@ -35,6 +36,7 @@ export class AppModule {
         StorageModule,
         BrandingModule,
         EmailModule.forRoot({ processor: runsRole(role, 'api') || runsRole(role, 'rules') }),
+        AuthModule,
       ],
     };
   }

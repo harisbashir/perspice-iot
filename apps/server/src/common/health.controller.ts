@@ -1,9 +1,11 @@
+import { Public } from '../auth/decorators';
 import { Controller, Get, Inject, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { CONFIG, type Config } from '../config/config';
 import { HealthRegistry } from './health.registry';
 import { appVersion } from './version';
 
+@Public()
 @Controller()
 export class HealthController {
   constructor(

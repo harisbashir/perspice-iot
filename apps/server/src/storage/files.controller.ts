@@ -1,3 +1,4 @@
+import { Public } from '../auth/decorators';
 import { Controller, Get, Inject, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { notFound } from '../common/app-error';
@@ -5,6 +6,7 @@ import { CONFIG, type Config } from '../config/config';
 import { verifySignedUrl } from './local.driver';
 import { STORAGE, type StorageDriver } from './storage.driver';
 
+@Public()
 @Controller('files')
 export class FilesController {
   constructor(

@@ -8,6 +8,9 @@ export interface MailpitMessage {
   To: { Address: string }[];
 }
 
+// Mailpit is shared by every test file running in parallel: never clear it, and always
+// use a unique recipient address per test so searches only see that test's mail.
+
 export async function configureMailpit(t: TestApp): Promise<void> {
   const smtp = inject('mailpitSmtp');
   const settings = t.app.get(SettingsService);
@@ -17,10 +20,6 @@ export async function configureMailpit(t: TestApp): Promise<void> {
     { host: smtp.host, port: smtp.port, secure: false, user: '', pass: '', from: 'Perspice <no-reply@perspice.test>' },
     { secret: true },
   );
-}
-
-export async function clearMailpit(): Promise<void> {
-  await fetch(`${inject('mailpitApiUrl')}/api/v1/messages`, { method: 'DELETE' });
 }
 
 export async function listMail(to: string): Promise<MailpitMessage[]> {
