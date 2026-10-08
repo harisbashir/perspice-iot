@@ -52,7 +52,7 @@ export class AppModule {
         EmqxModule.forRoot({ api: runsRole(role, 'api') }),
         SchedulerModule,
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
-        IngestModule.forRoot({ mqtt: runsRole(role, 'ingest') }),
+        IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),
       ],
     };
   }

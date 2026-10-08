@@ -1,4 +1,6 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
+import { DeviceTokenGuard } from './device-token.guard';
+import { HttpDeviceController } from './http-device.controller';
 import { IngestMetrics } from './ingest.metrics';
 import { LatestCache } from './latest-cache';
 import { MessageRouter } from './message-router';
@@ -10,11 +12,13 @@ import { TelemetryStore } from './telemetry-store';
 @Global()
 @Module({})
 export class IngestModule {
-  /** The router serves both transports; the MQTT subscriber runs only in the ingest role. */
-  static forRoot(opts: { mqtt: boolean }): DynamicModule {
+  /** The router serves both transports; MQTT runs in the ingest role, HTTP in the api role. */
+  static forRoot(opts: { mqtt: boolean; http: boolean }): DynamicModule {
     return {
       module: IngestModule,
+      controllers: opts.http ? [HttpDeviceController] : [],
       providers: [
+        DeviceTokenGuard,
         IngestMetrics,
         LatestCache,
         TelemetryStore,
