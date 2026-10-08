@@ -1,7 +1,8 @@
 import { BUILT_IN_ROLES, type BuiltInRoleKey } from '@perspice/shared';
 import * as argon2 from 'argon2';
 import { eq } from 'drizzle-orm';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
+import { randomToken, sha256Hex } from '../src/common/crypto';
 import type { DB } from '../src/db/db.module';
 import { customer, device, deviceProfile, role, user } from '../src/db/schema';
 
@@ -70,12 +71,12 @@ export interface CreateDeviceOptions extends Partial<typeof device.$inferInsert>
 }
 
 export async function createDevice(db: DB, opts: CreateDeviceOptions) {
-  const token = `pdt_${randomBytes(32).toString('base64url')}`;
+  const token = randomToken('pdt_');
   const [row] = await db
     .insert(device)
     .values({
       name: `Device ${suffix()}`,
-      credentialsHash: createHash('sha256').update(token).digest('hex'),
+      credentialsHash: sha256Hex(token),
       ...opts,
     })
     .returning();

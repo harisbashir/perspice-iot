@@ -5,6 +5,10 @@ import { RedisModule } from './common/redis.module';
 import type { Config, Role } from './config/config';
 import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
+import { BrandingModule } from './branding/branding.module';
+import { EmailModule } from './email/email.module';
+import { SettingsModule } from './settings/settings.module';
+import { StorageModule } from './storage/storage.module';
 
 export const runsRole = (current: Role, wanted: Exclude<Role, 'all'>) => current === 'all' || current === wanted;
 
@@ -12,6 +16,7 @@ export const runsRole = (current: Role, wanted: Exclude<Role, 'all'>) => current
 export class AppModule {
   /** Composes the module graph for the configured process role. */
   static forRoot(config: Config): DynamicModule {
+    const role = config.PERSPICE_ROLE;
     return {
       module: AppModule,
       imports: [
@@ -26,6 +31,10 @@ export class AppModule {
         CommonModule,
         RedisModule,
         DbModule,
+        SettingsModule,
+        StorageModule,
+        BrandingModule,
+        EmailModule.forRoot({ processor: runsRole(role, 'api') || runsRole(role, 'rules') }),
       ],
     };
   }

@@ -1,0 +1,33 @@
+<mjml>
+  <mj-head>
+    <mj-title>{{subject}}</mj-title>
+    <mj-attributes>
+      <mj-all font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" />
+      <mj-text font-size="15px" line-height="22px" color="#1f2937" />
+      <mj-button background-color="{{branding.primaryColor}}" color="#ffffff" font-size="15px" border-radius="6px" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f3f4f6">
+    <mj-section padding="24px 0 8px">
+      <mj-column>
+        {{#if branding.logoLightUrl}}
+        <mj-image src="{{branding.logoLightUrl}}" alt="{{branding.productName}}" width="160px" align="left" />
+        {{else}}
+        <mj-text font-size="20px" font-weight="700" color="{{branding.primaryColor}}">{{branding.productName}}</mj-text>
+        {{/if}}
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-top="4px solid {{branding.primaryColor}}" padding="24px">
+      <mj-column>
+        {{{body}}}
+      </mj-column>
+    </mj-section>
+    <mj-section padding="16px 0">
+      <mj-column>
+        <mj-text font-size="12px" color="#6b7280">
+          {{branding.productName}}{{#if branding.supportEmail}} · Need help? Contact {{branding.supportEmail}}{{/if}}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
