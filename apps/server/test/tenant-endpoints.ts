@@ -122,3 +122,9 @@ TENANT_ENDPOINTS.push(
   { name: 'command history', method: 'get', path: (i) => `/api/devices/${i.deviceId}/commands`, create: bDevice },
   { name: 'get command', method: 'get', path: (i) => `/api/commands/${i.commandId}`, create: bCommand },
 );
+
+TENANT_ENDPOINTS.push(
+  { name: 'telemetry history', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry?keys=a`, create: bDevice },
+  { name: 'telemetry latest', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry/latest`, create: bDevice },
+  { name: 'telemetry keys', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry/keys`, create: bDevice },
+);

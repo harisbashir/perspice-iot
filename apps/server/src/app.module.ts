@@ -15,6 +15,7 @@ import { EmqxModule } from './emqx/emqx.module';
 import { IngestModule } from './ingest/ingest.module';
 import { PresenceModule } from './presence/presence.module';
 import { CommandsModule } from './commands/commands.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
@@ -54,6 +55,7 @@ export class AppModule {
         SchedulerModule,
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
+        TelemetryModule,
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),
       ],
     };
