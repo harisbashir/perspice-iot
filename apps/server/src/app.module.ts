@@ -4,6 +4,7 @@ import { CommonModule } from './common/common.module';
 import { RedisModule } from './common/redis.module';
 import type { Config, Role } from './config/config';
 import { ConfigModule } from './config/config.module';
+import { DbModule } from './db/db.module';
 
 export const runsRole = (current: Role, wanted: Exclude<Role, 'all'>) => current === 'all' || current === wanted;
 
@@ -24,6 +25,7 @@ export class AppModule {
         }),
         CommonModule,
         RedisModule,
+        DbModule,
       ],
     };
   }

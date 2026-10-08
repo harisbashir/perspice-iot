@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { RequestMethod } from '@nestjs/common';
+import { type INestApplication, RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import { createServer } from 'node:http';
@@ -15,14 +15,19 @@ export const API_PREFIX_EXCLUDE = [
   { path: 'internal/*path', method: RequestMethod.ALL },
 ];
 
+/** HTTP setup shared by `bootstrap` and the integration-test harness. */
+export function configureHttpApp(app: INestApplication): void {
+  app.setGlobalPrefix('api', { exclude: API_PREFIX_EXCLUDE });
+  app.useGlobalFilters(new ProblemFilter());
+}
+
 export async function bootstrap(config: Config = loadConfig(process.env)): Promise<void> {
   const role = config.PERSPICE_ROLE;
 
   if (role === 'api' || role === 'all') {
     const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
     app.useLogger(app.get(Logger));
-    app.setGlobalPrefix('api', { exclude: API_PREFIX_EXCLUDE });
-    app.useGlobalFilters(new ProblemFilter());
+    configureHttpApp(app);
     app.enableShutdownHooks();
     await app.listen(config.PORT);
     return;

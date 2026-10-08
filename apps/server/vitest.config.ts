@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   resolve: { alias },
   test: {
+    maxWorkers: 4,
     projects: [
       {
         extends: true,
@@ -18,6 +19,7 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['test/integration/**/*.test.ts'],
+          globalSetup: ['test/global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 120_000,
         },
