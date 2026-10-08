@@ -23,7 +23,7 @@ import { CustomersService } from '../customers/customers.service';
 import { Require } from '../rbac/require.decorator';
 import { STORAGE, type StorageDriver } from '../storage/storage.driver';
 import { BrandingService } from './branding.service';
-import { HEX_COLOR } from './palette';
+import { HEX_COLOR } from '@perspice/shared';
 import { sanitizeSvg } from './sanitize';
 
 export const MAX_ASSET_BYTES = 1024 * 1024;

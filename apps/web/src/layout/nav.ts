@@ -1,0 +1,24 @@
+import type { Permission } from '@perspice/shared';
+import { Activity, Building2, Cpu, FileClock, LayoutDashboard, Settings, Shapes, Users } from 'lucide-react';
+import type { ComponentType } from 'react';
+
+export interface NavItem {
+  to: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  /** Hidden unless the user holds this permission. */
+  perm?: Permission;
+  platformOnly?: boolean;
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard },
+  { to: '/devices', label: 'Devices', icon: Cpu, perm: 'device.read' },
+  { to: '/profiles', label: 'Device profiles', icon: Shapes, perm: 'profile.write', platformOnly: true },
+  { to: '/customers', label: 'Customers', icon: Building2, perm: 'customer.read', platformOnly: true },
+  { to: '/users', label: 'Users', icon: Users, perm: 'user.read' },
+  { to: '/audit', label: 'Audit log', icon: FileClock, perm: 'audit.read' },
+  { to: '/settings', label: 'Settings', icon: Settings },
+];
+
+export const ACTIVITY_ICON = Activity;

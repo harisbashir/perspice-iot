@@ -5,7 +5,7 @@ import { notFound, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { customer } from '../db/schema';
 import { SettingsService } from '../settings/settings.service';
-import { contrastRatio } from './palette';
+import { contrastRatio } from '@perspice/shared';
 import { sanitizeCss } from './sanitize';
 
 export type BrandingPatch = { [K in keyof BrandingDto]?: BrandingDto[K] | null };
