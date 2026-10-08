@@ -1,0 +1,40 @@
+name: Firmware
+
+on:
+  push:
+    paths: ['firmware/**', '.github/workflows/firmware.yml']
+  pull_request:
+    paths: ['firmware/**', '.github/workflows/firmware.yml']
+
+jobs:
+  buffer-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -I firmware/PerspiceClient/src firmware/test/buffer_test.cpp firmware/PerspiceClient/src/PerspiceBuffer.cpp -o bt && ./bt
+
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - fqbn: esp32:esp32:esp32
+            core: esp32:esp32
+            examples: BasicSensor GeneratorController DeepSleepSensor
+          - fqbn: arduino:avr:mega
+            core: arduino:avr
+            examples: BasicSensor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install ${{ matrix.core }}
+          arduino-cli lib install PubSubClient ArduinoJson Ethernet
+      - run: |
+          for ex in ${{ matrix.examples }}; do
+            arduino-cli compile --fqbn ${{ matrix.fqbn }} --library firmware/PerspiceClient \
+              firmware/PerspiceClient/examples/$ex
+          done
