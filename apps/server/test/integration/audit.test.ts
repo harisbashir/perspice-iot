@@ -87,6 +87,7 @@ describe('audit', () => {
         targetType: 'x',
         targetId: 'paging',
       });
+      await new Promise((r) => setTimeout(r, 2)); // distinct timestamps → deterministic order
     }
     const p = await createUser(t.db, { roleKey: 'platform_admin' });
     const auth = `Bearer ${await tokenFor(t, p.email, p.password)}`;

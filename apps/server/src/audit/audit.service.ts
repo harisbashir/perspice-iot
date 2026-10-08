@@ -59,6 +59,8 @@ export class AuditService {
         targetId: e.targetId,
         diff: e.diff ?? null,
         ip: e.ip,
+        // Millisecond precision, so the (ts, id) paging cursor round-trips exactly through JS Dates.
+        ts: new Date(),
       });
     } catch (err) {
       this.logger.error(`Failed to record audit ${e.action}: ${(err as Error).message}`);

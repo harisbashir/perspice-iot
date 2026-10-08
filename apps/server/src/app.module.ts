@@ -12,6 +12,7 @@ import { RbacModule } from './rbac/rbac.module';
 import { DevicesModule } from './devices/devices.module';
 import { EventsModule } from './events/event-bus';
 import { EmqxModule } from './emqx/emqx.module';
+import { IngestModule } from './ingest/ingest.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
@@ -47,6 +48,7 @@ export class AppModule {
         EventsModule,
         DevicesModule,
         EmqxModule.forRoot({ api: runsRole(role, 'api') }),
+        IngestModule.forRoot({ mqtt: runsRole(role, 'ingest') }),
       ],
     };
   }

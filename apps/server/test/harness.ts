@@ -16,6 +16,7 @@ import { REDIS } from '../src/common/redis.module';
 import { type Config, type Role, loadConfig } from '../src/config/config';
 import { DB } from '../src/db/db.module';
 import { runMigrations } from '../src/db/migrate';
+import { MqttIngestClient } from '../src/ingest/mqtt-ingest.client';
 import { configureHttpApp } from '../src/main';
 
 export interface TestApp {
@@ -159,13 +160,24 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
     imports: [AppModule.forRoot(config)],
     controllers: opts.controllers ?? [],
   }).compile();
-  const app = moduleRef.createNestApplication({ logger: false });
+  // PERSPICE_TEST_LOGS=1 shows server logs while debugging a test.
+  const app = moduleRef.createNestApplication({
+    logger: process.env.PERSPICE_TEST_LOGS ? ['error', 'warn', 'log'] : false,
+  });
   configureHttpApp(app);
   await app.init();
   let emqx: StartedTestContainer | undefined;
   if (ports) {
     await app.listen(ports.api, '0.0.0.0');
     emqx = await startEmqx(ports);
+    const ingest = app.get(MqttIngestClient, { strict: false });
+    if (ingest) {
+      // The client retries every second while the broker boots; wait for its subscriptions.
+      await Promise.race([
+        ingest.ready(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('ingest client not ready after 60 s')), 60_000)),
+      ]);
+    }
   }
 
   const redis = app.get<Redis>(REDIS);
