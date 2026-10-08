@@ -1,0 +1,26 @@
+export const PERMISSIONS = [
+  'customer.read',
+  'customer.manage',
+  'user.read',
+  'user.manage',
+  'role.manage',
+  'device.read',
+  'device.write',
+  'device.credentials',
+  'device.command',
+  'profile.read',
+  'profile.write',
+  'telemetry.read',
+  'export.data',
+  'branding.edit',
+  'system.settings',
+  'audit.read',
+  'backup.manage',
+  'notification.read',
+] as const;
+
+export type Permission = (typeof PERMISSIONS)[number];
+
+export function isPermission(value: string): value is Permission {
+  return (PERMISSIONS as readonly string[]).includes(value);
+}
