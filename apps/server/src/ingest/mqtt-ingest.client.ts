@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import mqtt, { type MqttClient } from 'mqtt';
+import type { MqttClient } from 'mqtt';
 import { hostname } from 'node:os';
 import { CONFIG, type Config } from '../config/config';
+import { ManagedMqtt } from './managed-mqtt';
 import { MessageRouter } from './message-router';
 
 export const INGEST_SUBSCRIPTIONS = [
@@ -11,25 +12,32 @@ export const INGEST_SUBSCRIPTIONS = [
   '$share/ingest/$SYS/brokers/+/clients/+/disconnected',
 ];
 
-const RETRY_MS = 2000;
-
 /** Subscribes to all device traffic through the `ingest` shared-subscription group. */
 @Injectable()
 export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(MqttIngestClient.name);
-  private client?: MqttClient;
-  private stopping = false;
-  private retryTimer?: NodeJS.Timeout;
+  private readonly mqtt: ManagedMqtt;
   private readyResolve!: () => void;
   private readonly readyPromise = new Promise<void>((resolve) => (this.readyResolve = resolve));
 
-  constructor(
-    @Inject(CONFIG) private readonly config: Config,
-    private readonly router: MessageRouter,
-  ) {}
+  constructor(@Inject(CONFIG) config: Config, router: MessageRouter) {
+    this.mqtt = new ManagedMqtt(
+      config.MQTT_URL,
+      {
+        clientId: `perspice-ingest-${hostname()}-${process.pid}`,
+        username: config.MQTT_INGEST_USERNAME,
+        password: config.MQTT_INGEST_PASSWORD,
+        protocolVersion: 5,
+        clean: false,
+        properties: { sessionExpiryInterval: 3600 },
+      },
+      (client) => this.subscribe(client),
+      (topic, payload) => void router.handle(topic, payload),
+    );
+  }
 
   onModuleInit(): void {
-    this.connect();
+    this.mqtt.start();
   }
 
   /** Resolves once connected and subscribed (used by tests and health checks). */
@@ -38,37 +46,11 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
   }
 
   get connected(): boolean {
-    return this.client?.connected ?? false;
+    return this.mqtt.connected;
   }
 
   async onApplicationShutdown(): Promise<void> {
-    this.stopping = true;
-    clearTimeout(this.retryTimer);
-    await this.client?.endAsync(true);
-  }
-
-  private connect(): void {
-    const client = mqtt.connect(this.config.MQTT_URL, {
-      clientId: `perspice-ingest-${hostname()}-${process.pid}`,
-      username: this.config.MQTT_INGEST_USERNAME,
-      password: this.config.MQTT_INGEST_PASSWORD,
-      protocolVersion: 5,
-      clean: false,
-      properties: { sessionExpiryInterval: 3600 },
-      reconnectPeriod: 1000,
-      connectTimeout: 5_000,
-    });
-    this.client = client;
-    client.on('connect', () => this.subscribe(client));
-    client.on('message', (topic, payload) => {
-      void this.router.handle(topic, payload);
-    });
-    client.on('error', (err) => {
-      this.logger.warn(`MQTT error: ${err.message}`);
-      // A refused CONNACK (e.g. the API was down when the broker asked it to authenticate us)
-      // makes mqtt.js stop retrying, so start over with a fresh connection.
-      if ('code' in err && typeof err.code === 'number') this.restart(client);
-    });
+    await this.mqtt.stop();
   }
 
   /**
@@ -79,20 +61,11 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
     client.subscribe(INGEST_SUBSCRIPTIONS, { qos: 1 }, (err, granted) => {
       if (err || (granted ?? []).some((g) => g.qos >= 128)) {
         this.logger.warn(`Subscription refused (${err?.message ?? 'not authorized'}); reconnecting`);
-        this.restart(client);
+        this.mqtt.restart(client);
         return;
       }
       this.logger.log('Ingest subscribed');
       this.readyResolve();
     });
-  }
-
-  private restart(client: MqttClient): void {
-    if (this.stopping || client !== this.client || this.retryTimer) return;
-    client.end(true);
-    this.retryTimer = setTimeout(() => {
-      this.retryTimer = undefined;
-      if (!this.stopping) this.connect();
-    }, RETRY_MS);
   }
 }

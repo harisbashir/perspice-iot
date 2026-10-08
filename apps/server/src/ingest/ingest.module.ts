@@ -6,7 +6,8 @@ import { LatestCache } from './latest-cache';
 import { MessageRouter } from './message-router';
 import { MqttIngestClient } from './mqtt-ingest.client';
 import { PresenceService } from '../presence/presence.service';
-import { ACK_HANDLER, PRESENCE_TOUCH, SESSION_EVENTS, noopAckHandler } from './ports';
+import { CommandsService } from '../commands/commands.service';
+import { ACK_HANDLER, PRESENCE_TOUCH, SESSION_EVENTS } from './ports';
 import { TelemetryStore } from './telemetry-store';
 
 @Global()
@@ -25,7 +26,7 @@ export class IngestModule {
         MessageRouter,
         { provide: PRESENCE_TOUCH, useExisting: PresenceService },
         { provide: SESSION_EVENTS, useExisting: PresenceService },
-        { provide: ACK_HANDLER, useValue: noopAckHandler },
+        { provide: ACK_HANDLER, useExisting: CommandsService },
         ...(opts.mqtt ? [MqttIngestClient] : []),
       ],
       exports: [MessageRouter, LatestCache, IngestMetrics, TelemetryStore],

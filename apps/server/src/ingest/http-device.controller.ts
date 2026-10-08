@@ -1,6 +1,9 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { CommandAck } from '@perspice/shared';
 import { eq } from 'drizzle-orm';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { z } from 'zod';
+import { CommandsService } from '../commands/commands.service';
 import { Public } from '../auth/decorators';
 import { notFound, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
@@ -16,6 +19,7 @@ export class HttpDeviceController {
   constructor(
     @Inject(DB) private readonly db: DB,
     private readonly router: MessageRouter,
+    private readonly commands: CommandsService,
   ) {}
 
   @Post('telemetry')
@@ -45,5 +49,25 @@ export class HttpDeviceController {
     });
     if (!row) throw notFound();
     return row.attributes.shared;
+  }
+
+  /** Long-poll for the next command (`wait` 0–30 s); 204 when none arrives. */
+  @Get('commands')
+  async nextCommand(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Query('wait') wait?: string) {
+    const waitS = z.coerce.number().int().min(0).max(30).catch(0).parse(wait ?? 0);
+    const cmd = await this.commands.nextForHttp(req.deviceId!, waitS);
+    if (!cmd) {
+      res.status(204);
+      return;
+    }
+    return { cid: cmd.id, name: cmd.name, params: cmd.params };
+  }
+
+  @Post('commands/:cid/ack')
+  @HttpCode(202)
+  async ack(@Req() req: Request, @Param('cid') cid: string, @Body() body: unknown) {
+    const ack = CommandAck.parse({ ...(body as object), cid });
+    await this.commands.handleAck(req.deviceId!, ack);
+    return {};
   }
 }

@@ -1,3 +1,4 @@
+import { command } from '../src/db/schema';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
 
@@ -105,4 +106,19 @@ TENANT_ENDPOINTS.push(
   { name: 'get device debug log', method: 'get', path: (i) => `/api/devices/${i.deviceId}/debug`, create: bDevice },
   { name: "get profile used only by B's devices", method: 'get', path: (i) => `/api/device-profiles/${i.profileId}`, create: bDevice },
   { name: 'list profiles', method: 'list', path: () => '/api/device-profiles', create: bDevice },
+);
+
+const bCommand = async (ctx: TenantContext): Promise<Ids> => {
+  const deviceId = (await bDevice(ctx)).deviceId!;
+  const [row] = await ctx.t.db
+    .insert(command)
+    .values({ deviceId, customerId: ctx.b.customer.id, name: 'x' })
+    .returning({ id: command.id });
+  return { deviceId, commandId: row!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: 'send command', method: 'post', path: (i) => `/api/devices/${i.deviceId}/commands`, body: () => ({ name: 'x' }), create: bDevice },
+  { name: 'command history', method: 'get', path: (i) => `/api/devices/${i.deviceId}/commands`, create: bDevice },
+  { name: 'get command', method: 'get', path: (i) => `/api/commands/${i.commandId}`, create: bCommand },
 );
