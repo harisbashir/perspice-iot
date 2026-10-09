@@ -1,6 +1,6 @@
 import { CONFIG, type Config } from '../config/config';
 import { Inject, Injectable } from '@nestjs/common';
-import type { DeviceProfileDto } from '@perspice/shared';
+import { type DeviceProfileDto, LocationKeysSchema } from '@perspice/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
@@ -26,6 +26,8 @@ export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   transport: p.transport,
   retentionDays: p.retentionDays,
   statusNotify: p.statusNotify,
+  locationMode: p.locationMode,
+  locationKeys: LocationKeysSchema.parse(p.locationKeys),
   defaultDashboardTemplateId: p.defaultDashboardTemplateId,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),

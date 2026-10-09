@@ -20,6 +20,7 @@ import {
   SESSION_EVENTS,
   type SessionEvents,
 } from './ports';
+import { LocationService } from '../location/location.service';
 import { sessionKey } from '../presence/presence.service';
 import { TelemetryStore } from './telemetry-store';
 
@@ -53,6 +54,7 @@ export class MessageRouter {
     @Inject(PRESENCE_TOUCH) private readonly presence: PresenceTouch,
     @Inject(SESSION_EVENTS) private readonly sessions: SessionEvents,
     @Inject(ACK_HANDLER) private readonly acks: AckHandler,
+    private readonly location: LocationService,
   ) {}
 
   /** Never throws: a bad message is logged against its device and the worker keeps running. */
@@ -105,6 +107,7 @@ export class MessageRouter {
     this.metrics.inc('ingest_messages_total', 1, { result: 'accepted' });
     this.store.writer.enqueue(result.rows.map((r) => ({ ...r, deviceId })));
     const changed = await this.latest.update(deviceId, result.rows);
+    const located = await this.location.report(deviceId, meta.profileId, result.rows);
     await this.presence.touch(deviceId, now);
 
     const keys = [...new Set(result.rows.map((r) => r.key))];
@@ -123,6 +126,10 @@ export class MessageRouter {
         summary: `${result.rows.length} value(s): ${keys.slice(0, 10).join(', ')}`,
         raw: payload.subarray(0, 2048).toString('utf8'),
       }),
+      located.kind === 'stored' ? this.redis.publish(`ws:location:${deviceId}`, JSON.stringify({ deviceId, location: located.fix })) : undefined,
+      located.kind === 'rejected'
+        ? this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: located.reason, raw: payload.subarray(0, 2048).toString('utf8') })
+        : undefined,
       result.adjusted
         ? this.debug.push(deviceId, {
             ts: now,

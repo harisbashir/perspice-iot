@@ -1,4 +1,4 @@
-import { BUILT_IN_ROLE_KEYS, KEY_PATTERN } from '@perspice/shared';
+import { BUILT_IN_ROLE_KEYS, KEY_PATTERN, LocationKeysSchema } from '@perspice/shared';
 import { z } from 'zod';
 
 const TelemetryKeyDef = z.object({
@@ -35,6 +35,8 @@ export const ProfileFields = z.object({
   transport: z.enum(['mqtt', 'http', 'aws-iot']),
   retentionDays: z.number().int().min(1).max(3650),
   statusNotify: StatusNotify,
+  locationMode: z.enum(['none', 'fixed', 'reported']),
+  locationKeys: LocationKeysSchema,
 });
 
 export const CreateProfile = ProfileFields.partial().required({ name: true });

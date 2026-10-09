@@ -16,6 +16,7 @@ import { IngestModule } from './ingest/ingest.module';
 import { PresenceModule } from './presence/presence.module';
 import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
+import { LocationModule } from './location/location.module';
 import { AlarmsModule } from './alarms/alarms.module';
 import { AwsModule } from './aws/aws.module';
 import { BackupsModule } from './backups/backups.module';
@@ -70,6 +71,7 @@ export class AppModule {
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
+        LocationModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         DashboardsModule,
         AlarmsModule.forRoot({ api: runsRole(role, 'api'), rules: runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler') }),
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),

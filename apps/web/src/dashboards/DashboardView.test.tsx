@@ -25,6 +25,7 @@ const device = {
   status: 'online' as const,
   lastSeen: 1,
   firmwareVersion: null,
+  location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,
   attributes: { client: {}, server: {}, shared: {} },

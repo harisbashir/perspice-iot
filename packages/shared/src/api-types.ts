@@ -1,3 +1,4 @@
+import type { DeviceLocationDto, LocationKeys } from './location.js';
 import type { Permission } from './permissions.js';
 import type { BuiltInRoleKey, RoleScope } from './roles.js';
 
@@ -65,6 +66,8 @@ export interface DeviceProfileDto {
   transport: 'mqtt' | 'http' | 'aws-iot';
   retentionDays: number;
   statusNotify: StatusNotifyConfig;
+  locationMode: 'none' | 'fixed' | 'reported';
+  locationKeys: LocationKeys;
   defaultDashboardTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +96,8 @@ export interface DeviceDto {
     shared: Record<string, unknown>;
   };
   latest?: Record<string, LatestValue>;
+  /** Current location (fixed, or the newest reported fix), when the device has one. */
+  location: DeviceLocationDto | null;
   createdAt: string;
   updatedAt: string;
 }

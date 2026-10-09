@@ -1,5 +1,5 @@
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { CommandDef, DeviceStatus, StatusNotifyConfig, TelemetryKeyDef } from '@perspice/shared';
+import type { CommandDef, DeviceLocationDto, DeviceStatus, LocationKeys, StatusNotifyConfig, TelemetryKeyDef } from '@perspice/shared';
 import { id, timestamps } from './_common';
 import { dashboardTemplate } from './dashboards';
 import { customer, customerGroup } from './customers';
@@ -20,6 +20,8 @@ export const deviceProfile = pgTable('device_profile', {
   locationMode: text('location_mode', { enum: ['none', 'fixed', 'reported'] })
     .notNull()
     .default('none'),
+  /** Telemetry keys of a reported location (missing entries take the defaults). */
+  locationKeys: jsonb('location_keys').$type<Partial<LocationKeys>>().notNull().default({}),
   retentionDays: integer('retention_days').notNull().default(365),
   statusNotify: jsonb('status_notify')
     .$type<StatusNotifyConfig>()
@@ -58,13 +60,8 @@ export const device = pgTable(
       .$type<DeviceAttributes>()
       .notNull()
       .default({ client: {}, server: {}, shared: {} }),
-    location: jsonb('location').$type<{
-      lat: number;
-      lng: number;
-      alt?: number;
-      source: string;
-      updatedAt: number;
-    } | null>(),
+    /** Fixed locations, and reported ones written back from Redis (`loc:{id}`) once a minute behind. */
+    location: jsonb('location').$type<DeviceLocationDto | null>(),
     tags: text('tags').array().notNull().default([]),
     status: text('status').$type<DeviceStatus>().notNull().default('never'),
     lastSeen: timestamp('last_seen', { withTimezone: true }),

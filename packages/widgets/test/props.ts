@@ -27,6 +27,8 @@ export const profile: DeviceProfileDto = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: [], channels: [] },
+  locationMode: 'none',
+  locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
   defaultDashboardTemplateId: null,
   createdAt: '',
   updatedAt: '',

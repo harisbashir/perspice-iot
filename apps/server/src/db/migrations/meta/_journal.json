@@ -43,6 +43,13 @@
       "when": 1791568574064,
       "tag": "0005_aws_iot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791589551932,
+      "tag": "0006_location",
+      "breakpoints": true
     }
   ]
 }

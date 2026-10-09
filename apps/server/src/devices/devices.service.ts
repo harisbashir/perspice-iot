@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { type AwsIotBundle, type DeviceDto, ErrorCode, type LatestValue } from '@perspice/shared';
+import { type AwsIotBundle, type DeviceDto, type DeviceLocationDto, ErrorCode, type LatestValue } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { AuthUser } from '../auth/auth.types';
@@ -16,6 +16,7 @@ import { CredentialsService } from './credentials.service';
 import { DebugLogService } from './debug-log.service';
 import { ProfilesService } from './profiles.service';
 import { AwsIotProvisioning } from '../aws/iot-provisioning';
+import { locationKey } from '../location/location.service';
 
 type DeviceRow = typeof device.$inferSelect;
 type ProfileRow = typeof deviceProfile.$inferSelect;
@@ -310,8 +311,10 @@ export class DevicesService {
     const pipe = this.redis.pipeline();
     for (const r of rows) pipe.hgetall(LATEST_KEY(r.id));
     pipe.zmscore(PRESENCE_LAST_SEEN, ...rows.map((r) => r.id));
+    pipe.mget(...rows.map((r) => locationKey(r.id)));
     const results = (await pipe.exec()) ?? [];
     const scores = (results[rows.length]?.[1] ?? []) as (string | null)[];
+    const locations = (results[rows.length + 1]?.[1] ?? []) as (string | null)[];
     return rows.map((r, i) => {
       const hash = (results[i]?.[1] ?? {}) as Record<string, string>;
       const latest: Record<string, LatestValue> = {};
@@ -331,6 +334,7 @@ export class DevicesService {
         deadTimeoutS: r.deadTimeoutS,
         attributes: r.attributes,
         latest,
+        location: locations[i] ? (JSON.parse(locations[i]!) as DeviceLocationDto) : r.location,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       };

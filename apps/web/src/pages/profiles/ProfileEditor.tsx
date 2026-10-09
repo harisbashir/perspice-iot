@@ -26,6 +26,8 @@ const EMPTY: Draft = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: ['customer_admin'], channels: ['email', 'inapp'] },
+  locationMode: 'none',
+  locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
 };
 
 const NOTIFY_ROLES: [BuiltInRoleKey, string][] = [
