@@ -3,6 +3,7 @@ import { type NotificationPreferences, type NotifyChannel, notifyLevelAtLeast } 
 import { Queue } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import Redis from 'ioredis';
+import { REDIS } from '../common/redis.module';
 import { inSchedule } from '../alarms/evaluator';
 import { AuthService } from '../auth/auth.service';
 import { CONFIG, type Config } from '../config/config';
@@ -42,6 +43,7 @@ export class Dispatcher implements OnApplicationShutdown {
   constructor(
     @Inject(CONFIG) config: Config,
     @Inject(DB) private readonly db: DB,
+    @Inject(REDIS) private readonly redis: Redis,
     @Inject(CHANNELS) channels: NotificationChannel[],
     private readonly prefs: PreferencesService,
     private readonly auth: AuthService,
@@ -56,22 +58,43 @@ export class Dispatcher implements OnApplicationShutdown {
     let queued = 0;
     for (const r of recipients) {
       const p = await this.prefs.get(r.id);
+      const outward = channels.filter((c) => c !== 'inapp' && c !== 'webhook' && this.channels.has(c) && p[c as 'email' | 'push']);
+      const wanted = opts.ignoreLevelAndQuiet || notifyLevelAtLeast(message.level, p.minSeverity);
+      // Email/push are held (for a digest) during quiet hours or once the user's busy-period limit is hit.
+      const hold = !opts.ignoreLevelAndQuiet && wanted && outward.length > 0 && (isQuiet(p, message.level, now, r.timezone) || (await this.overLimit(r.id, p, now)));
       for (const channel of channels) {
         if (channel === 'webhook' || !this.channels.has(channel)) continue;
-        if (channel !== 'inapp') {
-          if (!p[channel]) continue;
-          if (!opts.ignoreLevelAndQuiet && !notifyLevelAtLeast(message.level, p.minSeverity)) continue;
-          if (!opts.ignoreLevelAndQuiet && isQuiet(p, message.level, now, r.timezone)) {
-            await this.log(channel, r, message, 'held');
-            continue;
-          }
+        if (channel !== 'inapp' && (!outward.includes(channel) || !wanted)) continue;
+        if (channel !== 'inapp' && hold) {
+          await this.log(channel, r, message, 'held');
+          continue;
         }
-        const id = await this.log(channel, r, message, 'queued');
-        await this.queue.add('deliver', { deliveryId: id }, { attempts: MAX_ATTEMPTS, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: 1000, removeOnFail: 5000 });
+        await this.enqueue(channel, r, message);
         queued++;
       }
     }
     return queued;
+  }
+
+  /** Queues one delivery, bypassing preferences (used for digests). */
+  async enqueue(channel: NotifyChannel, r: Recipient, message: Message): Promise<string> {
+    const id = await this.log(channel, r, message, 'queued');
+    await this.queue.add('deliver', { deliveryId: id }, { attempts: MAX_ATTEMPTS, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: 1000, removeOnFail: 5000 });
+    return id;
+  }
+
+  /** Counts this message in the user's window; true once more than `threshold` fall within it. */
+  private async overLimit(userId: string, p: NotificationPreferences, now: number): Promise<boolean> {
+    const key = `notify:rate:${userId}`;
+    const windowMs = p.digest.windowMin * 60_000;
+    const [, , [, n]] = (await this.redis
+      .multi()
+      .zremrangebyscore(key, 0, now - windowMs)
+      .zadd(key, now, `${now}:${Math.random()}`)
+      .zcard(key)
+      .pexpire(key, windowMs)
+      .exec()) as [unknown, unknown, [unknown, number], unknown];
+    return n > p.digest.threshold;
   }
 
   /** Sends one delivery. Failures are recorded and rethrown so the queue retries; the last becomes `dead`. */

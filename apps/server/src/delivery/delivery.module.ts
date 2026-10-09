@@ -1,5 +1,6 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { AlarmNotifier } from './alarm-notifier';
+import { DigestJob } from './digest.job';
 import { EmailChannel } from './channels/email.channel';
 import { InAppChannel } from './channels/inapp.channel';
 import { PushChannel } from './channels/push.channel';
@@ -15,7 +16,7 @@ import { CHANNELS, type NotificationChannel } from './types';
 @Global()
 @Module({})
 export class DeliveryModule {
-  static forRoot(opts: { api: boolean; worker: boolean }): DynamicModule {
+  static forRoot(opts: { api: boolean; worker: boolean; scheduler: boolean }): DynamicModule {
     return {
       module: DeliveryModule,
       controllers: opts.api ? [PreferencesController, PushController] : [],
@@ -35,9 +36,11 @@ export class DeliveryModule {
         },
         Dispatcher,
         AlarmNotifier,
+        DigestJob,
+        { provide: 'SCHEDULE_DELIVERY_JOBS', useValue: opts.scheduler },
         ...(opts.worker ? [NotifyProcessor] : []),
       ],
-      exports: [Dispatcher, RecipientResolver, PreferencesService, PushService],
+      exports: [Dispatcher, RecipientResolver, PreferencesService, PushService, DigestJob],
     };
   }
 }
