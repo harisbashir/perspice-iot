@@ -16,6 +16,8 @@ export default defineConfig({
   },
   projects: [
     { name: 'core', testMatch: 'core-flow.spec.ts' },
+    // Builds on the state the core flow leaves behind; `--project=dashboards` runs core first.
+    { name: 'dashboards', testMatch: 'dashboards.spec.ts', dependencies: ['core'] },
     { name: 'live', testMatch: 'live.spec.ts' },
   ],
 });

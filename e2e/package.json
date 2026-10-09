@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test --project=core",
+    "test": "playwright test --project=dashboards",
     "test:live": "playwright test --project=live"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "@types/node": "^24",
+    "exceljs": "^4.4.0",
     "mqtt": "^5.16.0",
     "otplib": "^13.5.0",
     "typescript": "^5.6"

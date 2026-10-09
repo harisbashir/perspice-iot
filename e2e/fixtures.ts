@@ -1,3 +1,4 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import mqtt, { type MqttClient } from 'mqtt';
 import { generateSync } from 'otplib';
 
@@ -48,4 +49,28 @@ export async function connectDevice(id: string, token: string): Promise<{ client
       await client.publishAsync(`perspice/v1/${id}/telemetry`, JSON.stringify({ values }), { qos: 1 });
     },
   };
+}
+
+/** State the core flow hands to later specs (the dashboards spec runs on the same stack). */
+export interface SharedState {
+  totpSecret: string;
+  deviceId: string;
+  deviceToken: string;
+}
+
+const STATE_FILE = '.stack/state.json';
+
+export function loadState(): SharedState {
+  return JSON.parse(readFileSync(STATE_FILE, 'utf8')) as SharedState;
+}
+
+export function saveState(patch: Partial<SharedState>): void {
+  mkdirSync('.stack', { recursive: true });
+  let current: Partial<SharedState> = {};
+  try {
+    current = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Partial<SharedState>;
+  } catch {
+    /* first write */
+  }
+  writeFileSync(STATE_FILE, JSON.stringify({ ...current, ...patch }));
 }

@@ -16,6 +16,7 @@ up() {
   mkdir -p "$STATE"
   docker build -q -f "$ROOT/deploy/Dockerfile.server" -t ghcr.io/local/perspice-server:e2e "$ROOT" >/dev/null
   docker build -q -f "$ROOT/deploy/Dockerfile.web" -t ghcr.io/local/perspice-web:e2e "$ROOT" >/dev/null
+  docker build -q -f "$ROOT/deploy/Dockerfile.renderer" -t ghcr.io/local/perspice-renderer:e2e "$ROOT" >/dev/null
   cat >"$ENV_FILE" <<ENV
 PERSPICE_VERSION=e2e
 PERSPICE_IMAGE_OWNER=local

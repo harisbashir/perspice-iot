@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Runs the Playwright suite in Microsoft's Playwright image (bundled browsers and system
-# libraries) against a freshly started stack.  Usage: e2e/run.sh [core|live] [playwright args…]
+# libraries) against a freshly started stack.  Usage: e2e/run.sh [dashboards|core|live] [playwright args…]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT="${1:-core}"
+PROJECT="${1:-dashboards}"
 shift || true
 PW_VERSION="$(node -p "require('$ROOT/e2e/node_modules/@playwright/test/package.json').version")"
 IMAGE="mcr.microsoft.com/playwright:v${PW_VERSION}-noble"
