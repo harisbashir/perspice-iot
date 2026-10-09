@@ -101,3 +101,79 @@ export type DashboardDefinition = z.infer<typeof DashboardDefinitionSchema>;
 
 /** Columns an entity table can show besides telemetry keys. */
 export const ENTITY_COLUMNS = ['status', 'name', 'profile', 'customer', 'lastSeen'] as const;
+
+// ── Widget data API (POST /api/dashboards/data) ───────────────────────────────────────────
+
+export const DATA_MODES = ['latest', 'history', 'list', 'stats'] as const;
+export type DataMode = (typeof DATA_MODES)[number];
+export const MAX_DATA_REQUESTS = 60;
+
+export const DataRequestSchema = z.object({
+  widgetId: Id,
+  datasource: DataSourceSchema,
+  mode: z.enum(DATA_MODES),
+  timewindow: TimewindowSchema.optional(),
+  agg: z.enum(['auto', 'raw', 'avg', 'min', 'max']).default('auto'),
+  page: z.number().int().min(0).max(10_000).default(0),
+  sort: z
+    .object({ by: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/), dir: z.enum(['asc', 'desc']).default('asc') })
+    .optional(),
+});
+export type DataRequest = z.infer<typeof DataRequestSchema>;
+
+export const DataQuerySchema = z.object({
+  /** The device a device dashboard was opened for (resolves `currentDevice`). */
+  deviceId: z.string().uuid().optional(),
+  requests: z.array(DataRequestSchema).max(MAX_DATA_REQUESTS),
+});
+export type DataQuery = z.infer<typeof DataQuerySchema>;
+
+export interface DeviceSummary {
+  id: string;
+  name: string;
+  status: 'never' | 'online' | 'offline' | 'dead';
+  lastSeen: number | null;
+  profileId: string;
+  customerId: string | null;
+}
+
+export interface LatestValueDto {
+  ts: number;
+  v: unknown;
+}
+
+/** mode `latest` on a single-device source. */
+export interface LatestData {
+  device: DeviceSummary;
+  values: Record<string, LatestValueDto>;
+}
+/** mode `latest` on `devicesOfProfile`. */
+export interface FleetLatestData {
+  devices: (DeviceSummary & { values: Record<string, LatestValueDto> })[];
+}
+/** mode `history` on a single-device source. */
+export interface HistoryData {
+  source: 'raw' | '1m' | '1h' | '1d';
+  series: Record<string, [number, unknown][]>;
+}
+/** mode `list` on `entityList`. */
+export interface ListData {
+  items: (DeviceSummary & { profileName: string | null; customerName: string | null; values: Record<string, LatestValueDto> })[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+/** mode `stats` on `devicesOfProfile`; `messages24h` counts values received in the last 24 h. */
+export interface StatsData {
+  total: number;
+  online: number;
+  offline: number;
+  dead: number;
+  never: number;
+  messages24h: number;
+}
+
+export type WidgetDataResult<T = unknown> = { ok: true; data: T } | { ok: false; code: string; message: string };
+export interface DataResponse {
+  results: Record<string, WidgetDataResult>;
+}
