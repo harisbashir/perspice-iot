@@ -77,6 +77,9 @@ created="$(api "${auth[@]}" -X POST "$BASE/api/devices" -d "{\"name\":\"smoke-1\
 device_id="$(json "d['device']['id']" <<<"$created")"
 device_token="$(json "d['token']" <<<"$created")"
 
+log "Adding an alarm rule"
+api "${auth[@]}" -X POST "$BASE/api/alarm-rules" -d "{\"name\":\"Hot\",\"severity\":\"major\",\"scope\":{\"kind\":\"profile\",\"profileId\":\"$profile\"},\"type\":\"threshold\",\"condition\":{\"key\":\"temperature\",\"op\":\">\",\"value\":20}}" >/dev/null || fail "alarm rule"
+
 log "Publishing telemetry over MQTT"
 docker run --rm --network "${PROJECT}_default" eclipse-mosquitto:2 \
   mosquitto_pub -h emqx -p 1883 -q 1 -i "$device_id" -u "$device_id" -P "$device_token" \
@@ -89,6 +92,14 @@ for _ in $(seq 1 20); do
   sleep 0.5
 done
 [[ "$latest" == *'"v":21.5'* ]] || fail "telemetry not stored: $latest"
+
+log "Checking the alarm fired"
+for _ in $(seq 1 20); do
+  alarms="$(api "${auth[@]}" "$BASE/api/alarms?status=active" || true)"
+  [[ "$alarms" == *'"ruleName":"Hot"'* ]] && break
+  sleep 0.5
+done
+[[ "$alarms" == *'"ruleName":"Hot"'* ]] || fail "no alarm: $alarms"
 
 log "Rendering the device dashboard to PDF"
 job="$(api "${auth[@]}" -X POST "$BASE/api/reports/dashboard" -d "{\"deviceId\":\"$device_id\",\"timewindow\":{\"kind\":\"relative\",\"lastMs\":3600000}}" | json "d['id']")" || fail "report request"
