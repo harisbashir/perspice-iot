@@ -27,6 +27,15 @@ type AuthedSocket = Socket & { data: { user: AuthUser } };
 
 const CHANNEL = /^ws:(telemetry|status|command|notify|alarm):(.+)$/;
 
+/** Redis channel kind → socket.io room prefix and event name. */
+const ROUTES: Record<string, { room: string; event: string }> = {
+  telemetry: { room: 'device', event: 'telemetry' },
+  command: { room: 'device', event: 'command' },
+  status: { room: 'status', event: 'status' },
+  alarm: { room: 'alarm', event: 'alarm' },
+  notify: { room: 'user', event: 'notification' },
+};
+
 /**
  * Live updates (spec §7.4). Each api instance subscribes to the `ws:*` Redis channels and emits
  * to its own local sockets, so every event reaches every instance's subscribers exactly once.
@@ -143,31 +152,21 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
     const match = CHANNEL.exec(channel);
     if (!match) return;
     const [, kind, target] = match as unknown as [string, string, string];
+    const route = ROUTES[kind];
+    if (!route) {
+      this.logger.debug(`Unhandled channel ${channel}`);
+      return;
+    }
+    // Every telemetry message arrives here, but few devices are watched at any moment: skip the
+    // parse and socket.io's encoding when no local socket is in the room.
+    const room = `${route.room}:${target}`;
+    if (!this.server.adapter.rooms.get(room)?.size) return;
     let payload: unknown;
     try {
       payload = JSON.parse(message);
     } catch {
       return;
     }
-    const local = this.server.local;
-    switch (kind) {
-      case 'telemetry':
-        local.to(`device:${target}`).emit('telemetry', payload);
-        break;
-      case 'command':
-        local.to(`device:${target}`).emit('command', payload);
-        break;
-      case 'status':
-        local.to(`status:${target}`).emit('status', payload);
-        break;
-      case 'alarm':
-        local.to(`alarm:${target}`).emit('alarm', payload);
-        break;
-      case 'notify':
-        local.to(`user:${target}`).emit('notification', payload);
-        break;
-      default:
-        this.logger.debug(`Unhandled channel ${channel}`);
-    }
+    this.server.local.to(room).emit(route.event, payload);
   }
 }

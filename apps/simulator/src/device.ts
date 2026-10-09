@@ -59,6 +59,8 @@ export class SimDevice {
         clientId: this.o.id,
         username: this.o.id,
         password: this.o.token,
+        // MQTT 5 reports a refused publish in the PUBACK, so it counts as an error, not as sent.
+        protocolVersion: 5,
         reconnectPeriod: this.o.sleepy ? 0 : 2000,
         connectTimeout: 10_000,
       });

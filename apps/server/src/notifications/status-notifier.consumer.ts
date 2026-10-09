@@ -7,6 +7,7 @@ import { DB } from '../db/db.module';
 import { device, deviceProfile } from '../db/schema';
 import { Dispatcher } from '../delivery/dispatcher';
 import { RecipientResolver } from '../delivery/recipients';
+import { PRESENCE_LAST_SEEN } from '../devices/devices.service';
 import type { EmailTemplateKey } from '../email/templates';
 import type { DomainEvent } from '../events/events';
 import { StreamConsumer } from '../events/stream-consumer';
@@ -72,7 +73,9 @@ export class StatusNotifierConsumer implements OnModuleInit, OnApplicationShutdo
 
     const { roleKeys, channels } = row.profile.statusNotify;
     const recipients = await this.recipients.resolve({ roles: roleKeys, userIds: [], groupIds: [] }, { customerId: row.device.customerId, groupId: row.device.groupId });
-    const lastSeen = row.device.lastSeen ?? new Date(event.ts);
+    // Redis has the exact value; the database copy may be a few minutes behind (flushLastSeen).
+    const score = await this.redis.zscore(PRESENCE_LAST_SEEN, event.deviceId);
+    const lastSeen = score ? new Date(Number(score)) : (row.device.lastSeen ?? new Date(event.ts));
     await this.dispatcher.dispatch(recipients, {
       type: `device.${event.to}`,
       level: rule.severity,

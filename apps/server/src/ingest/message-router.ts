@@ -23,7 +23,8 @@ import {
 import { sessionKey } from '../presence/presence.service';
 import { TelemetryStore } from './telemetry-store';
 
-const DEVMETA_TTL_S = 60;
+// Device updates and deletes invalidate it (devices.service), so a long TTL stays correct.
+const DEVMETA_TTL_S = 600;
 const MAX_ATTRIBUTES_BYTES = 16 * 1024;
 const SYS_CLIENT_EVENT = /^\$SYS\/brokers\/[^/]+\/clients\/([^/]+)\/(connected|disconnected)$/;
 /** AWS IoT Core lifecycle events (the client id is the thing name, i.e. the device id). */
@@ -228,7 +229,7 @@ export class MessageRouter {
     return this.redis.get(sessionKey(deviceId));
   }
 
-  /** Device → `{customerId, profileId}`, cached 60 s; null for unknown/deleted devices. */
+  /** Device → `{customerId, profileId}`, cached 10 min; null for unknown/deleted devices. */
   async deviceMeta(deviceId: string): Promise<DeviceMeta | null> {
     if (!isUuid(deviceId)) return null;
     const cached = await this.redis.get(devMetaKey(deviceId));

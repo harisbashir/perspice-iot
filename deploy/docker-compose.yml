@@ -10,7 +10,8 @@ x-server: &server
     # Overridable for managed services (Timescale Cloud, ElastiCache); the bundled ones otherwise.
     DATABASE_URL: ${DATABASE_URL:-postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice}
     REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-    MQTT_URL: mqtt://emqx:1883
+    # The internal listener (deep session queues for platform services; see emqx.conf.tmpl).
+    MQTT_URL: mqtt://emqx:1884
     MQTT_INGEST_USERNAME: perspice-ingest
     MQTT_INGEST_PASSWORD: ${MQTT_INGEST_PASSWORD}
     EMQX_API_URL: http://emqx:18083
@@ -73,7 +74,9 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    # Durability comes from the append-only file (fsync every second). RDB snapshots on top of it
+    # forked Redis every minute under device load; AOF rewrites wait for 256 MB of growth.
+    command: ['redis-server', '--appendonly', 'yes', '--save', '', '--auto-aof-rewrite-min-size', '256mb']
     volumes:
       - redis_data:/data
     healthcheck:

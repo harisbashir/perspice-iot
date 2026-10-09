@@ -14,6 +14,8 @@ const statusKey = (id: string) => `status:${id}`;
 export const sessionKey = (id: string) => `session:${id}`;
 export const timeoutsKey = (id: string) => `timeouts:${id}`;
 const PENDING_LAST_SEEN = 'presence:pending';
+/** How far behind the database's `last_seen` may be (see flushLastSeen). */
+const LAST_SEEN_PRECISION = '5 minutes';
 const TIMEOUTS_TTL_S = 60;
 
 /** Pure status rule for the sweep: only activity brings a device online (spec §5.3). */
@@ -56,7 +58,7 @@ export class PresenceService implements PresenceTouch, SessionEvents {
 
   async touch(deviceId: string, ts: number): Promise<void> {
     const [, , [, status]] = (await this.redis
-      .multi()
+      .pipeline() // independent commands: one round trip, no MULTI/EXEC
       .zadd(PRESENCE_LAST_SEEN, 'GT', ts, deviceId)
       .hset(PENDING_LAST_SEEN, deviceId, String(ts))
       .hget(statusKey(deviceId), 'status')
@@ -112,7 +114,11 @@ export class PresenceService implements PresenceTouch, SessionEvents {
     return true;
   }
 
-  /** Writes recently seen timestamps back to Postgres in one statement (every 10 s). */
+  /**
+   * Writes recently seen timestamps back to Postgres in one statement (every 10 s). Redis holds the
+   * live value; the database copy is only refreshed once it is 5 minutes behind, so a fleet
+   * reporting every few seconds doesn't rewrite every device row on each flush.
+   */
   async flushLastSeen(): Promise<number> {
     const flushing = `${PENDING_LAST_SEEN}:flushing`;
     try {
@@ -124,14 +130,12 @@ export class PresenceService implements PresenceTouch, SessionEvents {
     await this.redis.del(flushing);
     const rows = Object.entries(pending).filter(([id]) => isUuid(id));
     if (!rows.length) return 0;
-    const values = sql.join(
-      rows.map(([id, ts]) => sql`(${id}::uuid, to_timestamp(${Number(ts) / 1000}))`),
-      sql`, `,
-    );
+    const ids = rows.map(([id]) => id);
+    const ts = rows.map(([, t]) => new Date(Number(t)).toISOString());
     await this.db.execute(sql`
       UPDATE device SET last_seen = v.ts
-      FROM (VALUES ${values}) AS v(id, ts)
-      WHERE device.id = v.id AND (device.last_seen IS NULL OR device.last_seen < v.ts)`);
+      FROM unnest(${sql.param(ids)}::uuid[], ${sql.param(ts)}::timestamptz[]) AS v(id, ts)
+      WHERE device.id = v.id AND (device.last_seen IS NULL OR device.last_seen < v.ts - ${LAST_SEEN_PRECISION}::interval)`);
     return rows.length;
   }
 

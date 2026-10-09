@@ -119,6 +119,22 @@ describe('presence', () => {
     expect(row?.lastSeen?.getTime()).toBeGreaterThan(Date.now() - 5000);
   });
 
+  it('refreshes the stored last_seen only once it is 5 minutes behind', async () => {
+    const { device: d } = await setup();
+    const presence = t.app.get(PresenceService);
+    const base = Date.now() - 3_600_000;
+    const stored = async () => (await t.db.query.device.findFirst({ where: eq(device.id, d.id) }))!.lastSeen!.getTime();
+    await presence.touch(d.id, base);
+    await presence.flushLastSeen();
+    expect(await stored()).toBe(base);
+    await presence.touch(d.id, base + 60_000);
+    await presence.flushLastSeen();
+    expect(await stored()).toBe(base); // a minute newer: not worth a row update
+    await presence.touch(d.id, base + 6 * 60_000);
+    await presence.flushLastSeen();
+    expect(await stored()).toBe(base + 6 * 60_000);
+  });
+
   it('two scheduler instances run a job once per interval', async () => {
     const second = await createTestApp({ databaseUrl: t.config.DATABASE_URL, role: 'scheduler' });
     try {

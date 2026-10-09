@@ -73,6 +73,24 @@ describe('EMQX auth and ACL', () => {
     expect(await own(1000)).toHaveLength(1);
   });
 
+  it("decides a device's topics from the rules returned at authentication, without the ACL hook", async () => {
+    const httpChecks = async () => {
+      const res = await fetch(`${t.config.EMQX_API_URL}/api/v5/authorization/sources/http/status`, {
+        headers: { authorization: `Basic ${Buffer.from(`${t.config.EMQX_API_KEY}:${t.config.EMQX_API_SECRET}`).toString('base64')}` },
+      });
+      return ((await res.json()) as { metrics: { total: number } }).metrics.total;
+    };
+    const a = await newDevice();
+    const b = await newDevice();
+    const devA = track(await connectDevice(t, a.id, a.token));
+    const before = await httpChecks();
+    await devA.subscribeAsync(`perspice/v1/${a.id}/cmd`, { qos: 1 });
+    await devA.publishAsync(`perspice/v1/${a.id}/telemetry`, JSON.stringify({ values: { t: 1 } }), { qos: 1 });
+    await devA.publishAsync(`perspice/v1/${a.id}/attributes`, JSON.stringify({ fw: '1.0' }), { qos: 1 });
+    await expect(devA.publishAsync(`perspice/v1/${b.id}/telemetry`, '{}', { qos: 1 })).rejects.toThrow(/Not authorized/);
+    expect(await httpChecks()).toBe(before);
+  });
+
   it('device cannot subscribe to another device’s commands', async () => {
     const a = await newDevice();
     const b = await newDevice();

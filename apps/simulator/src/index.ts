@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { runSimulation } from './run.js';
 
@@ -13,6 +14,9 @@ const HELP = `Usage: perspice-sim --url <api> --api-key <pk_…> --mqtt <mqtt://
   --http                use the HTTP device API instead of MQTT
   --measure-latency     subscribe to ~1% of devices and report publish → websocket latency
   --max-p95-ms <ms>     exit 1 if p95 latency exceeds this (default 2000)
+  --min-rate <msg/s>    exit 1 if the sustained rate is below this
+  --connect-rate <n>    new connections per second at start-up (default 500)
+  --summary <file>      also write the final report as JSON to this file
   --report json         print the final report as JSON
   --insecure            accept self-signed TLS certificates (local test stacks only)`;
 
@@ -32,6 +36,9 @@ const { values } = parseArgs({
     'measure-latency': { type: 'boolean', default: false },
     'max-p95-ms': { type: 'string', default: '2000' },
     report: { type: 'string' },
+    'min-rate': { type: 'string' },
+    'connect-rate': { type: 'string', default: '500' },
+    summary: { type: 'string' },
     insecure: { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
   },
@@ -59,13 +66,19 @@ const report = await runSimulation({
   measureLatency: values['measure-latency'],
   devicesFile: values['devices-file'],
   insecure: values.insecure,
+  connectRate: Number(values['connect-rate']),
   log: values.report === 'json' ? () => undefined : (l) => console.log(l),
 });
 
+if (values.summary) await writeFile(values.summary, JSON.stringify(report, null, 2));
 if (values.report === 'json') console.log(JSON.stringify(report, null, 2));
 else {
   console.log(`\n${report.devices} devices, ${report.sent} messages in ${report.durationS}s (${report.messagesPerSecond} msg/s), ${report.errors} errors`);
   if (report.latencyMs.samples) console.log(`latency p50 ${report.latencyMs.p50} ms, p95 ${report.latencyMs.p95} ms (${report.latencyMs.samples} samples)`);
 }
-const maxP95 = Number(values['max-p95-ms']);
-process.exit(report.latencyMs.p95 !== null && report.latencyMs.p95 > maxP95 ? 1 : report.errors > 0 ? 1 : 0);
+const failures: string[] = [];
+if (report.latencyMs.p95 !== null && report.latencyMs.p95 > Number(values['max-p95-ms'])) failures.push(`p95 latency ${report.latencyMs.p95} ms > ${values['max-p95-ms']} ms`);
+if (values['min-rate'] && report.messagesPerSecond < Number(values['min-rate'])) failures.push(`rate ${report.messagesPerSecond} msg/s < ${values['min-rate']}`);
+if (report.errors > 0) failures.push(`${report.errors} publish errors`);
+for (const f of failures) console.error(`FAIL: ${f}`);
+process.exit(failures.length ? 1 : 0);

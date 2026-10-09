@@ -4,7 +4,6 @@ import type Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import { REDIS } from '../common/redis.module';
 import { DB } from '../db/db.module';
-import { telemetry, telemetryLatest } from '../db/schema';
 import { IngestMetrics } from './ingest.metrics';
 import type { WriteRow } from './normalize';
 import { type FailoverBuffer, type TelemetrySink, TelemetryWriter } from './telemetry-writer';
@@ -13,15 +12,26 @@ export const INGEST_BUFFER_STREAM = 'ingest:buffer';
 const BUFFER_MAXLEN = 1_000_000;
 const REPLAY_LOCK = 'lock:ingest-replay';
 
-const toDbRow = (r: WriteRow) => ({
-  deviceId: r.deviceId,
-  key: r.key,
-  ts: new Date(r.ts),
-  valueNum: r.valueNum,
-  valueStr: r.valueStr,
-  valueBool: r.valueBool,
-  valueJson: r.valueJson ?? null,
-});
+/**
+ * Rows as seven column arrays for `unnest()`: one short statement with seven parameters per
+ * batch. (A multi-row VALUES list through the query builder has seven parameters per row; at
+ * 1000 messages/s building and sending it was most of ingest's CPU.)
+ */
+function columns(rows: WriteRow[]) {
+  return {
+    deviceIds: rows.map((r) => r.deviceId),
+    keys: rows.map((r) => r.key),
+    ts: rows.map((r) => new Date(r.ts).toISOString()),
+    nums: rows.map((r) => r.valueNum ?? null),
+    strs: rows.map((r) => r.valueStr ?? null),
+    bools: rows.map((r) => r.valueBool ?? null),
+    jsons: rows.map((r) => (r.valueJson === undefined || r.valueJson === null ? null : JSON.stringify(r.valueJson))),
+  };
+}
+
+const unnestRows = (c: ReturnType<typeof columns>) =>
+  // sql.param binds each array as one parameter (a bare array would be expanded into a list).
+  sql`SELECT * FROM unnest(${sql.param(c.deviceIds)}::uuid[], ${sql.param(c.keys)}::text[], ${sql.param(c.ts)}::timestamptz[], ${sql.param(c.nums)}::float8[], ${sql.param(c.strs)}::text[], ${sql.param(c.bools)}::boolean[], ${sql.param(c.jsons)}::jsonb[])`;
 
 /** Newest row per (device, key): an upsert may not touch the same row twice in one statement. */
 function newestPerKey(rows: WriteRow[]): WriteRow[] {
@@ -61,24 +71,26 @@ export class TelemetryStore implements TelemetrySink, FailoverBuffer, OnModuleIn
     await this.writer.close();
   }
 
-  /** Inserts history (duplicates dropped) and advances `telemetry_latest` only for newer values. */
+  /**
+   * Inserts history (duplicates dropped) and advances `telemetry_latest` for newer values. Redis
+   * holds the exact latest values; the stored copy (fallback, key list, sorting) is rewritten only
+   * once it is a minute behind, so a device reporting every few seconds doesn't rewrite its rows on
+   * every batch (at 1000 messages/s that churn was most of PostgreSQL's work). New keys are
+   * stored at once.
+   */
   async write(rows: WriteRow[]): Promise<void> {
     await this.db.transaction(async (tx) => {
-      await tx.insert(telemetry).values(rows.map(toDbRow)).onConflictDoNothing();
-      await tx
-        .insert(telemetryLatest)
-        .values(newestPerKey(rows).map(toDbRow))
-        .onConflictDoUpdate({
-          target: [telemetryLatest.deviceId, telemetryLatest.key],
-          set: {
-            ts: sql`excluded.ts`,
-            valueNum: sql`excluded.value_num`,
-            valueStr: sql`excluded.value_str`,
-            valueBool: sql`excluded.value_bool`,
-            valueJson: sql`excluded.value_json`,
-          },
-          setWhere: sql`${telemetryLatest.ts} < excluded.ts`,
-        });
+      await tx.execute(sql`
+        INSERT INTO telemetry (device_id, key, ts, value_num, value_str, value_bool, value_json)
+        ${unnestRows(columns(rows))}
+        ON CONFLICT DO NOTHING`);
+      await tx.execute(sql`
+        INSERT INTO telemetry_latest AS l (device_id, key, ts, value_num, value_str, value_bool, value_json)
+        ${unnestRows(columns(newestPerKey(rows)))}
+        ON CONFLICT (device_id, key) DO UPDATE SET
+          ts = excluded.ts, value_num = excluded.value_num, value_str = excluded.value_str,
+          value_bool = excluded.value_bool, value_json = excluded.value_json
+        WHERE l.ts < excluded.ts - interval '1 minute'`);
     });
     this.metrics.inc('ingest_rows_total', rows.length);
   }

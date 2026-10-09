@@ -6,7 +6,7 @@ import { REDIS } from '../common/redis.module';
 import { DB } from '../db/db.module';
 import { alarm, customer, device } from '../db/schema';
 import { LATEST_KEY } from '../devices/devices.service';
-import type { DomainEvent } from '../events/events';
+import { DEVICE_EVENTS_STREAM, type DomainEvent, TELEMETRY_EVENTS_STREAM } from '../events/events';
 import { StreamConsumer } from '../events/stream-consumer';
 import { AlarmStore } from './alarm-store';
 import { type RuleRow, type RuleTarget, effectiveRules } from './effective';
@@ -36,7 +36,7 @@ interface DeviceContext {
 @Injectable()
 export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(AlarmEngine.name);
-  private consumer?: StreamConsumer;
+  private consumers: StreamConsumer[] = [];
   private readonly contexts = new Map<string, DeviceContext>();
 
   constructor(
@@ -49,12 +49,15 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
 
   async onModuleInit(): Promise<void> {
     if (!this.consume) return;
-    this.consumer = new StreamConsumer(this.redis, { group: 'alarms', handle: (e) => this.handle(e) });
-    await this.consumer.start();
+    // Status changes and telemetry come on separate streams (see TELEMETRY_EVENTS_STREAM).
+    this.consumers = [DEVICE_EVENTS_STREAM, TELEMETRY_EVENTS_STREAM].map(
+      (stream) => new StreamConsumer(this.redis, { group: 'alarms', stream, handle: (e) => this.handle(e) }),
+    );
+    for (const c of this.consumers) await c.start();
   }
 
   async onApplicationShutdown(): Promise<void> {
-    await this.consumer?.stop();
+    await Promise.all(this.consumers.map((c) => c.stop()));
   }
 
   async handle(e: DomainEvent): Promise<void> {

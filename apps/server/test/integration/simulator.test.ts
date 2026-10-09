@@ -44,6 +44,7 @@ describe('device simulator', () => {
       http: false,
       measureLatency: true,
       devicesFile: join(mkdtempSync(join(tmpdir(), 'sim-')), 'devices.json'),
+      createConcurrency: 3,
       log: () => undefined,
     });
 
@@ -53,10 +54,16 @@ describe('device simulator', () => {
     expect(report.latencyMs.samples).toBeGreaterThan(0);
     expect(report.latencyMs.p95).toBeLessThan(2000);
 
+    expect(report.perMinute).toHaveLength(1);
+    expect(report.perMinute[0]!.sent).toBe(report.sent);
+    expect(report.endedAt - report.startedAt).toBeGreaterThanOrEqual(5000);
+
     await new Promise((r) => setTimeout(r, 500));
-    const res = await t.db.execute<{ devices: number }>(
-      sql`SELECT count(DISTINCT device_id)::int AS devices FROM telemetry WHERE key = 'fuel_level'`,
+    // No loss: every message sent is stored once, inside the reported window (the load test's check).
+    const res = await t.db.execute<{ devices: number; messages: number }>(
+      sql`SELECT count(DISTINCT device_id)::int AS devices, count(*)::int AS messages FROM telemetry
+          WHERE key = 'fuel_level' AND ts >= to_timestamp(${report.startedAt} / 1000.0) AND ts <= to_timestamp(${report.endedAt} / 1000.0)`,
     );
-    expect(res.rows[0]?.devices).toBe(5);
+    expect(res.rows[0]).toEqual({ devices: 5, messages: report.sent });
   });
 });

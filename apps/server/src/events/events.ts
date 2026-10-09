@@ -21,3 +21,8 @@ export type DomainEvent =
 export type DomainEventType = DomainEvent['type'];
 
 export const DEVICE_EVENTS_STREAM = 'events:device';
+/**
+ * Telemetry events get their own stream: they are most of the traffic and only the alarms
+ * engine reads them, so the other consumer groups don't parse and skip 1000 events a second.
+ */
+export const TELEMETRY_EVENTS_STREAM = 'events:telemetry';

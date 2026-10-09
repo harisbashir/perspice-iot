@@ -18,7 +18,19 @@ export interface SimOptions {
   devicesFile: string;
   /** Accept self-signed certificates (local test stacks only). */
   insecure?: boolean;
+  /** New MQTT connections per second at start-up, so 10,000 devices don't stampede the broker. */
+  connectRate?: number;
+  /** Parallel requests when creating devices. */
+  createConcurrency?: number;
   log?: (line: string) => void;
+}
+
+export interface MinuteReport {
+  minute: number;
+  sent: number;
+  messagesPerSecond: number;
+  errors: number;
+  latencyP95Ms: number | null;
 }
 
 export interface SimReport {
@@ -27,7 +39,12 @@ export interface SimReport {
   errors: number;
   durationS: number;
   messagesPerSecond: number;
-  latencyMs: { samples: number; p50: number | null; p95: number | null };
+  latencyMs: { samples: number; p50: number | null; p95: number | null; p99: number | null; max: number | null };
+  /** The sending window (epoch ms): every message's `ts` falls inside it. */
+  startedAt: number;
+  endedAt: number;
+  connectS: number;
+  perMinute: MinuteReport[];
 }
 
 interface StoredDevice {
@@ -46,12 +63,24 @@ async function loadOrCreate(api: ApiClient, o: SimOptions, profileId: string): P
   } catch {
     /* no file yet */
   }
-  if (o.create) {
-    for (let n = stored.length + 1; stored.length < o.count; n++) {
-      const { device, token } = await api.createDevice(`sim-${n}`, profileId);
-      stored.push({ id: device.id, token, name: device.name });
-    }
-    await writeFile(o.devicesFile, JSON.stringify(stored, null, 2), { mode: 0o600 });
+  if (o.create && stored.length < o.count) {
+    const log = o.log ?? ((l: string) => console.log(l));
+    const save = () => writeFile(o.devicesFile, JSON.stringify(stored, null, 2), { mode: 0o600 });
+    let next = stored.length + 1;
+    const missing = o.count - stored.length;
+    const worker = async () => {
+      while (stored.length < o.count && next <= o.count) {
+        const n = next++;
+        const { device, token } = await api.createDevice(`sim-${n}`, profileId);
+        stored.push({ id: device.id, token, name: device.name });
+        if (stored.length % 1000 === 0) {
+          log(`created ${stored.length}/${o.count} devices`);
+          await save();
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(o.createConcurrency ?? 16, missing) }, worker));
+    await save();
   }
   if (stored.length < o.count) throw new Error(`Only ${stored.length} devices in ${o.devicesFile}; use --create`);
   return stored.slice(0, o.count);
@@ -103,7 +132,15 @@ export async function runSimulation(o: SimOptions): Promise<SimReport> {
         },
       }),
   );
-  await Promise.all(devices.map((d) => d.start()));
+  const connectStarted = Date.now();
+  const rate = o.connectRate ?? 500;
+  for (let i = 0; i < devices.length; i += rate) {
+    const batchStart = Date.now();
+    await Promise.all(devices.slice(i, i + rate).map((d) => d.start()));
+    if (devices.length > rate) log(`connected ${Math.min(i + rate, devices.length)}/${devices.length}`);
+    await new Promise((r) => setTimeout(r, Math.max(0, 1000 - (Date.now() - batchStart))));
+  }
+  const connectS = Math.round((Date.now() - connectStarted) / 1000);
 
   const samples: number[] = [];
   const socket = o.measureLatency ? await latencyProbe(o, stored, samples) : undefined;
@@ -118,26 +155,46 @@ export async function runSimulation(o: SimOptions): Promise<SimReport> {
       timers.push(t);
     }, (i * o.intervalS * 1000) / devices.length),
   );
-  const progress = setInterval(() => {
-    const secs = (Date.now() - started) / 1000;
-    log(`${secs.toFixed(0)}s: ${sent} sent (${(sent / secs).toFixed(1)} msg/s), ${errors} errors`);
-  }, 5000);
+  const perMinute: MinuteReport[] = [];
+  let mark = { sent: 0, errors: 0, samples: 0 };
+  const minuteReport = () => {
+    const window = [...samples.slice(mark.samples)].sort((a, b) => a - b);
+    const secs = Math.min(60, (Date.now() - started) / 1000 - perMinute.length * 60);
+    const m: MinuteReport = {
+      minute: perMinute.length + 1,
+      sent: sent - mark.sent,
+      messagesPerSecond: Math.round(((sent - mark.sent) / Math.max(1, secs)) * 10) / 10,
+      errors: errors - mark.errors,
+      latencyP95Ms: percentile(window, 95),
+    };
+    perMinute.push(m);
+    mark = { sent, errors, samples: samples.length };
+    log(`minute ${m.minute}: ${m.sent} sent (${m.messagesPerSecond} msg/s), ${m.errors} errors, p95 ${m.latencyP95Ms ?? '-'} ms`);
+  };
+  const minutes = setInterval(minuteReport, 60_000);
 
   await new Promise((r) => setTimeout(r, o.durationS * 1000));
-  clearInterval(progress);
+  clearInterval(minutes);
+  const endedAt = Date.now();
   for (const t of timers) clearTimeout(t);
   await new Promise((r) => setTimeout(r, 1000)); // let in-flight messages arrive
   socket?.close();
   await Promise.all(devices.map((d) => d.stop()));
 
+  if (perMinute.length * 60 < o.durationS) minuteReport();
+
   const sorted = [...samples].sort((a, b) => a - b);
-  const durationS = (Date.now() - started) / 1000;
+  const durationS = (endedAt - started) / 1000;
   return {
     devices: devices.length,
     sent,
     errors,
     durationS: Math.round(durationS),
     messagesPerSecond: Math.round((sent / durationS) * 10) / 10,
-    latencyMs: { samples: sorted.length, p50: percentile(sorted, 50), p95: percentile(sorted, 95) },
+    latencyMs: { samples: sorted.length, p50: percentile(sorted, 50), p95: percentile(sorted, 95), p99: percentile(sorted, 99), max: sorted.at(-1) ?? null },
+    startedAt: started,
+    endedAt,
+    connectS,
+    perMinute,
   };
 }
