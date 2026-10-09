@@ -1,4 +1,4 @@
-import { alarmRule, command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
+import { alarm, alarmRule, command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -223,4 +223,22 @@ TENANT_ENDPOINTS.push(
   { name: 'rule on B device', method: 'post', path: () => '/api/alarm-rules', body: ruleBody, create: bDevice },
   { name: 'effective rules of B device', method: 'get', path: (i) => `/api/devices/${i.deviceId}/alarm-rules/effective`, create: bDevice },
   { name: 'list alarm rules', method: 'list', path: () => '/api/alarm-rules', create: bRules },
+);
+
+/** An open alarm on customer B's device. */
+const bAlarm = async (ctx: TenantContext): Promise<Ids> => {
+  const ids = await bDevice(ctx);
+  const [a] = await ctx.t.db
+    .insert(alarm)
+    .values({ ruleName: 'B', type: 'threshold', deviceId: ids.deviceId!, customerId: ctx.b.customer.id, severity: 'major', startedAt: new Date() })
+    .returning({ id: alarm.id });
+  return { ...ids, alarmId: a!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: "get B's alarm", method: 'get', path: (i) => `/api/alarms/${i.alarmId}`, create: bAlarm },
+  { name: "ack B's alarm", method: 'post', path: (i) => `/api/alarms/${i.alarmId}/ack`, body: () => ({}), create: bAlarm },
+  { name: "clear B's alarm", method: 'post', path: (i) => `/api/alarms/${i.alarmId}/clear`, body: () => ({}), create: bAlarm },
+  { name: "comment on B's alarm", method: 'post', path: (i) => `/api/alarms/${i.alarmId}/comments`, body: () => ({ comment: 'x' }), create: bAlarm },
+  { name: 'list alarms', method: 'list', path: () => '/api/alarms', create: bAlarm },
 );

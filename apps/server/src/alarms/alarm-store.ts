@@ -10,7 +10,7 @@ export type AlarmRow = typeof alarm.$inferSelect;
 export type AlarmChange = 'raised' | 'acknowledged' | 'cleared';
 export type AlarmListener = (change: AlarmChange, alarm: AlarmRow, rule: RuleRow | null) => Promise<void>;
 
-/** Redis channel for live alarm updates (the API role forwards them to WebSocket rooms). */
+/** Redis channel prefix for live alarm updates (`:platform` / `:{customerId}`), forwarded to WebSocket rooms. */
 export const ALARM_CHANNEL = 'ws:alarm';
 
 /**
@@ -71,7 +71,12 @@ export class AlarmStore {
   }
 
   async announce(change: AlarmChange, row: AlarmRow, rule: RuleRow | null): Promise<void> {
-    await this.redis.publish(ALARM_CHANNEL, JSON.stringify({ change, id: row.id, deviceId: row.deviceId, customerId: row.customerId, status: row.status, severity: row.severity }));
+    // Minimal payload: clients refetch through the scoped API for details.
+    const message = JSON.stringify({ change, id: row.id, deviceId: row.deviceId, status: row.status, severity: row.severity });
+    await Promise.all([
+      this.redis.publish(`${ALARM_CHANNEL}:platform`, message),
+      row.customerId ? this.redis.publish(`${ALARM_CHANNEL}:${row.customerId}`, message) : undefined,
+    ]);
     for (const l of this.listeners) {
       try {
         await l(change, row, rule);

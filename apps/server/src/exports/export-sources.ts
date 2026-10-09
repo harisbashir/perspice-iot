@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  type AlarmFilter,
   type AuditExportParams,
   DEVICE_EXPORT_COLUMNS,
   type DevicesExportParams,
@@ -9,12 +10,13 @@ import {
 } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, eq, gt, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth/auth.types';
+import { AlarmsService } from '../alarms/alarms.service';
 import { AuditService } from '../audit/audit.service';
 import { forbidden, validation } from '../common/app-error';
 import { windowOf } from '../dashboards/data.service';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
-import { customer, device, deviceProfile, telemetry, user } from '../db/schema';
+import { alarm, customer, device, deviceProfile, telemetry, user } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 import { ScopeService } from '../rbac/scope';
 import type { Cell, Column } from './writers';
@@ -54,6 +56,7 @@ export class ExportSources {
     private readonly devices: DevicesService,
     private readonly scopes: ScopeService,
     private readonly audit: AuditService,
+    private readonly alarms: AlarmsService,
   ) {}
 
   async for(actor: AuthUser, req: ExportRequest): Promise<ExportSource> {
@@ -66,6 +69,8 @@ export class ExportSources {
         return this.auditLog(actor, req.params);
       case 'widget':
         return this.widget(actor, req.params);
+      case 'alarms':
+        return this.alarmList(actor, req.params);
     }
   }
 
@@ -200,6 +205,58 @@ export class ExportSources {
           }
           cursor = page.nextCursor ?? undefined;
         } while (cursor);
+      },
+    };
+  }
+
+  async alarmList(actor: AuthUser, f: AlarmFilter): Promise<ExportSource> {
+    if (!actor.permissions.includes('alarm.read')) throw forbidden();
+    const where = await this.alarms.where(actor, f);
+    const platform = actor.scopeType === 'platform';
+    const { db, alarms } = this;
+    return {
+      title: 'Alarms',
+      columns: [
+        time('Started (UTC)'),
+        textCol('Severity'),
+        textCol('Status'),
+        textCol('Device'),
+        ...(platform ? [textCol('Customer')] : []),
+        textCol('Rule'),
+        textCol('Message'),
+        time('Acknowledged (UTC)'),
+        textCol('Acknowledged by'),
+        time('Cleared (UTC)'),
+      ],
+      async count() {
+        const [row] = await db.select({ n: count() }).from(alarm).innerJoin(device, eq(device.id, alarm.deviceId)).where(where);
+        return row?.n ?? 0;
+      },
+      async *rows() {
+        let after: { startedAt: Date; id: string } | null = null;
+        for (;;) {
+          const page: Awaited<ReturnType<typeof alarms.query>> = await alarms.query(
+            after ? and(where, or(sql`${alarm.startedAt} < ${after.startedAt}`, and(eq(alarm.startedAt, after.startedAt), sql`${alarm.id} < ${after.id}`))) : where,
+            1000,
+          );
+          for (const r of page) {
+            const a = r.a;
+            yield [
+              a.startedAt,
+              a.severity,
+              a.status,
+              r.deviceName,
+              ...(platform ? [r.customerName] : []),
+              a.ruleName,
+              a.message,
+              a.acknowledgedAt,
+              r.ackName,
+              a.clearedAt,
+            ];
+          }
+          if (page.length < 1000) return;
+          after = page[page.length - 1]!.a;
+        }
       },
     };
   }

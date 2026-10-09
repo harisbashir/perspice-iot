@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { BrandingDto, DeviceDto, DeviceProfileDto } from './api-types.js';
+import { AlarmFilterSchema } from './alarms.js';
 import { type DashboardViewDto, DataSourceSchema, TimewindowSchema } from './dashboard.js';
 
 /** Exports above this many rows run as background jobs; smaller ones stream straight back. */
@@ -54,6 +55,7 @@ export const ExportRequestSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('devices'), format: z.enum(EXPORT_FORMATS), params: DevicesExportParamsSchema }),
   z.object({ kind: z.literal('audit'), format: z.enum(EXPORT_FORMATS), params: AuditExportParamsSchema }),
   z.object({ kind: z.literal('widget'), format: z.enum(EXPORT_FORMATS), params: WidgetExportParamsSchema }),
+  z.object({ kind: z.literal('alarms'), format: z.enum(EXPORT_FORMATS), params: AlarmFilterSchema }),
 ]);
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 export type TelemetryExportParams = z.infer<typeof TelemetryExportParamsSchema>;

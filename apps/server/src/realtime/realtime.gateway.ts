@@ -23,7 +23,7 @@ import { ScopeService } from '../rbac/scope';
 
 type AuthedSocket = Socket & { data: { user: AuthUser } };
 
-const CHANNEL = /^ws:(telemetry|status|command|notify):(.+)$/;
+const CHANNEL = /^ws:(telemetry|status|command|notify|alarm):(.+)$/;
 
 /**
  * Live updates (spec §7.4). Each api instance subscribes to the `ws:*` Redis channels and emits
@@ -116,6 +116,15 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
     return { ok: true };
   }
 
+  /** Alarm changes for the viewer's tenant (platform users: all customers). */
+  @SubscribeMessage('subscribe:alarms')
+  async subscribeAlarms(@ConnectedSocket() socket: AuthedSocket) {
+    const u = socket.data.user;
+    if (!u.permissions.includes('alarm.read')) return { ok: false, code: 'FORBIDDEN' };
+    await socket.join(u.scopeType === 'platform' ? 'alarm:platform' : `alarm:${u.customerId}`);
+    return { ok: true };
+  }
+
   private async authenticate(socket: Socket): Promise<AuthUser | null> {
     const token = (socket.handshake.auth as { token?: unknown })?.token;
     if (typeof token !== 'string') return null;
@@ -144,6 +153,9 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
         break;
       case 'status':
         local.to(`status:${target}`).emit('status', payload);
+        break;
+      case 'alarm':
+        local.to(`alarm:${target}`).emit('alarm', payload);
         break;
       case 'notify':
         local.to(`user:${target}`).emit('notification', payload);
