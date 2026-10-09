@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-09
+
+Alarms and notifications (sub-project 3).
+
+### Added
+
+- **Alarm rules** on a profile (every device, every customer), a customer, or a device, with
+  opt-outs: threshold, range, duration, rate of change, state match, device status and no-data,
+  each with a clear margin against flapping, severity, active schedule (timezone-aware),
+  recipients (roles, users, groups) and channels. Customer admins manage their own rules.
+- **Rules engine** in the `rules` role: evaluates every telemetry and status event, raises and
+  clears alarms (one open alarm per rule and device, also with several workers), with duration
+  and no-data timers on the scheduler.
+- **Alarms**: list with live updates, filters, bulk acknowledge and export; detail with a
+  timeline, acknowledge, clear and comments; a device Alarms tab; an unacknowledged count in the
+  navigation.
+- **Notifications**: a delivery pipeline with retries and a delivery log (with retry of dead
+  letters); per-user preferences (email/push, minimum level, quiet hours with a critical bypass,
+  timezone); digest emails for busy periods and after quiet hours; web push (VAPID) with a
+  service worker; alarm raised/cleared emails.
+- **Webhooks** for alarm and device-status events, signed with HMAC-SHA256, per customer or
+  platform-wide, protected against SSRF (public https destinations only by default, checked
+  again on connect, no redirects).
+- **Scheduled reports**: dashboard PDFs and telemetry exports emailed daily, weekly or monthly
+  in a timezone, run with the owner's current access, with 7-day download links.
+- **Alarm widgets** (alarm table, active-alarms KPI, alarm timeline) and an `alarms` data
+  source; the built-in overview gains alarm tiles and an open-alarms table.
+- User and customer timezones; permissions `alarm.read`, `alarm.ack`, `alarm.rule.write`,
+  `webhook.manage` and `report.schedule`.
+
+### Changed
+
+- Device status notifications now go through the delivery pipeline, so preferences, push,
+  digests and the delivery log apply to them.
+
 ## [0.2.0] - 2026-10-08
 
 Dashboards and widgets (sub-project 2).

@@ -46,8 +46,8 @@ One image runs in several roles (`PERSPICE_ROLE`):
 |---|---|
 | `api` | HTTP API, WebSocket updates, EMQX auth/ACL hooks, command publishing |
 | `ingest` | consumes device MQTT traffic (shared subscription), writes telemetry |
-| `rules` | device status notifications (email, in-app) |
-| `scheduler` | offline/dead sweep, command timeouts, last-seen write-back, large exports, export cleanup (one instance runs each job) |
+| `rules` | alarm rule evaluation, device status notifications, webhooks for status changes |
+| `scheduler` | offline/dead sweep, command timeouts, last-seen write-back, large exports, export cleanup, alarm timers (duration, no data), notification digests, scheduled reports (one instance runs each job) |
 | `renderer` | dashboard PDF reports with headless Chromium (own image, `perspice-renderer`) |
 
 `all` (the default outside Compose) runs every role except `renderer`, which needs the
@@ -66,6 +66,20 @@ Chromium image.
   only handed to the user who requested the export.
 - A report stuck in "Queued" usually means the `renderer` is not running:
   `perspice status` / `perspice logs renderer`.
+
+## Notifications and webhooks
+
+- Every email, push, in-app notification and webhook call is a row in **Settings → Delivery
+  log**. Failed sends are retried 5 times with exponential back-off (starting at 30 s); the ones
+  that still fail are marked as given up (dead letters) and can be retried from the log.
+- Email goes through the SMTP or SES settings (**Settings → Email**). Without them, email
+  deliveries fail and show "Email is not configured".
+- **Web push** needs a VAPID key pair. Generate one with `perspice cli vapid-keys`, put the
+  output and a contact (`VAPID_SUBJECT=mailto:ops@example.com`) in `.env`, then
+  `perspice restart`. Without keys, push is hidden in the app.
+- **Webhooks** may only reach public `https` addresses. To deliver to receivers on your own
+  network, a super admin allows plain HTTP and/or private addresses under **Settings →
+  Webhooks**.
 
 ## Health
 
