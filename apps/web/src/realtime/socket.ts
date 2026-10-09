@@ -55,3 +55,42 @@ export function useRoomSubscription(subscribe: string, unsubscribe: string | nul
     };
   }, [subscribe, unsubscribe, key]);
 }
+
+// Device rooms are shared: the device page and a dashboard on it may both follow one device, so
+// rooms are reference-counted and only left when the last user goes away.
+const deviceRooms = new Map<string, number>();
+const MAX_IDS_PER_MESSAGE = 500;
+let rejoinOnConnect = false;
+
+function emitChunked(s: Socket, event: string, ids: string[]): void {
+  for (let i = 0; i < ids.length; i += MAX_IDS_PER_MESSAGE) s.emit(event, { deviceIds: ids.slice(i, i + MAX_IDS_PER_MESSAGE) });
+}
+
+/** Follows the live rooms of these devices for the component's lifetime (the server drops out-of-scope ids). */
+export function useDeviceRooms(deviceIds: string[]): void {
+  const key = [...new Set(deviceIds)].sort().join(',');
+  useEffect(() => {
+    if (!key) return;
+    const ids = key.split(',');
+    const s = getSocket();
+    if (!rejoinOnConnect) {
+      rejoinOnConnect = true;
+      s.on('connect', () => emitChunked(s, 'subscribe:devices', [...deviceRooms.keys()]));
+    }
+    const fresh = ids.filter((id) => {
+      const n = deviceRooms.get(id) ?? 0;
+      deviceRooms.set(id, n + 1);
+      return n === 0;
+    });
+    if (fresh.length && s.connected) emitChunked(s, 'subscribe:devices', fresh);
+    return () => {
+      const gone = ids.filter((id) => {
+        const n = (deviceRooms.get(id) ?? 1) - 1;
+        if (n > 0) deviceRooms.set(id, n);
+        else deviceRooms.delete(id);
+        return n <= 0;
+      });
+      if (gone.length) emitChunked(s, 'unsubscribe:devices', gone);
+    };
+  }, [key]);
+}

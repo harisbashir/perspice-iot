@@ -1,7 +1,7 @@
 import type { DeviceDto, DeviceStatus, LatestValue } from '@perspice/shared';
 import { type QueryClient, type InfiniteData, useQueryClient } from '@tanstack/react-query';
 import type { Page } from '@/api/types';
-import { useRoomSubscription, useSocketEvent } from './socket';
+import { useDeviceRooms, useRoomSubscription, useSocketEvent } from './socket';
 
 export interface StatusEvent {
   deviceId: string;
@@ -42,7 +42,7 @@ export function useStatusFeed(): void {
 /** Merges telemetry and status events for one device into its cached DeviceDto. */
 export function useDeviceLive(deviceId: string): void {
   const qc = useQueryClient();
-  useRoomSubscription('subscribe:device', 'unsubscribe:device', { deviceId });
+  useDeviceRooms([deviceId]);
   useRoomSubscription('subscribe:status', null, {});
   useSocketEvent<TelemetryEvent>('telemetry', (e) => {
     if (e.deviceId !== deviceId) return;
@@ -56,6 +56,5 @@ export function useDeviceLive(deviceId: string): void {
 
 /** Joins the live rooms of every device a dashboard shows (the server drops out-of-scope ids). */
 export function useDevicesSubscription(deviceIds: string[]): void {
-  const ids = [...new Set(deviceIds)].sort();
-  useRoomSubscription('subscribe:devices', 'unsubscribe:devices', ids.length ? { deviceIds: ids } : null);
+  useDeviceRooms(deviceIds);
 }
