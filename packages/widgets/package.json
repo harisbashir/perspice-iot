@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@perspice/shared": "workspace:^",
+    "echarts": "^5",
+    "lucide-react": "^1.53.0",
     "zod": "^3.23"
   },
   "devDependencies": {
