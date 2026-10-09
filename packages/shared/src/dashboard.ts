@@ -1,0 +1,103 @@
+import { z } from 'zod';
+import { KEY_PATTERN } from './protocol.js';
+
+export const GRID_COLUMNS = 12;
+export const MAX_STATES = 20;
+export const MAX_WIDGETS_PER_STATE = 60;
+/** Most devices one dashboard may show at once (list sources, live subscriptions). */
+export const MAX_DASHBOARD_DEVICES = 500;
+
+const Key = z.string().regex(KEY_PATTERN);
+const Keys = z.array(Key).max(50);
+const Id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+export const TimewindowSchema = z.union([
+  z.object({ kind: z.literal('relative'), lastMs: z.number().int().min(60_000).max(5 * 366 * 86_400_000) }),
+  z
+    .object({ kind: z.literal('absolute'), fromMs: z.number().int(), toMs: z.number().int() })
+    .refine((t) => t.fromMs < t.toMs, 'fromMs must be before toMs'),
+]);
+export type Timewindow = z.infer<typeof TimewindowSchema>;
+
+const DeviceFilter = z
+  .object({
+    status: z.array(z.enum(['never', 'online', 'offline', 'dead'])).max(4).optional(),
+    tags: z.array(z.string().max(50)).max(20).optional(),
+    search: z.string().max(200).optional(),
+  })
+  .optional();
+
+/**
+ * Where a widget's data comes from. Every source is resolved within the viewer's scope on the
+ * server; `currentDevice` is the device the dashboard was opened for.
+ */
+export const DataSourceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('currentDevice'), keys: Keys }),
+  z.object({ kind: z.literal('device'), deviceId: z.string().uuid(), keys: Keys }),
+  z.object({ kind: z.literal('devicesOfProfile'), profileId: z.string().uuid().nullable(), filter: DeviceFilter, keys: Keys }),
+  z.object({
+    kind: z.literal('entityList'),
+    profileId: z.string().uuid().nullable(),
+    filter: DeviceFilter,
+    // Built-in columns (status, name, profile, customer, lastSeen) or telemetry keys.
+    columns: Keys.min(1),
+    pageSize: z.number().int().min(1).max(MAX_DASHBOARD_DEVICES).default(25),
+  }),
+]);
+export type DataSource = z.infer<typeof DataSourceSchema>;
+
+export const WidgetConfigSchema = z.object({
+  id: Id,
+  // Unknown types are kept (rendered as "Unknown widget") so newer templates still load.
+  type: z.string().regex(/^[a-z0-9-]{1,64}$/),
+  title: z.string().max(200).optional(),
+  datasource: DataSourceSchema,
+  settings: z.record(z.unknown()).default({}),
+});
+export type WidgetConfig = z.infer<typeof WidgetConfigSchema>;
+
+export const LayoutItemSchema = z
+  .object({
+    i: Id,
+    x: z.number().int().min(0).max(GRID_COLUMNS - 1),
+    y: z.number().int().min(0).max(1000),
+    w: z.number().int().min(1).max(GRID_COLUMNS),
+    h: z.number().int().min(1).max(100),
+  })
+  .refine((l) => l.x + l.w <= GRID_COLUMNS, 'Layout item extends past the 12-column grid');
+export type LayoutItem = z.infer<typeof LayoutItemSchema>;
+
+export const DashboardStateSchema = z
+  .object({
+    id: Id,
+    name: z.string().trim().min(1).max(100),
+    layout: z.array(LayoutItemSchema).max(MAX_WIDGETS_PER_STATE),
+    widgets: z.array(WidgetConfigSchema).max(MAX_WIDGETS_PER_STATE),
+  })
+  .superRefine((s, ctx) => {
+    const ids = s.widgets.map((w) => w.id);
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'Duplicate widget ids', path: ['widgets'] });
+    const placed = s.layout.map((l) => l.i);
+    if (new Set(placed).size !== placed.length || placed.length !== ids.length || !placed.every((i) => ids.includes(i))) {
+      ctx.addIssue({ code: 'custom', message: 'Every widget needs exactly one layout item', path: ['layout'] });
+    }
+  });
+export type DashboardState = z.infer<typeof DashboardStateSchema>;
+
+export const DashboardDefinitionSchema = z
+  .object({
+    states: z.array(DashboardStateSchema).min(1).max(MAX_STATES),
+    settings: z.object({
+      timewindow: TimewindowSchema,
+      refreshS: z.number().int().min(0).max(3600).default(0),
+    }),
+  })
+  .superRefine((d, ctx) => {
+    const ids = d.states.map((s) => s.id);
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'Duplicate state ids', path: ['states'] });
+  });
+export type DashboardDefinition = z.infer<typeof DashboardDefinitionSchema>;
+
+/** Columns an entity table can show besides telemetry keys. */
+export const ENTITY_COLUMNS = ['status', 'name', 'profile', 'customer', 'lastSeen'] as const;

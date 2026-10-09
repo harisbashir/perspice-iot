@@ -45,6 +45,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'branding.edit',
       'notification.read',
       'audit.read',
+      'dashboard.customize',
     ],
   },
   customer_operator: {

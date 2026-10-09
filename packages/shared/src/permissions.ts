@@ -17,6 +17,8 @@ export const PERMISSIONS = [
   'audit.read',
   'backup.manage',
   'notification.read',
+  'dashboard.edit',
+  'dashboard.customize',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

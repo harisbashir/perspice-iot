@@ -31,4 +31,13 @@ describe('roles', () => {
     }
     expect(BUILT_IN_ROLES.support.permissions).toContain('audit.read');
   });
+
+  it('dashboard permissions: platform admins edit templates, customer admins customise', () => {
+    expect(BUILT_IN_ROLES.platform_admin.permissions).toEqual(expect.arrayContaining(['dashboard.edit', 'dashboard.customize']));
+    expect(BUILT_IN_ROLES.customer_admin.permissions).toContain('dashboard.customize');
+    for (const key of ['customer_admin', 'customer_operator', 'customer_viewer'] as const) {
+      expect(BUILT_IN_ROLES[key].permissions).not.toContain('dashboard.edit');
+    }
+    expect(BUILT_IN_ROLES.support.permissions).not.toContain('dashboard.customize');
+  });
 });
