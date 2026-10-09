@@ -1,6 +1,8 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
+import { LazyDashboardView as DashboardView } from '@/dashboards/LazyDashboardView';
+import { useDeviceDashboard } from '@/dashboards/hooks';
 import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,10 +25,13 @@ export function DeviceDetailPage() {
   const { hasPerm } = useAuth();
   const { data: device, isLoading, error } = useDevice(id);
   const { data: profile } = useProfile(device?.profileId);
+  const dashboard = useDeviceDashboard(id);
+  const [tab, setTab] = useState<string | null>(null);
   useDeviceLive(id);
 
-  if (isLoading) return <Skeleton className="h-64" />;
+  if (isLoading || dashboard.isLoading) return <Skeleton className="h-64" />;
   if (error || !device) return <NotFoundPage />;
+  const view = dashboard.data ?? null;
 
   return (
     <div>
@@ -38,8 +43,9 @@ export function DeviceDetailPage() {
         <StatusBadge status={device.status} />
         <span className="text-slate-500">Last seen {timeAgo(device.lastSeen)}</span>
       </div>
-      <Tabs defaultValue="overview">
+      <Tabs value={tab ?? (view ? 'dashboard' : 'overview')} onValueChange={setTab}>
         <TabsList className="flex-wrap">
+          {view && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
@@ -47,6 +53,11 @@ export function DeviceDetailPage() {
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           {hasPerm('device.read') && <TabsTrigger value="debug">Debug</TabsTrigger>}
         </TabsList>
+        {view && (
+          <TabsContent value="dashboard">
+            <DashboardView definition={view.definition} device={device} profile={profile ?? null} />
+          </TabsContent>
+        )}
         <TabsContent value="overview">
           <LatestValuesPanel device={device} schema={profile?.telemetrySchema ?? []} />
         </TabsContent>

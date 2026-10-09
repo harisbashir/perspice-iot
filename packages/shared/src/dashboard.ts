@@ -177,3 +177,16 @@ export type WidgetDataResult<T = unknown> = { ok: true; data: T } | { ok: false;
 export interface DataResponse {
   results: Record<string, WidgetDataResult>;
 }
+
+/** GET /api/dashboards/device/:id and /api/dashboards/overview (or `{ dashboard: null }`). */
+export interface DashboardViewDto {
+  instanceId: string;
+  templateId: string;
+  templateName: string;
+  templateVersion: number;
+  overridden: boolean;
+  baseVersion: number | null;
+  /** The template changed after this instance was customised. */
+  outdated: boolean;
+  definition: DashboardDefinition;
+}

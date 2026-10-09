@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type DashboardDefinition, DashboardDefinitionSchema } from '@perspice/shared';
+import { type DashboardDefinition, DashboardDefinitionSchema, type DashboardViewDto } from '@perspice/shared';
 import { and, asc, eq } from 'drizzle-orm';
 import type { AuthUser } from '../auth/auth.types';
 import { forbidden, notFound } from '../common/app-error';
@@ -12,17 +12,7 @@ import { ensureInstance } from './assignment';
 type InstanceRow = typeof dashboardInstance.$inferSelect;
 type TemplateRow = typeof dashboardTemplate.$inferSelect;
 
-export interface DashboardView {
-  instanceId: string;
-  templateId: string;
-  templateName: string;
-  templateVersion: number;
-  overridden: boolean;
-  baseVersion: number | null;
-  /** The template changed after this instance was customised. */
-  outdated: boolean;
-  definition: DashboardDefinition;
-}
+export type DashboardView = DashboardViewDto;
 
 export const toView = (inst: InstanceRow, tpl: TemplateRow): DashboardView => {
   const overridden = inst.overrideDefinition !== null && inst.overrideDefinition !== undefined;

@@ -1,4 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LazyDashboardView as DashboardView } from '@/dashboards/LazyDashboardView';
+import { useOverviewDashboard } from '@/dashboards/hooks';
 import { PageHeader } from '@/components/PageHeader';
 import { useStatusFeed } from '@/realtime/hooks';
 import { DevicesTable } from '../devices/DevicesTable';
@@ -12,7 +15,22 @@ const TILES = [
   { key: 'never', label: 'Never connected', className: 'text-slate-500' },
 ] as const;
 
+/** The overview dashboard when one exists (seeded by default); otherwise the basic summary. */
 export function OverviewPage() {
+  const { data: view, isLoading } = useOverviewDashboard();
+  if (isLoading) return <Skeleton className="h-64" />;
+  if (view) {
+    return (
+      <div>
+        <PageHeader title="Overview" />
+        <DashboardView definition={view.definition} />
+      </div>
+    );
+  }
+  return <BasicOverview />;
+}
+
+function BasicOverview() {
   const { data: stats } = useDeviceStats();
   const list = useDeviceList({});
   const { data: profiles = [] } = useProfiles();

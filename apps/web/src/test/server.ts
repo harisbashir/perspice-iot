@@ -13,6 +13,8 @@ export const defaultHandlers = [
   http.get('*/api/customers', () => HttpResponse.json([])),
   http.get('*/api/users', () => HttpResponse.json([])),
   http.get('*/api/roles', () => HttpResponse.json([])),
+  http.get('*/api/dashboards/overview', () => HttpResponse.json({ dashboard: null })),
+  http.get('*/api/dashboards/device/:id', () => HttpResponse.json({ dashboard: null })),
 ];
 
 /** Shared MSW server; tests register handlers with `server.use(...)`. */
