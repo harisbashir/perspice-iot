@@ -10,6 +10,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'alarm_cleared',
   'digest',
   'report_delivery',
+  'system_alert',
   'test',
 ] as const;
 
@@ -28,5 +29,6 @@ export const EMAIL_SUBJECTS: Record<EmailTemplateKey, string> = {
   alarm_cleared: '[{{productName}}] Cleared: {{ruleName}} on {{deviceName}}',
   digest: '[{{productName}}] {{count}} notifications',
   report_delivery: '[{{productName}}] Report: {{title}}',
+  system_alert: '[{{productName}}] {{title}}',
   test: 'Test email from {{productName}}',
 };

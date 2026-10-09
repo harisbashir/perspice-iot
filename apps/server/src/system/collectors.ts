@@ -7,6 +7,7 @@ import { alarm, deliveryLog, device } from '../db/schema';
 import { Dispatcher } from '../delivery/dispatcher';
 import { EmailService } from '../email/email.service';
 import { ExportsService } from '../exports/exports.service';
+import { BackupService } from '../backups/backup.service';
 import { ReportsService } from '../reports/reports.service';
 import { MetricsService } from './metrics.service';
 
@@ -24,11 +25,12 @@ export class SystemCollectors implements OnModuleInit {
     private readonly dispatcher: Dispatcher,
     private readonly exportJobs: ExportsService,
     private readonly reports: ReportsService,
+    private readonly backups: BackupService,
   ) {}
 
   /** Queues by name, for metrics and the System page. */
   queues(): Record<string, Queue> {
-    return { email: this.email.queue, notify: this.dispatcher.queue, exports: this.exportJobs.queue, reports: this.reports.queue };
+    return { email: this.email.queue, notify: this.dispatcher.queue, exports: this.exportJobs.queue, reports: this.reports.queue, maintenance: this.backups.queue };
   }
 
   onModuleInit(): void {

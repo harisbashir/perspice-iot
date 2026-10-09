@@ -1,0 +1,4 @@
+<mj-text font-size="18px" font-weight="700" color="#b91c1c">{{title}}</mj-text>
+<mj-text>{{body}}</mj-text>
+<mj-button href="{{link}}">Open the System page</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>
