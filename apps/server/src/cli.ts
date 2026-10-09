@@ -10,7 +10,9 @@ import { TokenService } from './auth/token.service';
 import { BrandingService } from './branding/branding.service';
 import { type Config, loadConfig } from './config/config';
 import type { DB } from './db/db.module';
+import { cliBackup, cliRestore } from './backups/backup.cli';
 import { runMigrations } from './db/migrate';
+import type { Readable, Writable } from 'node:stream';
 import * as schema from './db/schema';
 import { seed } from './db/seed';
 import { EmailService } from './email/email.service';
@@ -21,6 +23,8 @@ export interface CliIo {
   env: NodeJS.ProcessEnv;
   out: (line: string) => void;
   err: (line: string) => void;
+  stdout?: NodeJS.WritableStream;
+  stdin?: NodeJS.ReadableStream;
 }
 
 const USAGE = `Usage: cli <command>
@@ -31,7 +35,9 @@ const USAGE = `Usage: cli <command>
   health [--mqtt-roundtrip]                 check database and Redis (and an MQTT publish round trip)
   vapid-keys                                print a new VAPID key pair for web push
   configure-smtp --host <h> --port <p> --from <addr> [--user <u> --pass <p>] [--secure]
-                                            store SMTP settings (encrypted) and select the SMTP driver`;
+                                            store SMTP settings (encrypted) and select the SMTP driver
+  backup [--out <file>|-]                   back up now (needs the scheduler running); copy it out
+  restore <file>|-                          restore a backup (maintenance mode meanwhile)`;
 
 function flags(args: string[]): Record<string, string | true> {
   const out: Record<string, string | true> = {};
@@ -236,6 +242,12 @@ export async function runCli(args: string[], io: CliIo): Promise<number> {
         return vapidKeys(io);
       case 'configure-smtp':
         return await configureSmtp(config, flags(rest), io);
+      case 'backup': {
+        const out = flags(rest).out;
+        return await cliBackup(config, typeof out === 'string' ? out : out === true ? '-' : undefined, { ...io, stdout: io.stdout as Writable, stdin: io.stdin as Readable });
+      }
+      case 'restore':
+        return await cliRestore(config, rest[0], { ...io, stdout: io.stdout as Writable, stdin: io.stdin as Readable });
       default:
         io.err(USAGE);
         return 2;
@@ -251,6 +263,8 @@ if (require.main === module) {
     env: process.env,
     out: (l) => console.log(l),
     err: (l) => console.error(l),
+    stdout: process.stdout,
+    stdin: process.stdin,
   }).then(
     (code) => process.exit(code),
     (e: unknown) => {

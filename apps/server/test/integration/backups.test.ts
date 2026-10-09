@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readBackupArchive } from '../../src/backups/archive';
 import { BackupScheduleJob } from '../../src/backups/backup.schedule';
@@ -12,8 +12,8 @@ import { STORAGE, type StorageDriver } from '../../src/storage/storage.driver';
 import { tokenFor } from '../auth-helpers';
 import { createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
+import { PG_TOOLS } from '../pg-tools';
 
-export const PG_TOOLS = { PG_DUMP_PATH: resolve(__dirname, '../bin/pg_dump'), PG_RESTORE_PATH: resolve(__dirname, '../bin/pg_restore') };
 const PASSPHRASE = 'a long test backup passphrase';
 
 describe('backups', () => {

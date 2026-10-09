@@ -3,6 +3,7 @@ import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { CONFIG, type Config } from '../config/config';
 import { BackupService, MAINTENANCE_QUEUE } from './backup.service';
+import { RestoreService } from './restore.service';
 
 /** Runs backups (and restores) one at a time. Scheduler role. */
 @Injectable()
@@ -10,14 +11,16 @@ export class MaintenanceProcessor implements OnModuleInit, OnApplicationShutdown
   private readonly logger = new Logger(MaintenanceProcessor.name);
   private worker?: Worker;
   private connection?: Redis;
-  /** Job name → handler; restore registers itself here. */
+  /** Job name → handler. */
   readonly handlers = new Map<string, (data: Record<string, unknown>) => Promise<unknown>>();
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
     private readonly backups: BackupService,
+    private readonly restores: RestoreService,
   ) {
     this.handlers.set('backup', () => this.backups.run());
+    this.handlers.set('restore', (data) => this.restores.run(String(data.key)));
   }
 
   onModuleInit(): void {
