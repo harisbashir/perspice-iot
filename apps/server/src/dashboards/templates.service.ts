@@ -7,6 +7,7 @@ import { forbidden, notFound, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
 import { dashboardInstance, dashboardTemplate, deviceProfile } from '../db/schema';
+import { backfillInstances } from './assignment';
 import { remapKeys } from './key-mapping';
 
 type TemplateRow = typeof dashboardTemplate.$inferSelect;
@@ -164,6 +165,7 @@ export class TemplatesService {
       }
     }
     await this.db.update(deviceProfile).set({ defaultDashboardTemplateId: templateId }).where(eq(deviceProfile.id, profileId));
+    if (templateId) await backfillInstances(this.db, profileId, templateId);
   }
 
   private visible(actor: AuthUser) {

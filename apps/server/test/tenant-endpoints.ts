@@ -1,4 +1,5 @@
-import { command } from '../src/db/schema';
+import { command, dashboardInstance, dashboardTemplate } from '../src/db/schema';
+import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
 
@@ -127,4 +128,32 @@ TENANT_ENDPOINTS.push(
   { name: 'telemetry history', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry?keys=a`, create: bDevice },
   { name: 'telemetry latest', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry/latest`, create: bDevice },
   { name: 'telemetry keys', method: 'get', path: (i) => `/api/devices/${i.deviceId}/telemetry/keys`, create: bDevice },
+);
+
+/** Customer B's dashboard instance (for the device dashboard of B's device). */
+const bInstance = async (ctx: TenantContext): Promise<Ids> => {
+  const ids = await bDevice(ctx);
+  const [tpl] = await ctx.t.db
+    .insert(dashboardTemplate)
+    .values({ name: 'B', kind: 'device', profileId: ids.profileId!, definition: sampleDefinition() })
+    .returning({ id: dashboardTemplate.id });
+  const [inst] = await ctx.t.db
+    .insert(dashboardInstance)
+    .values({ templateId: tpl!.id, customerId: ctx.b.customer.id })
+    .returning({ id: dashboardInstance.id });
+  return { ...ids, templateId: tpl!.id, instanceId: inst!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: 'device dashboard', method: 'get', path: (i) => `/api/dashboards/device/${i.deviceId}`, create: bDevice },
+  {
+    name: 'customise instance',
+    method: 'put',
+    path: (i) => `/api/dashboard-instances/${i.instanceId}/override`,
+    body: () => ({ definition: sampleDefinition() }),
+    create: bInstance,
+  },
+  { name: 're-sync instance', method: 'delete', path: (i) => `/api/dashboard-instances/${i.instanceId}/override`, create: bInstance },
+  { name: "get B's template", method: 'get', path: (i) => `/api/dashboard-templates/${i.templateId}`, create: bInstance },
+  { name: 'list templates', method: 'list', path: () => '/api/dashboard-templates', create: bInstance },
 );

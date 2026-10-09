@@ -9,6 +9,7 @@ import { CustomersService } from '../customers/customers.service';
 import { DB } from '../db/db.module';
 import { findOneOr404, scoped } from '../db/scoped-repo';
 import { device, deviceProfile, telemetry } from '../db/schema';
+import { ensureDeviceDashboard } from '../dashboards/assignment';
 import { EventBus } from '../events/event-bus';
 import { ScopeService } from '../rbac/scope';
 import { CredentialsService } from './credentials.service';
@@ -166,6 +167,7 @@ export class DevicesService {
         credentialsHash: hash,
       })
       .returning();
+    await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
     const [dto] = await this.toDtos([row!]);
     return { device: dto!, token };
   }
@@ -200,6 +202,7 @@ export class DevicesService {
     if (patch.groupId !== undefined) set.groupId = await this.resolveGroup(customerId ?? null, patch.groupId);
 
     const [row] = await this.db.update(device).set(set).where(eq(device.id, id)).returning();
+    if (set.customerId !== undefined || set.profileId !== undefined) await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
     await this.redis.del(devMetaKey(id), `timeouts:${id}`);
     if (set.disabled !== undefined || set.customerId !== undefined) {
       await this.credentials.invalidate(id);
