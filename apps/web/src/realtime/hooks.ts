@@ -54,3 +54,9 @@ export function useDeviceLive(deviceId: string): void {
     if (e.deviceId === deviceId) patchDevice(qc, deviceId, (d) => ({ ...d, status: e.to }));
   });
 }
+
+/** Joins the live rooms of every device a dashboard shows (the server drops out-of-scope ids). */
+export function useDevicesSubscription(deviceIds: string[]): void {
+  const ids = [...new Set(deviceIds)].sort();
+  useRoomSubscription('subscribe:devices', 'unsubscribe:devices', ids.length ? { deviceIds: ids } : null);
+}

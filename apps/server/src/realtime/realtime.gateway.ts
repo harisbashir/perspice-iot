@@ -1,4 +1,6 @@
 import { Inject, Logger, type OnApplicationShutdown } from '@nestjs/common';
+import { MAX_DASHBOARD_DEVICES } from '@perspice/shared';
+import { and, inArray } from 'drizzle-orm';
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,7 +15,11 @@ import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../auth/auth.types';
 import { SessionService } from '../auth/session.service';
 import { REDIS } from '../common/redis.module';
+import { DB } from '../db/db.module';
+import { isUuid, scoped } from '../db/scoped-repo';
+import { device } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
+import { ScopeService } from '../rbac/scope';
 
 type AuthedSocket = Socket & { data: { user: AuthUser } };
 
@@ -34,6 +40,8 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
     private readonly sessions: SessionService,
     private readonly auth: AuthService,
     private readonly devices: DevicesService,
+    private readonly scopes: ScopeService,
+    @Inject(DB) private readonly db: DB,
   ) {}
 
   afterInit(server: Namespace): void {
@@ -66,6 +74,32 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
     } catch {
       return { ok: false, code: 'NOT_FOUND' };
     }
+  }
+
+  /** Dashboards follow many devices at once; one scoped query decides which may be joined. */
+  @SubscribeMessage('subscribe:devices')
+  async subscribeDevices(@ConnectedSocket() socket: AuthedSocket, @MessageBody() body: { deviceIds?: unknown }) {
+    const requested = Array.isArray(body?.deviceIds) ? body.deviceIds.map(String) : [];
+    if (requested.length > MAX_DASHBOARD_DEVICES) return { ok: false, code: 'VALIDATION' };
+    const candidates = [...new Set(requested.filter(isUuid))];
+    const scope = await this.scopes.forUser(socket.data.user);
+    const allowed = candidates.length
+      ? new Set(
+          (await this.db.select({ id: device.id }).from(device).where(and(scoped(device, scope, inArray(device.id, candidates))))).map(
+            (r) => r.id,
+          ),
+        )
+      : new Set<string>();
+    const joined = requested.filter((id) => allowed.has(id));
+    await socket.join(joined.map((id) => `device:${id}`));
+    return { ok: true, joined, rejected: requested.filter((id) => !allowed.has(id)) };
+  }
+
+  @SubscribeMessage('unsubscribe:devices')
+  async unsubscribeDevices(@ConnectedSocket() socket: AuthedSocket, @MessageBody() body: { deviceIds?: unknown }) {
+    const ids = Array.isArray(body?.deviceIds) ? body.deviceIds.map(String) : [];
+    await Promise.all(ids.map((id) => socket.leave(`device:${id}`)));
+    return { ok: true };
   }
 
   @SubscribeMessage('unsubscribe:device')
