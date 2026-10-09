@@ -7,3 +7,4 @@ export * from './telemetry';
 export * from './notifications';
 export * from './audit';
 export * from './settings';
+export * from './dashboards';

@@ -1,6 +1,7 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import type { CommandDef, DeviceStatus, StatusNotifyConfig, TelemetryKeyDef } from '@perspice/shared';
 import { id, timestamps } from './_common';
+import { dashboardTemplate } from './dashboards';
 import { customer, customerGroup } from './customers';
 import { user } from './users';
 
@@ -24,6 +25,9 @@ export const deviceProfile = pgTable('device_profile', {
     .$type<StatusNotifyConfig>()
     .notNull()
     .default({ enabled: false, roleKeys: [], channels: [] }),
+  defaultDashboardTemplateId: uuid('default_dashboard_template_id').references((): AnyPgColumn => dashboardTemplate.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 
