@@ -1,4 +1,4 @@
-import { command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
+import { alarmRule, command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -190,4 +190,37 @@ TENANT_ENDPOINTS.push(
   },
   { name: "get B's export", method: 'get', path: (i) => `/api/exports/${i.exportId}`, create: bExport },
   { name: 'list exports', method: 'list', path: () => '/api/exports', create: bExport },
+);
+
+/** A customer-level and a device-level alarm rule of customer B. */
+const bRules = async (ctx: TenantContext): Promise<Ids> => {
+  const ids = await bDevice(ctx);
+  const common = {
+    name: 'B rule',
+    type: 'threshold' as const,
+    condition: { key: 'a', op: '<', value: 1 },
+    severity: 'major' as const,
+    recipients: { roles: [], userIds: [], groupIds: [] },
+    channels: ['inapp' as const],
+  };
+  const [c] = await ctx.t.db.insert(alarmRule).values({ ...common, scopeKind: 'customer', customerId: ctx.b.customer.id }).returning({ id: alarmRule.id });
+  const [d] = await ctx.t.db.insert(alarmRule).values({ ...common, scopeKind: 'device', deviceId: ids.deviceId }).returning({ id: alarmRule.id });
+  return { ...ids, customerRuleId: c!.id, deviceRuleId: d!.id };
+};
+const ruleBody = (i: Ids) => ({
+  name: 'X',
+  severity: 'major',
+  scope: { kind: 'device', deviceId: i.deviceId },
+  type: 'threshold',
+  condition: { key: 'a', op: '<', value: 1 },
+});
+
+TENANT_ENDPOINTS.push(
+  { name: "get B's customer rule", method: 'get', path: (i) => `/api/alarm-rules/${i.customerRuleId}`, create: bRules },
+  { name: "get B's device rule", method: 'get', path: (i) => `/api/alarm-rules/${i.deviceRuleId}`, create: bRules },
+  { name: "update B's rule", method: 'put', path: (i) => `/api/alarm-rules/${i.customerRuleId}`, body: ruleBody, create: bRules },
+  { name: "delete B's rule", method: 'delete', path: (i) => `/api/alarm-rules/${i.deviceRuleId}`, create: bRules },
+  { name: 'rule on B device', method: 'post', path: () => '/api/alarm-rules', body: ruleBody, create: bDevice },
+  { name: 'effective rules of B device', method: 'get', path: (i) => `/api/devices/${i.deviceId}/alarm-rules/effective`, create: bDevice },
+  { name: 'list alarm rules', method: 'list', path: () => '/api/alarm-rules', create: bRules },
 );

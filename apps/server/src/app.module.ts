@@ -16,6 +16,7 @@ import { IngestModule } from './ingest/ingest.module';
 import { PresenceModule } from './presence/presence.module';
 import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
+import { AlarmsModule } from './alarms/alarms.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { ExportsModule } from './exports/exports.module';
 import { ReportsModule } from './reports/reports.module';
@@ -63,6 +64,7 @@ export class AppModule {
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
         DashboardsModule,
+        AlarmsModule,
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         // Not part of `all`: the renderer needs Chromium, which only the renderer image has.
         ReportsModule.forRoot({ api: runsRole(role, 'api'), renderer: role === 'renderer' }),
