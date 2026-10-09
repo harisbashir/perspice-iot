@@ -68,32 +68,39 @@ export class AlarmRulesService {
     this.assertWritable(actor, current);
     const input = AlarmRuleInputSchema.parse(body);
     await this.authorize(actor, input, id);
-    const [row] = await this.db
-      .update(alarmRule)
-      .set({ ...this.columns(input), version: sql`${alarmRule.version} + 1`, updatedAt: new Date() })
-      .where(eq(alarmRule.id, id))
-      .returning();
+    const [row] = await this.db.transaction(async (tx) => {
+      if (!input.enabled) await this.clearOpen(tx, id, actor.id);
+      return tx
+        .update(alarmRule)
+        .set({ ...this.columns(input), version: sql`${alarmRule.version} + 1`, updatedAt: new Date() })
+        .where(eq(alarmRule.id, id))
+        .returning();
+    });
     await this.bump();
     return this.dto(actor, row!);
   }
 
-  /** Deleting a rule clears its open alarms (reason `rule_removed`). */
+  /** Deleting (or disabling) a rule clears its open alarms (reason `rule_removed`). */
   async remove(actor: AuthUser, id: string): Promise<void> {
     const current = await this.find(actor, id);
     this.assertWritable(actor, current);
     await this.db.transaction(async (tx) => {
-      const now = new Date();
-      const cleared = await tx
-        .update(alarm)
-        .set({ status: 'cleared', clearedAt: now, clearReason: 'rule_removed', updatedAt: now })
-        .where(and(eq(alarm.ruleId, id), sql`${alarm.status} <> 'cleared'`))
-        .returning({ id: alarm.id });
-      if (cleared.length) {
-        await tx.insert(alarmEvent).values(cleared.map((a) => ({ alarmId: a.id, type: 'cleared' as const, userId: actor.id, data: { reason: 'rule_removed' }, ts: now })));
-      }
+      await this.clearOpen(tx, id, actor.id);
       await tx.delete(alarmRule).where(eq(alarmRule.id, id));
     });
     await this.bump();
+  }
+
+  private async clearOpen(tx: Pick<DB, 'update' | 'insert'>, ruleId: string, userId: string): Promise<void> {
+    const now = new Date();
+    const cleared = await tx
+      .update(alarm)
+      .set({ status: 'cleared', clearedAt: now, clearReason: 'rule_removed', updatedAt: now })
+      .where(and(eq(alarm.ruleId, ruleId), sql`${alarm.status} <> 'cleared'`))
+      .returning({ id: alarm.id });
+    if (cleared.length) {
+      await tx.insert(alarmEvent).values(cleared.map((a) => ({ alarmId: a.id, type: 'cleared' as const, userId, data: { reason: 'rule_removed' }, ts: now })));
+    }
   }
 
   /** The rules that run for a device (what the engine evaluates). */

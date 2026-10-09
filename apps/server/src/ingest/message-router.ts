@@ -103,8 +103,12 @@ export class MessageRouter {
     await this.presence.touch(deviceId, now);
 
     const keys = [...new Set(result.rows.map((r) => r.key))];
+    const values: Record<string, { ts: number; v: unknown }> = {};
+    for (const r of result.rows) {
+      if (!values[r.key] || r.ts >= values[r.key]!.ts) values[r.key] = { ts: r.ts, v: r.valueNum ?? r.valueStr ?? r.valueBool ?? r.valueJson };
+    }
     await Promise.all([
-      this.events.publish({ type: 'telemetry', deviceId, customerId: meta.customerId, keys, ts: now }),
+      this.events.publish({ type: 'telemetry', deviceId, customerId: meta.customerId, keys, values, ts: now }),
       Object.keys(changed).length
         ? this.redis.publish(`ws:telemetry:${deviceId}`, JSON.stringify({ deviceId, values: changed }))
         : undefined,

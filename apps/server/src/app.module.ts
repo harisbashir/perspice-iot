@@ -64,7 +64,7 @@ export class AppModule {
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
         DashboardsModule,
-        AlarmsModule,
+        AlarmsModule.forRoot({ api: runsRole(role, 'api'), rules: runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler') }),
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         // Not part of `all`: the renderer needs Chromium, which only the renderer image has.
         ReportsModule.forRoot({ api: runsRole(role, 'api'), renderer: role === 'renderer' }),
