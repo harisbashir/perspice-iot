@@ -155,6 +155,7 @@ step "5/8 Starting Perspice"
 if [[ "$BUILD" == "1" ]]; then
   run_or_print docker build -t "ghcr.io/local/perspice-server:$VERSION" -f "$src/deploy/Dockerfile.server" "$src"
   run_or_print docker build -t "ghcr.io/local/perspice-web:$VERSION" -f "$src/deploy/Dockerfile.web" "$src"
+  run_or_print docker build -t "ghcr.io/local/perspice-renderer:$VERSION" -f "$src/deploy/Dockerfile.renderer" "$src"
 else
   run_or_print compose pull --quiet
 fi

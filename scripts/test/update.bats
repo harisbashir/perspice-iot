@@ -6,6 +6,7 @@ setup() {
   setup_home
   install_docker_stub
   write_env 0.1.0
+  export PERSPICE_SRC="$SCRIPTS/.."
 }
 
 @test "refuses to downgrade without --allow-downgrade" {
@@ -20,7 +21,9 @@ setup() {
   grep -q 'pg_dump' "$STUB_LOG"
   grep -q 'run --rm migrate' "$STUB_LOG"
   order="$(grep -o 'up -d --no-deps [a-z]*' "$STUB_LOG" | awk '{print $4}' | paste -sd' ')"
-  [ "$order" = "ingest rules scheduler api caddy" ]
+  [ "$order" = "ingest rules scheduler renderer api caddy" ]
+  grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
+  [ ! -e "$PERSPICE_HOME/docker-compose.yml.previous" ]
   grep -q '^PERSPICE_VERSION=0.2.0$' "$PERSPICE_HOME/.env"
   ls "$PERSPICE_HOME"/backups/pre-update-0.1.0-*.dump
 }
@@ -32,6 +35,8 @@ setup() {
   grep -q 'pg_restore' "$STUB_LOG"
   grep -q 'timescaledb_post_restore' "$STUB_LOG"
   grep -q '^PERSPICE_VERSION=0.1.0$' "$PERSPICE_HOME/.env"
+  # The previous compose file is back.
+  [ ! -s "$PERSPICE_HOME/docker-compose.yml" ]
 }
 
 @test "a failed pull rolls back without restoring the database" {

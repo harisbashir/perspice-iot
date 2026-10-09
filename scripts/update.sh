@@ -61,6 +61,9 @@ MIGRATED=0
 rollback() {
   warn "Update failed; rolling back to $CURRENT."
   env_set PERSPICE_VERSION "$CURRENT"
+  if [[ -f "$PERSPICE_HOME/docker-compose.yml.previous" ]]; then
+    mv "$PERSPICE_HOME/docker-compose.yml.previous" "$PERSPICE_HOME/docker-compose.yml"
+  fi
   if [[ "$MIGRATED" == "1" && -n "$SNAPSHOT" ]]; then
     info "Restoring the pre-update database snapshot $SNAPSHOT"
     db_restore_from "$SNAPSHOT" || warn "Restoring the snapshot failed; restore it manually with: perspice db-restore $SNAPSHOT"
@@ -81,6 +84,9 @@ else
 fi
 
 step "2/5 Pulling $TARGET"
+# New releases can add services (v0.2.0: renderer), so the compose file comes from the target.
+[[ "$DRY_RUN" == "1" ]] || cp "$PERSPICE_HOME/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml.previous"
+run_or_print fetch_deploy_files "$TARGET" || rollback
 [[ "$DRY_RUN" == "1" ]] || env_set PERSPICE_VERSION "$TARGET"
 run_or_print compose pull --quiet || rollback
 
@@ -89,7 +95,7 @@ MIGRATED=1
 run_or_print compose run --rm migrate || rollback
 
 step "4/5 Restarting services"
-for svc in ingest rules scheduler api caddy; do
+for svc in ingest rules scheduler renderer api caddy; do
   run_or_print compose up -d --no-deps "$svc" || rollback
   [[ "$svc" == caddy ]] && continue
   wait_healthy "$svc" 120 || rollback
@@ -99,4 +105,5 @@ done
 step "5/5 Health check"
 run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip || rollback
 
+rm -f "$PERSPICE_HOME/docker-compose.yml.previous"
 ok "Perspice $TARGET is running."
