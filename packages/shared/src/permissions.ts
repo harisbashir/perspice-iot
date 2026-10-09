@@ -19,6 +19,11 @@ export const PERMISSIONS = [
   'notification.read',
   'dashboard.edit',
   'dashboard.customize',
+  'alarm.read',
+  'alarm.ack',
+  'alarm.rule.write',
+  'webhook.manage',
+  'report.schedule',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

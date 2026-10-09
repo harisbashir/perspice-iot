@@ -6,3 +6,4 @@ export * from './api-types.js';
 export * from './palette.js';
 export * from './dashboard.js';
 export * from './exports.js';
+export * from './alarms.js';

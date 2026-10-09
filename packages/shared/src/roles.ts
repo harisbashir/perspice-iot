@@ -46,15 +46,20 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'notification.read',
       'audit.read',
       'dashboard.customize',
+      'alarm.read',
+      'alarm.ack',
+      'alarm.rule.write',
+      'webhook.manage',
+      'report.schedule',
     ],
   },
   customer_operator: {
     scope: 'customer',
-    permissions: ['device.read', 'device.command', 'profile.read', 'telemetry.read', 'export.data', 'notification.read'],
+    permissions: ['device.read', 'device.command', 'profile.read', 'telemetry.read', 'export.data', 'notification.read', 'alarm.read', 'alarm.ack', 'report.schedule'],
   },
   customer_viewer: {
     scope: 'customer',
-    permissions: ['device.read', 'profile.read', 'telemetry.read', 'notification.read'],
+    permissions: ['device.read', 'profile.read', 'telemetry.read', 'notification.read', 'alarm.read'],
   },
 };
 
