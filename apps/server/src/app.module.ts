@@ -65,7 +65,7 @@ export class AppModule {
         EventsModule,
         AwsModule,
         DevicesModule,
-        EmqxModule.forRoot({ api: runsRole(role, 'api') }),
+        EmqxModule.forRoot({ api: runsRole(role, 'api'), emqx: config.MQTT_TRANSPORT === 'emqx' }),
         SchedulerModule,
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),

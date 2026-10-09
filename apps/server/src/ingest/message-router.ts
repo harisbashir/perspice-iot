@@ -20,11 +20,14 @@ import {
   SESSION_EVENTS,
   type SessionEvents,
 } from './ports';
+import { sessionKey } from '../presence/presence.service';
 import { TelemetryStore } from './telemetry-store';
 
 const DEVMETA_TTL_S = 60;
 const MAX_ATTRIBUTES_BYTES = 16 * 1024;
 const SYS_CLIENT_EVENT = /^\$SYS\/brokers\/[^/]+\/clients\/([^/]+)\/(connected|disconnected)$/;
+/** AWS IoT Core lifecycle events (the client id is the thing name, i.e. the device id). */
+const AWS_PRESENCE_EVENT = /^\$aws\/events\/presence\/(connected|disconnected)\/([^/]+)$/;
 
 export interface DeviceMeta {
   customerId: string | null;
@@ -55,6 +58,7 @@ export class MessageRouter {
   async handle(topic: string, payload: Buffer): Promise<void> {
     try {
       if (topic.startsWith('$SYS/')) return await this.handleClientEvent(topic, payload);
+      if (topic.startsWith('$aws/')) return await this.handleAwsPresence(topic, payload);
       const parsed = parseTopic(topic);
       if (!parsed) return;
       const meta = await this.deviceMeta(parsed.deviceId);
@@ -199,6 +203,29 @@ export class MessageRouter {
       await this.sessions.onDisconnected(clientId, connectedAt, event.reason ?? 'unknown');
       await this.debug.push(clientId, { ts: Date.now(), kind: 'disconnect', summary: `MQTT disconnected: ${event.reason ?? 'unknown'}` });
     }
+  }
+
+  private async handleAwsPresence(topic: string, payload: Buffer): Promise<void> {
+    const match = AWS_PRESENCE_EVENT.exec(topic);
+    if (!match) return;
+    const [, kind, clientId] = match as unknown as [string, 'connected' | 'disconnected', string];
+    if (!isUuid(clientId) || !(await this.deviceMeta(clientId))) return;
+    const event = JSON.parse(payload.toString('utf8')) as { timestamp?: number; sessionIdentifier?: string; disconnectReason?: string; ipAddress?: string };
+    // AWS sends one event per connection; its timestamp orders connect/disconnect like EMQX's connected_at.
+    const at = Number(event.timestamp ?? Date.now());
+    if (kind === 'connected') {
+      await this.sessions.onConnected(clientId, at);
+      await this.debug.push(clientId, { ts: Date.now(), kind: 'connect', summary: `AWS IoT connected from ${event.ipAddress ?? '?'}` });
+    } else {
+      // The disconnect carries its own time, which is later than the connect it ends.
+      const connectedAt = Number((await this.sessionStart(clientId)) ?? at);
+      await this.sessions.onDisconnected(clientId, connectedAt, event.disconnectReason ?? 'unknown');
+      await this.debug.push(clientId, { ts: Date.now(), kind: 'disconnect', summary: `AWS IoT disconnected: ${event.disconnectReason ?? 'unknown'}` });
+    }
+  }
+
+  private sessionStart(deviceId: string): Promise<string | null> {
+    return this.redis.get(sessionKey(deviceId));
   }
 
   /** Device → `{customerId, profileId}`, cached 60 s; null for unknown/deleted devices. */

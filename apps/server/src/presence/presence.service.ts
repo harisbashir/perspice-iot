@@ -11,7 +11,7 @@ import { EventBus } from '../events/event-bus';
 import type { PresenceTouch, SessionEvents } from '../ingest/ports';
 
 const statusKey = (id: string) => `status:${id}`;
-const sessionKey = (id: string) => `session:${id}`;
+export const sessionKey = (id: string) => `session:${id}`;
 export const timeoutsKey = (id: string) => `timeouts:${id}`;
 const PENDING_LAST_SEEN = 'presence:pending';
 const TIMEOUTS_TTL_S = 60;

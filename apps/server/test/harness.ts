@@ -140,8 +140,13 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
   const ports: BrokerPorts | undefined = opts.emqx
     ? { api: await freePort(), mqtt: await freePort(), dashboard: await freePort() }
     : undefined;
-  const brokerEnv = ports
-    ? { MQTT_URL: `mqtt://localhost:${ports.mqtt}`, EMQX_API_URL: `http://localhost:${ports.dashboard}` }
+  const brokerEnv: { MQTT_URL?: string; EMQX_API_URL?: string; AWS_IOT_MQTT_URL?: string } = ports
+    ? {
+        MQTT_URL: `mqtt://localhost:${ports.mqtt}`,
+        EMQX_API_URL: `http://localhost:${ports.dashboard}`,
+        // In AWS IoT Core mode, the test broker stands in for the IoT endpoint.
+        ...(opts.overrides?.MQTT_TRANSPORT === 'aws-iot' ? { AWS_IOT_MQTT_URL: `mqtt://perspice-ingest:${INGEST_PASSWORD}@localhost:${ports.mqtt}` } : {}),
+      }
     : {};
   const config = loadConfig({
     ...testEnv(databaseUrl),

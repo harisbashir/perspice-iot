@@ -8,6 +8,9 @@ const INGEST_SUBSCRIBE = [
   `${TOPIC_ROOT}/+/+/+`,
   '$SYS/brokers/+/clients/+/connected',
   '$SYS/brokers/+/clients/+/disconnected',
+  // AWS IoT Core lifecycle topics (only reached through EMQX when it stands in for IoT Core in tests).
+  '$aws/events/presence/connected/+',
+  '$aws/events/presence/disconnected/+',
 ];
 const INGEST_PUBLISH = /^perspice\/v1\/[^/+#]+\/(cmd|config|ota)$/;
 

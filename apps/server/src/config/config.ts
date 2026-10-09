@@ -47,6 +47,8 @@ const ConfigSchema = z.object({
   AWS_IOT_CERT_PATH: z.string().optional(),
   AWS_IOT_KEY_PATH: z.string().optional(),
   AWS_IOT_CA_PATH: z.string().optional(),
+  /** Overrides the ingest connection URL (default mqtts://<endpoint>:8883), e.g. for a VPC endpoint or tests. */
+  AWS_IOT_MQTT_URL: z.string().optional(),
   METRICS_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   STORAGE_LOCAL_PATH: z.string().default('/var/lib/perspice/storage'),
   /** Requests per minute per IP on /auth/login and /auth/forgot. */
