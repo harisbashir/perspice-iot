@@ -28,6 +28,7 @@ import { DocsModule } from './openapi';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
+import { SystemModule } from './system/system.module';
 import { StorageModule } from './storage/storage.module';
 
 export const runsRole = (current: Role, wanted: Exclude<Role, 'all' | 'renderer'>) => current === 'all' || current === wanted;
@@ -49,6 +50,7 @@ export class AppModule {
           },
         }),
         CommonModule,
+        SystemModule.forRoot({ api: runsRole(role, 'api') }),
         RedisModule,
         DbModule,
         SettingsModule,

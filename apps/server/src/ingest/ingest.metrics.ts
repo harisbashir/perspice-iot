@@ -1,29 +1,29 @@
 import { Injectable } from '@nestjs/common';
+import type { Counter, Gauge } from 'prom-client';
+import { MetricsService } from '../system/metrics.service';
 
 export type IngestMetric = 'ingest_messages_total' | 'ingest_rows_total' | 'ingest_buffer_length';
 
-/** In-process counters; exposed by the observability endpoint. */
+/** Ingest counters, exported as `perspice_<name>` on /metrics. */
 @Injectable()
 export class IngestMetrics {
-  private readonly values = new Map<string, number>();
+  private readonly counters: Record<'ingest_messages_total' | 'ingest_rows_total', Counter>;
+  private readonly bufferLength: Gauge;
+
+  constructor(metrics: MetricsService) {
+    this.counters = {
+      ingest_messages_total: metrics.counter('perspice_ingest_messages_total', 'Device messages received, by result', ['result']),
+      ingest_rows_total: metrics.counter('perspice_ingest_rows_total', 'Telemetry rows written'),
+    };
+    this.bufferLength = metrics.gauge('perspice_ingest_buffer_length', 'Telemetry rows waiting in the Redis failover buffer');
+  }
 
   inc(name: IngestMetric, by = 1, labels: Record<string, string> = {}): void {
-    const key = this.key(name, labels);
-    this.values.set(key, (this.values.get(key) ?? 0) + by);
+    if (name === 'ingest_buffer_length') this.bufferLength.inc(by);
+    else this.counters[name].inc(labels, by);
   }
 
-  set(name: IngestMetric, value: number, labels: Record<string, string> = {}): void {
-    this.values.set(this.key(name, labels), value);
-  }
-
-  snapshot(): Record<string, number> {
-    return Object.fromEntries(this.values);
-  }
-
-  private key(name: string, labels: Record<string, string>): string {
-    const l = Object.entries(labels)
-      .map(([k, v]) => `${k}="${v}"`)
-      .join(',');
-    return l ? `${name}{${l}}` : name;
+  set(name: IngestMetric, value: number): void {
+    if (name === 'ingest_buffer_length') this.bufferLength.set(value);
   }
 }

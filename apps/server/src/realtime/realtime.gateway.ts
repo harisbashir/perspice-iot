@@ -20,6 +20,7 @@ import { isUuid, scoped } from '../db/scoped-repo';
 import { device } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 import { ScopeService } from '../rbac/scope';
+import { MetricsService } from '../system/metrics.service';
 
 type AuthedSocket = Socket & { data: { user: AuthUser } };
 
@@ -42,9 +43,11 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
     private readonly devices: DevicesService,
     private readonly scopes: ScopeService,
     @Inject(DB) private readonly db: DB,
+    private readonly metrics: MetricsService,
   ) {}
 
   afterInit(server: Namespace): void {
+    this.metrics.gauge('perspice_websocket_clients', 'Connected browser sessions on this instance', [], (g) => g.set(server.sockets.size));
     server.use((socket, next) => {
       void this.authenticate(socket).then(
         (user) => {
