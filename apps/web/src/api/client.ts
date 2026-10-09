@@ -1,5 +1,8 @@
 import { ErrorCode, type MeResponse, type Problem } from '@perspice/shared';
 
+/** Fired on window when the API answers 503 MAINTENANCE. */
+export const MAINTENANCE_EVENT = 'perspice:maintenance';
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -83,14 +86,17 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   const url = new URL(apiUrl(path));
   for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   const isForm = opts.body instanceof FormData;
+  // Files and other blobs (e.g. a backup to restore) go as raw bytes.
+  const isBlob = opts.body instanceof Blob;
   const headers: Record<string, string> = {};
   if (accessToken) headers.authorization = `Bearer ${accessToken}`;
-  if (opts.body !== undefined && !isForm) headers['content-type'] = 'application/json';
+  if (isBlob) headers['content-type'] = 'application/octet-stream';
+  else if (opts.body !== undefined && !isForm) headers['content-type'] = 'application/json';
   return fetch(url, {
     method: opts.method ?? (opts.body === undefined ? 'GET' : 'POST'),
     headers,
     credentials: 'include',
-    body: opts.body === undefined ? undefined : isForm ? (opts.body as FormData) : JSON.stringify(opts.body),
+    body: opts.body === undefined ? undefined : isForm || isBlob ? (opts.body as FormData | Blob) : JSON.stringify(opts.body),
     signal: opts.signal,
   });
 }
@@ -101,7 +107,12 @@ export async function apiResponse(path: string, opts: RequestOptions = {}): Prom
   if (res.status === 401 && !path.startsWith('/auth/')) {
     if (await refreshSession()) res = await send(path, opts);
   }
-  if (!res.ok) throw await toError(res);
+  if (!res.ok) {
+    const err = await toError(res);
+    // A restore is running: let the app show its maintenance banner.
+    if (err.code === ErrorCode.MAINTENANCE) window.dispatchEvent(new CustomEvent(MAINTENANCE_EVENT));
+    throw err;
+  }
   return res;
 }
 

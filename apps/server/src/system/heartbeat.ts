@@ -15,6 +15,7 @@ export class Heartbeat implements OnApplicationBootstrap, OnApplicationShutdown 
   readonly instance = `${hostname()}-${process.pid}`;
   private readonly startedAt = Date.now();
   private timer?: NodeJS.Timeout;
+  private readonly fields = new Map<string, () => number>();
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
@@ -25,8 +26,14 @@ export class Heartbeat implements OnApplicationBootstrap, OnApplicationShutdown 
     return `${HEARTBEAT_PREFIX}${this.config.PERSPICE_ROLE}:${this.instance}`;
   }
 
+  /** Adds a live number to this process's heartbeat (e.g. WebSocket clients). */
+  field(name: string, value: () => number): void {
+    this.fields.set(name, value);
+  }
+
   async beat(): Promise<void> {
-    const info = { role: this.config.PERSPICE_ROLE, instance: this.instance, version: appVersion(), startedAt: this.startedAt, lastSeen: Date.now() };
+    const extra = Object.fromEntries([...this.fields].map(([k, f]) => [k, f()]));
+    const info = { role: this.config.PERSPICE_ROLE, instance: this.instance, version: appVersion(), startedAt: this.startedAt, lastSeen: Date.now(), ...extra };
     await this.redis.set(this.key, JSON.stringify(info), 'EX', TTL_S);
   }
 

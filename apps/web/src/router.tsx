@@ -10,6 +10,7 @@ import { AlarmDetailPage, AlarmsPage } from './alarms/AlarmPages';
 import { AlarmRulesPage } from './alarms/AlarmRulesPage';
 import { ExportPage, ExportsPage } from './exports/ExportsPage';
 import { ReportSchedulesPage } from './pages/reports/ReportSchedulesPage';
+import { SystemPage } from './pages/system/SystemPage';
 import { AuditPage } from './pages/audit/AuditPage';
 import { DeviceDashboardEditPage } from './pages/devices/DeviceDashboardEditPage';
 import { DeviceDetailPage } from './pages/devices/DeviceDetailPage';
@@ -54,6 +55,7 @@ export const routes: RouteObject[] = [
       { path: 'alarms', element: <RequirePermission perm="alarm.read"><AlarmsPage /></RequirePermission> },
       { path: 'alarms/:id', element: <RequirePermission perm="alarm.read"><AlarmDetailPage /></RequirePermission> },
       { path: 'alarm-rules', element: <RequirePermission perm="alarm.read"><AlarmRulesPage /></RequirePermission> },
+      { path: 'system', element: <RequirePermission perm="system.settings"><SystemPage /></RequirePermission> },
       { path: 'reports', element: <RequirePermission perm="report.schedule"><ReportSchedulesPage /></RequirePermission> },
       { path: 'exports', element: <RequirePermission perm="export.data"><ExportsPage /></RequirePermission> },
       { path: 'exports/:id', element: <RequirePermission perm="export.data"><ExportPage /></RequirePermission> },
