@@ -8,6 +8,7 @@ import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
 import { dashboardInstance, dashboardTemplate, deviceProfile } from '../db/schema';
 import { backfillInstances } from './assignment';
+import { generateDeviceDefinition } from './defaults';
 import { remapKeys } from './key-mapping';
 
 type TemplateRow = typeof dashboardTemplate.$inferSelect;
@@ -166,6 +167,22 @@ export class TemplatesService {
     }
     await this.db.update(deviceProfile).set({ defaultDashboardTemplateId: templateId }).where(eq(deviceProfile.id, profileId));
     if (templateId) await backfillInstances(this.db, profileId, templateId);
+  }
+
+  /** Creates "<profile> dashboard" from the profile's keys and commands and makes it the default. */
+  async generateForProfile(actor: AuthUser, profileId: string): Promise<TemplateDto> {
+    platformOnly(actor);
+    if (!isUuid(profileId)) throw notFound();
+    const profile = await this.db.query.deviceProfile.findFirst({ where: eq(deviceProfile.id, profileId) });
+    if (!profile) throw notFound();
+    const tpl = await this.create(actor, {
+      name: `${profile.name} dashboard`,
+      kind: 'device',
+      profileId,
+      definition: generateDeviceDefinition(profile),
+    });
+    await this.setProfileDefault(actor, profileId, tpl.id);
+    return tpl;
   }
 
   private visible(actor: AuthUser) {

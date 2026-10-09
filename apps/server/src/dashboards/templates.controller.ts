@@ -79,6 +79,13 @@ export class TemplatesController {
     return this.templates.export(actor, id);
   }
 
+  @Post('device-profiles/:id/generate-dashboard')
+  @Require('dashboard.edit')
+  @Audited('dashboard_template.generate', 'dashboard_template')
+  generate(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.templates.generateForProfile(actor, id);
+  }
+
   @Put('device-profiles/:id/default-dashboard')
   @Require('dashboard.edit')
   @Audited('profile.default_dashboard', 'device_profile', { targetIdFrom: 'param' })

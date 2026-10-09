@@ -1,0 +1,61 @@
+import { DashboardDefinitionSchema, type DeviceProfileDto } from '@perspice/shared';
+import { describe, expect, it } from 'vitest';
+import { generateDeviceDefinition, overviewDefinition } from '../../src/dashboards/defaults';
+
+const profile: Pick<DeviceProfileDto, 'telemetrySchema' | 'commands'> = {
+  telemetrySchema: [
+    { key: 'fuel_level', label: 'Fuel', unit: '%', type: 'number', decimals: 1 },
+    { key: 'mains_v', label: 'Mains', unit: 'V', type: 'number' },
+    { key: 'gen_running', label: 'Generator', type: 'boolean' },
+    { key: 'state', label: 'State', type: 'string' },
+  ],
+  commands: [
+    { name: 'gen_start', label: 'Start generator', confirm: true },
+    { name: 'gen_stop', label: 'Stop generator', confirm: true },
+  ],
+};
+
+describe('default dashboards', () => {
+  it('generates a valid device dashboard covering every key and command', () => {
+    const def = generateDeviceDefinition(profile);
+    expect(DashboardDefinitionSchema.safeParse(def).success).toBe(true);
+    const widgets = def.states[0]!.widgets;
+    const types = widgets.map((w) => w.type);
+    expect(types.filter((t) => t === 'value-card')).toHaveLength(3); // two numbers + one string
+    expect(types).toContain('led');
+    expect(widgets.find((w) => w.type === 'line-chart')?.datasource).toEqual({ kind: 'currentDevice', keys: ['fuel_level', 'mains_v'] });
+    expect(widgets.filter((w) => w.type === 'command-button').map((w) => w.settings.command)).toEqual(['gen_start', 'gen_stop']);
+    expect(widgets.find((w) => w.type === 'latest-table')).toBeDefined();
+  });
+
+  it('places widgets without overlaps inside the grid', () => {
+    const { layout } = generateDeviceDefinition(profile).states[0]!;
+    for (const a of layout) {
+      for (const b of layout) {
+        if (a === b) continue;
+        const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+        expect(overlap, `${a.i} overlaps ${b.i}`).toBe(false);
+      }
+    }
+  });
+
+  it('handles a profile with no keys or commands', () => {
+    const def = generateDeviceDefinition({ telemetrySchema: [], commands: [] });
+    expect(DashboardDefinitionSchema.safeParse(def).success).toBe(true);
+  });
+
+  it('builds the overview with KPI tiles and a device table', () => {
+    const def = overviewDefinition();
+    expect(DashboardDefinitionSchema.safeParse(def).success).toBe(true);
+    const widgets = def.states[0]!.widgets;
+    expect(widgets.filter((w) => w.type === 'kpi').map((w) => w.settings.metric)).toEqual([
+      'total',
+      'online',
+      'offline',
+      'dead',
+      'never',
+      'messages24h',
+    ]);
+    expect(widgets.find((w) => w.type === 'entity-table')?.datasource).toMatchObject({ kind: 'entityList', columns: ['status', 'name', 'profile', 'customer', 'lastSeen'] });
+  });
+});

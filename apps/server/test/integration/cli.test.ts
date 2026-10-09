@@ -4,7 +4,7 @@ import { runCli } from '../../src/cli';
 import { setupOpenApi } from '../../src/openapi';
 import { tokenFor } from '../auth-helpers';
 import { createUser } from '../factories';
-import { deviceProfile, emailTemplate, role, systemSetting, user } from '../../src/db/schema';
+import { dashboardTemplate, deviceProfile, emailTemplate, role, systemSetting, user } from '../../src/db/schema';
 import { type TestApp, createTestApp, testEnv } from '../harness';
 
 async function cli(t: TestApp, ...args: string[]) {
@@ -45,6 +45,10 @@ describe('cli', () => {
     const rms = profiles.find((p) => p.name === 'Telecom RMS')!;
     expect(rms.commands.map((c) => c.name)).toEqual(['gen_start', 'gen_stop']);
     expect(rms.statusNotify).toMatchObject({ enabled: true, roleKeys: ['customer_admin', 'platform_admin'] });
+    const dashboards = await t.db.select().from(dashboardTemplate);
+    expect(dashboards.filter((d) => d.kind === 'overview' && d.builtIn)).toHaveLength(1);
+    expect(profiles.filter((p) => p.defaultDashboardTemplateId)).toHaveLength(2);
+    expect(dashboards.filter((d) => d.kind === 'device')).toHaveLength(2);
     const templates = await t.db.select().from(emailTemplate).where(isNull(emailTemplate.customerId));
     expect(templates.length).toBeGreaterThanOrEqual(7);
     expect(new Set(templates.map((x) => x.key)).size).toBe(templates.length);

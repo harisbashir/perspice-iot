@@ -111,4 +111,17 @@ describe('dashboard templates', () => {
     const list = await t.http.get('/api/dashboard-templates').set('Authorization', cAuth);
     expect(list.body).toEqual([]);
   });
+
+  it('generates a dashboard from a profile and makes it the default', async () => {
+    const profile = await createProfile(t.db, {
+      name: 'Gen',
+      telemetrySchema: [{ key: 'fuel_level', label: 'Fuel', type: 'number' }],
+      commands: [{ name: 'gen_start', label: 'Start', confirm: true }],
+    });
+    const res = await t.http.post(`/api/device-profiles/${profile.id}/generate-dashboard`).set('Authorization', auth);
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: 'Gen dashboard', kind: 'device', profileId: profile.id });
+    const row = await t.db.query.deviceProfile.findFirst({ where: eq(deviceProfile.id, profile.id) });
+    expect(row?.defaultDashboardTemplateId).toBe(res.body.id);
+  });
 });
