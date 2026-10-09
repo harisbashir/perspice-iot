@@ -42,6 +42,7 @@ const profile: DeviceProfileDto = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: [], channels: [] },
+  defaultDashboardTemplateId: null,
   createdAt: '',
   updatedAt: '',
 };

@@ -2,6 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { LazyDashboardView as DashboardView } from '@/dashboards/LazyDashboardView';
+import { DeviceDashboardToolbar, OutdatedBanner } from '@/dashboards/DeviceDashboardToolbar';
 import { useDeviceDashboard } from '@/dashboards/hooks';
 import { PageHeader } from '@/components/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,7 +56,14 @@ export function DeviceDetailPage() {
         </TabsList>
         {view && (
           <TabsContent value="dashboard">
-            <DashboardView definition={view.definition} device={device} profile={profile ?? null} />
+            <OutdatedBanner view={view} />
+            <DashboardView
+              key={`${view.instanceId}-${view.templateVersion}-${view.overridden}`}
+              definition={view.definition}
+              device={device}
+              profile={profile ?? null}
+              toolbar={<DeviceDashboardToolbar deviceId={device.id} view={view} />}
+            />
           </TabsContent>
         )}
         <TabsContent value="overview">

@@ -7,7 +7,10 @@ import { ResetPage } from './auth/ResetPage';
 import { AppShell } from './layout/AppShell';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AuditPage } from './pages/audit/AuditPage';
+import { DeviceDashboardEditPage } from './pages/devices/DeviceDashboardEditPage';
 import { DeviceDetailPage } from './pages/devices/DeviceDetailPage';
+import { TemplateEditorPage } from './pages/dashboards/TemplateEditorPage';
+import { TemplatesPage } from './pages/dashboards/TemplatesPage';
 import { DevicesPage } from './pages/devices/DevicesPage';
 import { OverviewPage } from './pages/overview/OverviewPage';
 import { ProfileEditor } from './pages/profiles/ProfileEditor';
@@ -33,6 +36,9 @@ export const routes: RouteObject[] = [
       { index: true, element: <OverviewPage /> },
       { path: 'devices', element: <RequirePermission perm="device.read"><DevicesPage /></RequirePermission> },
       { path: 'devices/:id', element: <RequirePermission perm="device.read"><DeviceDetailPage /></RequirePermission> },
+      { path: 'devices/:id/dashboard/edit', element: <RequirePermission perm="dashboard.customize"><DeviceDashboardEditPage /></RequirePermission> },
+      { path: 'dashboards', element: <RequirePermission perm="dashboard.edit"><TemplatesPage /></RequirePermission> },
+      { path: 'dashboards/:templateId/edit', element: <RequirePermission perm="dashboard.edit"><TemplateEditorPage /></RequirePermission> },
       { path: 'profiles', element: <RequirePermission perm="profile.read"><ProfilesPage /></RequirePermission> },
       { path: 'profiles/:id', element: <RequirePermission perm="profile.write"><ProfileEditor /></RequirePermission> },
       { path: 'customers', element: <RequirePermission perm="customer.read"><CustomersPage /></RequirePermission> },

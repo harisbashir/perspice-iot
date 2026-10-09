@@ -25,6 +25,7 @@ export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   transport: p.transport,
   retentionDays: p.retentionDays,
   statusNotify: p.statusNotify,
+  defaultDashboardTemplateId: p.defaultDashboardTemplateId,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
 });

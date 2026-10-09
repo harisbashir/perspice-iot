@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { z } from 'zod';
 import { readMeta } from './fields';
 
@@ -20,14 +20,13 @@ export interface AutoFormProps<T extends Record<string, unknown>> {
 
 /**
  * Renders a settings form from a widget's zod schema. Changes are emitted only when the whole
- * object is valid; field errors show the zod message.
+ * object is valid; field errors show the zod message. The form keeps its own draft (so a field
+ * can be cleared while typing); remount it with a `key` to load different settings.
  */
 export function AutoForm<T extends Record<string, unknown>>({ schema, value, onChange, keys = [] }: AutoFormProps<T>) {
   const [draft, setDraft] = useState<Record<string, unknown>>(value);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const base = useId();
-
-  useEffect(() => setDraft(value), [value]);
 
   function update(name: string, v: unknown) {
     const next = { ...draft, [name]: v };

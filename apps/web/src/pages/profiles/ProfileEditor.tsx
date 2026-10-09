@@ -13,7 +13,7 @@ import { useProfile } from '../devices/hooks';
 import { CommandsEditor } from './CommandsEditor';
 import { TelemetryKeysEditor } from './TelemetryKeysEditor';
 
-type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt'>;
+type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt' | 'defaultDashboardTemplateId'>;
 
 const EMPTY: Draft = {
   name: '',
@@ -45,7 +45,7 @@ export function ProfileEditor() {
 
   useEffect(() => {
     if (data) {
-      const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
+      const { id: _id, createdAt: _c, updatedAt: _u, defaultDashboardTemplateId: _d, ...rest } = data;
       setDraft(rest);
     }
   }, [data]);

@@ -65,6 +65,7 @@ export interface DeviceProfileDto {
   transport: 'mqtt' | 'http';
   retentionDays: number;
   statusNotify: StatusNotifyConfig;
+  defaultDashboardTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
 }
