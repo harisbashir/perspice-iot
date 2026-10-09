@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Upgrades an installation to a new release with a pre-update database snapshot and automatic
-# rollback if the new version does not come up healthy.
+# Upgrades an installation to a new release: a full backup (v0.4.0 and later) and a database
+# snapshot first, and automatic rollback if the new version does not come up healthy.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -72,7 +72,32 @@ rollback() {
   die "Update to $TARGET failed and was rolled back to $CURRENT. Details: $LOG" 1
 }
 
-step "1/5 Database snapshot"
+step "1/5 Backup and database snapshot"
+# Backups (v0.4.0) need a passphrase; older installs get one now. Services pick it up on restart.
+if [[ -z "$(env_get BACKUP_PASSPHRASE)" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print env_set BACKUP_PASSPHRASE "<generated>"
+  else
+    env_set BACKUP_PASSPHRASE "$(gen_secret 32)"
+    warn "Generated BACKUP_PASSPHRASE in $PERSPICE_HOME/.env. Keep a copy elsewhere: backups can't be read without it."
+  fi
+fi
+# A full backup (database and files, encrypted) when the running version can make one.
+if ! version_gt 0.4.0 "$CURRENT"; then
+  BACKUP="$PERSPICE_HOME/backups/pre-update-${CURRENT}-$(date -u +%Y%m%dT%H%M%SZ).pbk"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print backup "→ $BACKUP"
+  else
+    if ! compose exec -T api node dist/cli.js backup --out - >"$BACKUP" || [[ ! -s "$BACKUP" ]]; then
+      rm -f "$BACKUP"
+      die "Backup failed; nothing was changed."
+    fi
+    chmod 600 "$BACKUP"
+    find "$PERSPICE_HOME/backups" -name 'pre-update-*.pbk' ! -path "$BACKUP" -delete
+    ok "$BACKUP"
+  fi
+fi
+# The snapshot is what an automatic rollback restores (it doesn't need the new version running).
 SNAPSHOT="$PERSPICE_HOME/backups/pre-update-${CURRENT}-$(date -u +%Y%m%dT%H%M%SZ).dump"
 if [[ "$DRY_RUN" == "1" ]]; then
   run_or_print pg_dump "→ $SNAPSHOT"

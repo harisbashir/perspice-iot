@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-09
+
+Operations (sub-project 4).
+
+### Added
+
+- **Backups**: encrypted (AES-256-GCM, key from `BACKUP_PASSPHRASE`) archives of the database
+  and stored files with a checksummed manifest; on demand or daily at a set time and timezone;
+  written under a temporary name, verified and only then replacing the single kept backup; a
+  failed backup keeps the previous one and alerts platform admins. `perspice backup [file]`.
+- **Restore** from the System page or `perspice restore <file>`: the archive is checked
+  (passphrase, checksums, version, `MASTER_KEY`) before anything changes, then restored in
+  maintenance mode (API answers 503, the web shows a banner) into a side database that replaces
+  the live one only on success; files are replaced and migrations run forward.
+- **System page**: processes and their heartbeats, missing roles, message rate, connected
+  devices, browser sessions, queues, database and storage size, backups and restore.
+- **Prometheus metrics** on `/metrics` in every process (ingest results and rows, devices by
+  status, open alarms, queues, websocket sessions, deliveries, Node.js process metrics) and an
+  optional `monitoring` profile with Prometheus and a provisioned Grafana dashboard.
+- **S3 storage** (`STORAGE_DRIVER=s3`, also S3-compatible services), with downloads through
+  short-lived links signed by the API.
+- **AWS IoT Core** as the device transport (`MQTT_TRANSPORT=aws-iot`): a thing and certificate
+  per device (shown once, private key not kept), rotation on regenerate, removal on delete, a
+  per-device policy; ingest over mutual TLS with lifecycle events for presence; commands through
+  the data plane. `install.sh --mqtt=aws-iot --storage=s3`, `docker-compose.aws.yml` and
+  `cli aws-iot-setup`; `DATABASE_URL` and `REDIS_URL` can point at managed services.
+- **Load test** (`scripts/test.sh --load`): 10,000 simulated devices at one message every 10 s
+  on a stack sharing 4 cores and 8 GB, checking rate, loss and latency. Result: 999.8 messages/s,
+  none lost, p95 692 ms (`docs/load-test.md`).
+- Docs: `backups.md`, `monitoring.md`, `aws.md`, `load-test.md`.
+
+### Changed
+
+- Ingest, Redis and PostgreSQL work per message cut for the load test: telemetry batches via
+  `unnest()`, device ACLs returned at authentication, Redis auto-pipelining and AOF-only
+  persistence, telemetry events on their own stream, `last_seen` and stored latest values
+  refreshed once they lag (Redis keeps the exact values). Platform services use an internal EMQX
+  listener with deep session queues, so a slow moment doesn't drop messages.
+- The server image includes the PostgreSQL 16 client tools (`pg_dump`, `pg_restore`).
+- `install.sh` generates `BACKUP_PASSPHRASE`; `update.sh` adds it to existing installs and takes
+  a full backup before updating (from v0.4.0 on), besides the database snapshot used for rollback.
+- The simulator creates devices in parallel, paces connections, reports per minute and writes a
+  JSON summary.
+
 ## [0.3.0] - 2026-10-09
 
 Alarms and notifications (sub-project 3).

@@ -1,5 +1,9 @@
 # End-to-end test overrides: alternate host ports; Mailpit's API on 18025.
 services:
+  # The suite signs the same users in many times a minute; the default limit (10) would lock them out.
+  api:
+    environment:
+      AUTH_RATE_LIMIT_PER_MIN: '120'
   caddy:
     ports: !override
       - '18080:80'

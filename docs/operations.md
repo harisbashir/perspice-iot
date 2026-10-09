@@ -10,6 +10,8 @@ The `perspice` command wraps Docker Compose for that directory.
 | `perspice restart [service]` | restart all or one service |
 | `perspice version` | installed version |
 | `perspice cli <command>` | server CLI: `create-admin`, `health --mqtt-roundtrip`, `configure-smtp`, `seed`, … |
+| `perspice backup [file]` | full encrypted backup (database and files) to `backups/` or `file` ([backups.md](backups.md)) |
+| `perspice restore <file>` | restore a full backup (maintenance mode meanwhile) |
 | `perspice db-snapshot [file]` | dump the database to `backups/` |
 | `perspice db-restore <file>` | restore a dump (app services stop meanwhile) |
 | `perspice update [--version vX.Y.Z]` | upgrade (see below) |
@@ -23,7 +25,10 @@ sudo perspice update --version v0.2.0
 The update:
 
 1. refuses downgrades (unless `--allow-downgrade`);
-2. snapshots the database to `backups/pre-update-<old version>-<time>.dump` (only the newest is kept);
+2. adds `BACKUP_PASSPHRASE` to `.env` if it's missing (keep a copy elsewhere), takes a full backup
+   to `backups/pre-update-<old version>-<time>.pbk` when the running version is v0.4.0 or later, and
+   snapshots the database to `backups/pre-update-<old version>-<time>.dump` for the automatic
+   rollback (only the newest of each is kept);
 3. installs the release's deployment files (`docker-compose.yml`, EMQX and cert-sync config), so
    services added by a release (v0.2.0: `renderer`) appear, then pulls the new images and runs
    migrations;
@@ -33,10 +38,12 @@ The update:
 If any step fails it switches back to the previous version (and compose file) and, if migrations
 had run, restores the snapshot. Details go to `/opt/perspice/update.log`.
 
-## Restores
+## Backups and restores
 
-Restores go into a fresh database (with TimescaleDB's pre/post-restore steps) that replaces the
-live one only after `pg_restore` succeeds, so a failed restore leaves the current data in place.
+See [backups.md](backups.md): scheduled and on-demand encrypted backups from **System**, and
+restores from the page or `perspice restore`. Restores (of backups and of `db-snapshot` dumps) go
+into a fresh database (with TimescaleDB's pre/post-restore steps) that replaces the live one only
+after `pg_restore` succeeds, so a failed restore leaves the current data in place.
 
 ## Processes
 
@@ -47,7 +54,7 @@ One image runs in several roles (`PERSPICE_ROLE`):
 | `api` | HTTP API, WebSocket updates, EMQX auth/ACL hooks, command publishing |
 | `ingest` | consumes device MQTT traffic (shared subscription), writes telemetry |
 | `rules` | alarm rule evaluation, device status notifications, webhooks for status changes |
-| `scheduler` | offline/dead sweep, command timeouts, last-seen write-back, large exports, export cleanup, alarm timers (duration, no data), notification digests, scheduled reports (one instance runs each job) |
+| `scheduler` | backups and restores, offline/dead sweep, command timeouts, last-seen write-back, large exports, export cleanup, alarm timers (duration, no data), notification digests, scheduled reports (one instance runs each job) |
 | `renderer` | dashboard PDF reports with headless Chromium (own image, `perspice-renderer`) |
 
 `all` (the default outside Compose) runs every role except `renderer`, which needs the
@@ -86,9 +93,15 @@ Chromium image.
 - `GET /health`: process is up (`{status, role, version}`)
 - `GET /ready`: database and Redis reachable (503 lists failing dependencies)
 - `perspice cli health --mqtt-roundtrip`: end-to-end ingest check
+- **System** page and Prometheus `/metrics`: see [monitoring.md](monitoring.md)
 
 ## Tests
 
 `scripts/test.sh` runs unit, integration (Testcontainers) and end-to-end (Playwright in Docker)
 suites; `--live https://iot.example.com` smoke-tests a running install with
-`PERSPICE_LIVE_ADMIN_TOKEN` set to an API key; `--load` runs the simulator.
+`PERSPICE_LIVE_ADMIN_TOKEN` set to an API key; `--load` runs the 10,000-device load test
+([load-test.md](load-test.md)).
+
+## Running on AWS
+
+S3 storage and AWS IoT Core: see [aws.md](aws.md).

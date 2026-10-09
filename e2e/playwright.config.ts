@@ -19,6 +19,8 @@ export default defineConfig({
     // Builds on the state the core flow leaves behind; `--project=dashboards` runs core first.
     { name: 'dashboards', testMatch: 'dashboards.spec.ts', dependencies: ['core'] },
     { name: 'alarms', testMatch: 'alarms.spec.ts', dependencies: ['dashboards'] },
+    // Restores a backup, so it runs after everything else that shares the stack.
+    { name: 'operations', testMatch: 'operations.spec.ts', dependencies: ['alarms'] },
     { name: 'live', testMatch: 'live.spec.ts' },
   ],
 });

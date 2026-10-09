@@ -13,7 +13,7 @@ setup() {
   [[ "$output" == *"Install Docker"* ]]
   [[ "$output" == *"[dry-run] apt-get install"* ]]
   [ "$(stat -c %a "$PERSPICE_HOME/.env")" = "600" ]
-  for key in POSTGRES_PASSWORD JWT_SECRET MASTER_KEY INTERNAL_SECRET MQTT_INGEST_PASSWORD EMQX_API_SECRET EMQX_DASHBOARD_PASSWORD; do
+  for key in POSTGRES_PASSWORD JWT_SECRET MASTER_KEY INTERNAL_SECRET MQTT_INGEST_PASSWORD EMQX_API_SECRET EMQX_DASHBOARD_PASSWORD BACKUP_PASSPHRASE; do
     value="$(sed -n "s/^${key}=//p" "$PERSPICE_HOME/.env")"
     [ -n "$value" ] || { echo "missing $key"; false; }
   done

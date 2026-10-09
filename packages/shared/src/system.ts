@@ -44,6 +44,8 @@ function parseVersion(v: string): [number, number, number] | null {
 
 /** A backup restores into the same major version when it is not newer; older ones run migrations. */
 export function isCompatibleBackup(backup: string, current: string): { ok: true; migrate: boolean } | { ok: false; reason: string } {
+  // The same build is always compatible, also with a non-release version (e.g. a test image tag).
+  if (backup === current) return { ok: true, migrate: false };
   const b = parseVersion(backup);
   const c = parseVersion(current);
   if (!b || !c) return { ok: false, reason: `Unrecognised version "${backup}"` };

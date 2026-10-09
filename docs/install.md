@@ -68,7 +68,11 @@ uses a temporary self-signed certificate.
 For a single wildcard certificate via DNS-01 (Cloudflare, Route 53), build `deploy/Dockerfile.caddy`
 and use `deploy/caddy/Caddyfile.dns`.
 
-## Back up the master key
+## Back up the master key and backup passphrase
 
-`MASTER_KEY` in `/opt/perspice/.env` encrypts stored secrets (SMTP passwords, TOTP secrets).
-Keep a copy of `.env` somewhere safe; without it a database backup cannot be fully restored.
+`MASTER_KEY` in `/opt/perspice/.env` encrypts stored secrets (SMTP passwords, TOTP secrets), and
+`BACKUP_PASSPHRASE` encrypts backups. Keep a copy of `.env` somewhere other than the server:
+without them a backup can't be read or fully restored. Then schedule backups under
+**System → Backups** ([backups.md](backups.md)).
+
+Optional: Prometheus and Grafana ([monitoring.md](monitoring.md)).

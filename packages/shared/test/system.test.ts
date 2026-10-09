@@ -14,5 +14,8 @@ describe('operations contracts', () => {
     expect(isCompatibleBackup('1.0.0', '0.4.0')).toMatchObject({ ok: false });
     expect(isCompatibleBackup('0.4.1', '0.4.0')).toMatchObject({ ok: false });
     expect(isCompatibleBackup('dev', '0.4.0')).toMatchObject({ ok: false });
+    // The same build restores its own backups, whatever its version string.
+    expect(isCompatibleBackup('e2e', 'e2e')).toEqual({ ok: true, migrate: false });
+    expect(isCompatibleBackup('e2e', '0.4.0')).toMatchObject({ ok: false });
   });
 });

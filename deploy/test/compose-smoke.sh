@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of the Compose stack: build images, start everything, create an admin
-# and a device, publish one MQTT message and read it back through the API.
+# and a device, publish one MQTT message and read it back through the API, render a report, check
+# Prometheus, and back up and restore.
 # Usage: deploy/test/compose-smoke.sh   (run from anywhere; needs docker and python3)
 # KEEP_STACK=1 leaves the stack running; SMOKE_OUT=<dir> keeps the rendered report PDF.
 set -euo pipefail
@@ -45,6 +46,7 @@ EMQX_API_KEY=perspice
 EMQX_API_SECRET=$(secret 24)
 EMQX_DASHBOARD_PASSWORD=$(secret 24)
 MQTT_PLAIN_ENABLED=true
+BACKUP_PASSPHRASE=$(secret 32)
 ENV
 
 log "Starting the stack"
@@ -126,5 +128,14 @@ for _ in $(seq 1 30); do
   sleep 3
 done
 [[ "$up" == "['api', 'ingest', 'renderer', 'rules', 'scheduler']" ]] || fail "Prometheus targets: $up"
+
+log "Backing up, deleting the device and restoring the backup"
+"${COMPOSE[@]}" exec -T api node dist/cli.js backup --out - >"$WORK/backup.pbk" || fail "backup"
+[[ "$(head -c 6 "$WORK/backup.pbk")" == "PSPBK1" ]] || fail "backup is not a Perspice backup"
+api "${auth[@]}" -X DELETE "$BASE/api/devices/$device_id" >/dev/null || fail "delete device"
+"${COMPOSE[@]}" exec -T api node dist/cli.js restore - <"$WORK/backup.pbk" || fail "restore"
+api "${auth[@]}" "$BASE/api/devices/$device_id" | grep -q '"name":"smoke-1"' || fail "device not back after restore"
+latest="$(api "${auth[@]}" "$BASE/api/devices/$device_id/telemetry/latest")"
+[[ "$latest" == *'"v":21.5'* ]] || fail "telemetry not restored: $latest"
 
 echo "SMOKE OK"
