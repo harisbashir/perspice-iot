@@ -18,6 +18,7 @@ import { StatusBadge } from './StatusBadge';
 import { timeAgo } from './format';
 import { useDevice, useProfile } from './hooks';
 import { ReportButton } from '@/exports/ReportButton';
+import { DeviceAlarmsTab } from '@/alarms/DeviceAlarmsTab';
 
 // ECharts is large; load it only when the History tab is opened.
 const HistoryChart = lazy(() => import('./HistoryChart').then((m) => ({ default: m.HistoryChart })));
@@ -49,6 +50,7 @@ export function DeviceDetailPage() {
         <TabsList className="flex-wrap">
           {view && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          {hasPerm('alarm.read') && <TabsTrigger value="alarms">Alarms</TabsTrigger>}
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
           <TabsTrigger value="attributes">Attributes</TabsTrigger>
@@ -91,6 +93,9 @@ export function DeviceDetailPage() {
         </TabsContent>
         <TabsContent value="debug">
           <DebugPanel deviceId={device.id} />
+        </TabsContent>
+        <TabsContent value="alarms">
+          <DeviceAlarmsTab deviceId={device.id} profile={profile ?? null} />
         </TabsContent>
       </Tabs>
     </div>

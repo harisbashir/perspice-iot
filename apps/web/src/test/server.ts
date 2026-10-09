@@ -14,6 +14,9 @@ export const defaultHandlers = [
   http.get('*/api/users', () => HttpResponse.json([])),
   http.get('*/api/roles', () => HttpResponse.json([])),
   http.get('*/api/dashboards/overview', () => HttpResponse.json({ dashboard: null })),
+  http.get('*/api/alarms/summary', () => HttpResponse.json({ critical: 0, major: 0, minor: 0, warning: 0, total: 0, unacknowledged: 0 })),
+  http.get('*/api/alarms', () => HttpResponse.json({ items: [], nextCursor: null })),
+  http.get('*/api/alarm-rules', () => HttpResponse.json([])),
   http.get('*/api/dashboards/device/:id', () => HttpResponse.json({ dashboard: null })),
 ];
 

@@ -6,6 +6,8 @@ import { RequireAuth, RequirePermission } from './auth/RequirePermission';
 import { ResetPage } from './auth/ResetPage';
 import { AppShell } from './layout/AppShell';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { AlarmDetailPage, AlarmsPage } from './alarms/AlarmPages';
+import { AlarmRulesPage } from './alarms/AlarmRulesPage';
 import { ExportPage, ExportsPage } from './exports/ExportsPage';
 import { ReportSchedulesPage } from './pages/reports/ReportSchedulesPage';
 import { AuditPage } from './pages/audit/AuditPage';
@@ -49,6 +51,9 @@ export const routes: RouteObject[] = [
       { path: 'customers/:id', element: <RequirePermission perm="customer.read"><CustomerDetailPage /></RequirePermission> },
       { path: 'users', element: <RequirePermission perm="user.read"><UsersPage /></RequirePermission> },
       { path: 'roles', element: <RequirePermission perm="user.read"><RolesPage /></RequirePermission> },
+      { path: 'alarms', element: <RequirePermission perm="alarm.read"><AlarmsPage /></RequirePermission> },
+      { path: 'alarms/:id', element: <RequirePermission perm="alarm.read"><AlarmDetailPage /></RequirePermission> },
+      { path: 'alarm-rules', element: <RequirePermission perm="alarm.read"><AlarmRulesPage /></RequirePermission> },
       { path: 'reports', element: <RequirePermission perm="report.schedule"><ReportSchedulesPage /></RequirePermission> },
       { path: 'exports', element: <RequirePermission perm="export.data"><ExportsPage /></RequirePermission> },
       { path: 'exports/:id', element: <RequirePermission perm="export.data"><ExportPage /></RequirePermission> },
