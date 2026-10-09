@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test --project=dashboards",
+    "test": "playwright test --project=alarms",
     "test:live": "playwright test --project=live"
   },
   "devDependencies": {
