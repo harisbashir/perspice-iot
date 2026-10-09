@@ -24,7 +24,7 @@ import { DataService } from '../dashboards/data.service';
 import { InstancesService } from '../dashboards/instances.service';
 import { DevicesService } from '../devices/devices.service';
 import { ProfilesService, toProfileDto } from '../devices/profiles.service';
-import { ExportsService } from '../exports/exports.service';
+import { ExportsService, type JobOptions, type JobRow } from '../exports/exports.service';
 import { STORAGE, type StorageDriver } from '../storage/storage.driver';
 import type { PdfRenderer } from './pdf-renderer';
 import { type RenderBinding, RenderTokens } from './render-tokens';
@@ -70,13 +70,18 @@ export class ReportsService implements OnApplicationShutdown {
   }
 
   async request(actor: AuthUser, body: unknown): Promise<ExportJobDto> {
+    return this.exportJobs.toDto(await this.queueReport(actor, body));
+  }
+
+  /** Validates access and queues the report job. */
+  async queueReport(actor: AuthUser, body: unknown, opts: JobOptions = {}): Promise<JobRow> {
     const req = ReportRequestSchema.parse(body);
     const { view, device } = await this.dashboardFor(actor, req); // 404 when not visible to the caller
     stateOf(view, req.stateId);
     const title = device ? `${device.name} — ${view.templateName}` : view.templateName;
-    const job = await this.exportJobs.createJob(actor, { kind: 'report', format: 'pdf', title, request: req });
+    const job = await this.exportJobs.createJob(actor, { kind: 'report', format: 'pdf', title, request: req }, opts);
     await this.queue.add('report', { jobId: job.id }, { jobId: job.id, removeOnComplete: 1000, removeOnFail: 1000 });
-    return this.exportJobs.toDto(job);
+    return job;
   }
 
   /** Renderer worker: prints the dashboard through a fresh render token and stores the PDF. */

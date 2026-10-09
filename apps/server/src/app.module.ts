@@ -21,6 +21,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { ExportsModule } from './exports/exports.module';
 import { ReportsModule } from './reports/reports.module';
+import { SchedulesModule } from './schedules/schedules.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { DocsModule } from './openapi';
@@ -69,6 +70,7 @@ export class AppModule {
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         // Not part of `all`: the renderer needs Chromium, which only the renderer image has.
         ReportsModule.forRoot({ api: runsRole(role, 'api'), renderer: role === 'renderer' }),
+        SchedulesModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         NotificationsModule.forRoot({ rules: runsRole(role, 'rules') }),
         DeliveryModule.forRoot({ api: runsRole(role, 'api'), worker: runsRole(role, 'api') || runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler'), rules: runsRole(role, 'rules') }),
         ...(runsRole(role, 'api') ? [RealtimeModule, DocsModule] : []),

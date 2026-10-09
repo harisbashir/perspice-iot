@@ -1,4 +1,4 @@
-import { alarm, alarmRule, command, webhook, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
+import { alarm, alarmRule, command, reportSchedule, webhook, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -260,4 +260,29 @@ TENANT_ENDPOINTS.push(
   { name: "test B's webhook", method: 'post', path: (i) => `/api/webhooks/${i.webhookId}/test`, create: bWebhook },
   { name: 'webhook for B', method: 'post', path: () => '/api/webhooks', body: (i) => ({ ...hookBody(), customerId: i.customerId }), create: async (ctx) => ({ customerId: ctx.b.customer.id }) },
   { name: 'list webhooks', method: 'list', path: () => '/api/webhooks', create: bWebhook },
+);
+
+/** A report schedule owned by customer B's admin. */
+const bSchedule = async (ctx: TenantContext): Promise<Ids> => {
+  const ids = await bDevice(ctx);
+  const spec = {
+    name: 'B daily',
+    target: { kind: 'telemetry' as const, deviceId: ids.deviceId!, keys: ['a'], format: 'csv' as const },
+    timewindow: { kind: 'relative' as const, lastMs: 86_400_000 },
+    cadence: { kind: 'daily' as const, time: '07:00' },
+    timezone: 'UTC',
+    recipients: [ctx.b.admin.id],
+    enabled: true,
+  };
+  const [row] = await ctx.t.db
+    .insert(reportSchedule)
+    .values({ ownerId: ctx.b.admin.id, customerId: ctx.b.customer.id, name: spec.name, spec })
+    .returning({ id: reportSchedule.id });
+  return { ...ids, scheduleId: row!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: "run B's schedule", method: 'post', path: (i) => `/api/report-schedules/${i.scheduleId}/run`, create: bSchedule },
+  { name: "delete B's schedule", method: 'delete', path: (i) => `/api/report-schedules/${i.scheduleId}`, create: bSchedule },
+  { name: 'list schedules', method: 'list', path: () => '/api/report-schedules', create: bSchedule },
 );

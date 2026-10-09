@@ -29,12 +29,23 @@ export const EXPORTS_QUEUE = 'exports';
 const RETENTION_MS = 24 * 3_600_000;
 const LINK_TTL_S = 300;
 
-type JobRow = typeof exportJob.$inferSelect;
+export type JobRow = typeof exportJob.$inferSelect;
 
 /** What a background job needs to act as the requester: their scope and permissions at request time. */
 export type ActorSnapshot = Pick<AuthUser, 'kind' | 'apiKeyId' | 'scopeType' | 'customerId' | 'groupId' | 'permissions'>;
 
-interface StoredParams {
+/** Options for background jobs started on someone's behalf (e.g. a report schedule). */
+export interface JobOptions {
+  /** How long the file is kept (default 24 h). */
+  retentionMs?: number;
+  /** Don't notify the owner; whoever started the job delivers the result. */
+  silent?: boolean;
+  scheduleId?: string;
+}
+
+export type JobListener = (job: JobRow, params: StoredParams) => Promise<void>;
+
+export interface StoredParams extends JobOptions {
   title: string;
   request: unknown;
   actor: ActorSnapshot;
@@ -56,6 +67,7 @@ export class ExportsService implements OnApplicationShutdown {
   private readonly logger = new Logger(ExportsService.name);
   readonly queue: Queue<{ jobId: string }>;
   private readonly connection: Redis;
+  private readonly finished = new Set<JobListener>();
 
   constructor(
     @Inject(CONFIG) config: Config,
@@ -101,15 +113,28 @@ export class ExportsService implements OnApplicationShutdown {
     }
   }
 
-  private async enqueue(actor: AuthUser, request: ExportRequest, title: string): Promise<JobRow> {
-    const job = await this.createJob(actor, { kind: request.kind, format: request.format, title, request });
+  private async enqueue(actor: AuthUser, request: ExportRequest, title: string, opts: JobOptions = {}): Promise<JobRow> {
+    const job = await this.createJob(actor, { kind: request.kind, format: request.format, title, request }, opts);
     await this.queue.add('export', { jobId: job.id }, { jobId: job.id, removeOnComplete: 1000, removeOnFail: 1000 });
     return job;
   }
 
+  /** Starts a background export regardless of size (scheduled exports). */
+  async queueExport(actor: AuthUser, body: unknown, opts: JobOptions = {}): Promise<JobRow> {
+    const req = ExportRequestSchema.parse(body);
+    const source = await this.sources.for(actor, req);
+    return this.enqueue(actor, req, source.title, opts);
+  }
+
+  /** Called after a background job finishes (done or failed), in the process that ran it. */
+  onJobFinished(listener: JobListener): void {
+    this.finished.add(listener);
+  }
+
   /** Records a background job owned by `actor`, keeping what is needed to act as them later. */
-  async createJob(actor: AuthUser, j: { kind: string; format: JobRow['format']; title: string; request: unknown }): Promise<JobRow> {
+  async createJob(actor: AuthUser, j: { kind: string; format: JobRow['format']; title: string; request: unknown }, opts: JobOptions = {}): Promise<JobRow> {
     const params: StoredParams = {
+      ...opts,
       title: j.title,
       request: j.request,
       actor: {
@@ -155,20 +180,26 @@ export class ExportsService implements OnApplicationShutdown {
       const now = new Date();
       await this.db
         .update(exportJob)
-        .set({ status: 'done', rowCount, fileKey: this.fileKey(job), expiresAt: new Date(now.getTime() + RETENTION_MS), updatedAt: now })
+        .set({ status: 'done', rowCount, fileKey: this.fileKey(job), expiresAt: new Date(now.getTime() + (params.retentionMs ?? RETENTION_MS)), updatedAt: now })
         .where(eq(exportJob.id, jobId));
-      await this.notifyReady(job, params.title, rowCount);
+      if (!params.silent) await this.notifyReady(job, params.title, rowCount);
     } catch (err) {
       const message = (err as Error).message;
       this.logger.error(`Job ${jobId} (${job.kind}) failed: ${message}`);
       await this.db.update(exportJob).set({ status: 'failed', error: message, updatedAt: new Date() }).where(eq(exportJob.id, jobId));
-      await this.notifications.create(job.userId, {
-        type: 'export.failed',
-        severity: 'warning',
-        title: 'Export failed',
-        body: `${params.title}: ${message}`,
-        link: `/exports/${jobId}`,
-      });
+      if (!params.silent) {
+        await this.notifications.create(job.userId, {
+          type: 'export.failed',
+          severity: 'warning',
+          title: 'Export failed',
+          body: `${params.title}: ${message}`,
+          link: `/exports/${jobId}`,
+        });
+      }
+    }
+    const final = await this.db.query.exportJob.findFirst({ where: eq(exportJob.id, jobId) });
+    for (const l of this.finished) {
+      await l(final!, params).catch((err: Error) => this.logger.error(`Job listener failed for ${jobId}: ${err.message}`));
     }
   }
 

@@ -1,5 +1,5 @@
 import type { Permission } from '@perspice/shared';
-import { Activity, Building2, Cpu, FileClock, KeyRound, LayoutDashboard, PanelsTopLeft, Settings, Shapes, Users } from 'lucide-react';
+import { Activity, Building2, CalendarClock, Cpu, FileClock, KeyRound, LayoutDashboard, PanelsTopLeft, Settings, Shapes, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/profiles', label: 'Device profiles', icon: Shapes, perm: 'profile.write', platformOnly: true },
   { to: '/dashboards', label: 'Dashboards', icon: PanelsTopLeft, perm: 'dashboard.edit', platformOnly: true },
   { to: '/customers', label: 'Customers', icon: Building2, perm: 'customer.read', platformOnly: true },
+  { to: '/reports', label: 'Scheduled reports', icon: CalendarClock, perm: 'report.schedule' },
   { to: '/users', label: 'Users', icon: Users, perm: 'user.read' },
   { to: '/roles', label: 'Roles', icon: KeyRound, perm: 'role.manage' },
   { to: '/audit', label: 'Audit log', icon: FileClock, perm: 'audit.read' },
