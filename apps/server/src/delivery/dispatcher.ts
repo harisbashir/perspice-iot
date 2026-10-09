@@ -92,6 +92,11 @@ export class Dispatcher implements OnApplicationShutdown {
     return id;
   }
 
+  /** Puts an existing delivery back on the queue (admin retry). */
+  async requeue(deliveryId: string): Promise<void> {
+    await this.queue.add('deliver', { deliveryId }, { attempts: MAX_ATTEMPTS, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: 1000, removeOnFail: 5000 });
+  }
+
   /** Queues one webhook call (signed JSON `{id, event, ts, data}`). */
   async enqueueWebhook(webhookId: string, customerId: string | null, host: string, event: string, data: Record<string, unknown>): Promise<string> {
     const [row] = await this.db

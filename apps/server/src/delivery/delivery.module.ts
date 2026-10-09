@@ -1,5 +1,6 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { AlarmNotifier } from './alarm-notifier';
+import { DeliveryLogController } from './delivery-log.controller';
 import { DigestJob } from './digest.job';
 import { EmailChannel } from './channels/email.channel';
 import { InAppChannel } from './channels/inapp.channel';
@@ -23,7 +24,7 @@ export class DeliveryModule {
   static forRoot(opts: { api: boolean; worker: boolean; scheduler: boolean; rules: boolean }): DynamicModule {
     return {
       module: DeliveryModule,
-      controllers: opts.api ? [PreferencesController, PushController, WebhooksController] : [],
+      controllers: opts.api ? [PreferencesController, PushController, WebhooksController, DeliveryLogController] : [],
       providers: [
         PreferencesService,
         RecipientResolver,

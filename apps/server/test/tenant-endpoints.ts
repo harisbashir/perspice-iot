@@ -1,4 +1,4 @@
-import { alarm, alarmRule, command, reportSchedule, webhook, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
+import { alarm, alarmRule, command, deliveryLog, reportSchedule, webhook, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -285,4 +285,18 @@ TENANT_ENDPOINTS.push(
   { name: "run B's schedule", method: 'post', path: (i) => `/api/report-schedules/${i.scheduleId}/run`, create: bSchedule },
   { name: "delete B's schedule", method: 'delete', path: (i) => `/api/report-schedules/${i.scheduleId}`, create: bSchedule },
   { name: 'list schedules', method: 'list', path: () => '/api/report-schedules', create: bSchedule },
+);
+
+/** A failed delivery of customer B. */
+const bDelivery = async ({ t, b }: TenantContext): Promise<Ids> => {
+  const [d] = await t.db
+    .insert(deliveryLog)
+    .values({ channel: 'email', customerId: b.customer.id, recipient: 'b@example.com', subject: 'B', payload: {}, status: 'dead' })
+    .returning({ id: deliveryLog.id });
+  return { deliveryId: d!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  { name: "retry B's delivery", method: 'post', path: (i) => `/api/delivery-log/${i.deliveryId}/retry`, create: bDelivery },
+  { name: 'list deliveries', method: 'list', path: () => '/api/delivery-log', create: bDelivery },
 );

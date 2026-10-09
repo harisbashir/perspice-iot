@@ -3,10 +3,12 @@ import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { BrandingSettings } from './BrandingSettings';
+import { DeliveryLogSettings } from './DeliveryLogSettings';
 import { EmailSettings } from './EmailSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { ProfileSettings } from './ProfileSettings';
 import { SecuritySettings } from './SecuritySettings';
+import { WebhookSettings } from './WebhookSettings';
 
 export function SettingsPage() {
   const { hasPerm } = useAuth();
@@ -14,6 +16,8 @@ export function SettingsPage() {
     { to: 'profile', label: 'My profile', show: true },
     { to: 'notifications', label: 'Notifications', show: true },
     { to: 'branding', label: 'Branding', show: hasPerm('branding.edit') },
+    { to: 'webhooks', label: 'Webhooks', show: hasPerm('webhook.manage') },
+    { to: 'deliveries', label: 'Delivery log', show: hasPerm('audit.read') },
     { to: 'email', label: 'Email', show: hasPerm('system.settings') },
     { to: 'security', label: 'Security', show: hasPerm('system.settings') },
   ].filter((t) => t.show);
@@ -41,6 +45,8 @@ export function SettingsPage() {
         <Route path="profile" element={<ProfileSettings />} />
         <Route path="notifications" element={<NotificationSettings />} />
         {hasPerm('branding.edit') && <Route path="branding" element={<BrandingSettings />} />}
+        {hasPerm('webhook.manage') && <Route path="webhooks" element={<WebhookSettings />} />}
+        {hasPerm('audit.read') && <Route path="deliveries" element={<DeliveryLogSettings />} />}
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}
         {hasPerm('system.settings') && <Route path="security" element={<SecuritySettings />} />}
         <Route path="*" element={<Navigate to="profile" replace />} />
