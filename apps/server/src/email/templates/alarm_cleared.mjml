@@ -1,0 +1,4 @@
+<mj-text font-size="18px" font-weight="700" color="#15803d">Cleared: {{ruleName}} on {{deviceName}}</mj-text>
+<mj-text>The alarm was active for {{duration}} and cleared at {{clearedAt}}.</mj-text>
+<mj-button href="{{link}}">View alarm</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>

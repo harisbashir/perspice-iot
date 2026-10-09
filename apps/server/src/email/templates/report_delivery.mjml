@@ -1,0 +1,4 @@
+<mj-text font-size="18px" font-weight="700">{{title}}</mj-text>
+<mj-text>Hi {{name}}, your scheduled report "{{scheduleName}}" is ready. The link works until {{expiresAt}}.</mj-text>
+<mj-button href="{{link}}">Download report</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>
