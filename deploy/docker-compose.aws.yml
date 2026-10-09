@@ -1,0 +1,14 @@
+# AWS IoT Core instead of EMQX (install.sh --mqtt=aws-iot adds this file when MQTT_TRANSPORT=aws-iot).
+# Devices connect to the AWS IoT endpoint; the broker and its certificate sync aren't started.
+# `perspice-server cli aws-iot-setup` (run by install.sh) writes the ingest certificate to ./aws.
+services:
+  emqx:
+    profiles: ['emqx']
+  cert-sync:
+    profiles: ['emqx']
+  ingest:
+    volumes:
+      - storage_data:/var/lib/perspice/storage
+      - ./aws:/etc/perspice/aws:ro
+    depends_on: !override
+      migrate: { condition: service_completed_successfully }

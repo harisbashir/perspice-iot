@@ -42,6 +42,8 @@ Useful options (see `scripts/install.sh --help`):
 - `--smtp-host … --smtp-port … --smtp-user … --smtp-pass … --smtp-from …` configures email now
   (otherwise use **Settings → Email** later)
 - `--build` builds images from the checkout instead of pulling them
+- `--storage=s3 --s3-bucket … --s3-region …` keeps files in S3; `--mqtt=aws-iot` connects devices
+  through AWS IoT Core instead of the bundled broker (see [aws.md](aws.md))
 - `--non-interactive`, `--dry-run`, `--reinstall`
 
 The installer checks the system, installs Docker if missing, writes `/opt/perspice/.env`

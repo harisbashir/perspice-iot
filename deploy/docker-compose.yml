@@ -7,8 +7,9 @@ x-server: &server
   environment: &server-env
     NODE_ENV: production
     PERSPICE_VERSION: ${PERSPICE_VERSION:-}
-    DATABASE_URL: postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice
-    REDIS_URL: redis://redis:6379
+    # Overridable for managed services (Timescale Cloud, ElastiCache); the bundled ones otherwise.
+    DATABASE_URL: ${DATABASE_URL:-postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     MQTT_URL: mqtt://emqx:1883
     MQTT_INGEST_USERNAME: perspice-ingest
     MQTT_INGEST_PASSWORD: ${MQTT_INGEST_PASSWORD}
@@ -28,6 +29,16 @@ x-server: &server
     S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
     S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
     S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+    MQTT_TRANSPORT: ${MQTT_TRANSPORT:-emqx}
+    AWS_REGION: ${AWS_REGION:-}
+    AWS_IOT_ENDPOINT: ${AWS_IOT_ENDPOINT:-}
+    AWS_IOT_POLICY_NAME: ${AWS_IOT_POLICY_NAME:-perspice-device}
+    AWS_IOT_CERT_PATH: /etc/perspice/aws/ingest.cert.pem
+    AWS_IOT_KEY_PATH: /etc/perspice/aws/ingest.private.key
+    AWS_IOT_CA_PATH: /etc/perspice/aws/AmazonRootCA1.pem
+    # Empty on EC2/ECS, where the instance role provides credentials.
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
     BACKUP_INCLUDE_MASTER_KEY: ${BACKUP_INCLUDE_MASTER_KEY:-false}
     LOG_LEVEL: ${LOG_LEVEL:-info}

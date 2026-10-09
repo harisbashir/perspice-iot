@@ -18,6 +18,12 @@ Usage: install.sh [options]
   --smtp-host <host> --smtp-port <port> --smtp-user <user> --smtp-pass <pass> --smtp-from <addr>
                              Outgoing email (optional; can be set later in Settings → Email)
   --mqtt-plain=true|false    Allow plain MQTT on 1883 (default: true)
+  --mqtt=emqx|aws-iot        Device connectivity: the bundled EMQX broker (default) or AWS IoT Core
+  --aws-region <region>      AWS region for IoT Core (default: S3 region, else us-east-1)
+  --storage=local|s3         File storage: this server's disk (default) or an S3 bucket
+  --s3-bucket <name> --s3-region <region> [--s3-endpoint <url>]
+                             The bucket (credentials from the instance role, or AWS_ACCESS_KEY_ID
+                             and AWS_SECRET_ACCESS_KEY in the environment)
   --build                    Build images from this checkout instead of pulling them
   --non-interactive          Never prompt; fail when a required value is missing
   --reinstall                Replace an existing installation (keeps data volumes)
@@ -28,6 +34,7 @@ USAGE
 
 DOMAIN="" ADMIN_EMAIL="" ADMIN_NAME="Administrator" VERSION="" BUILD=0 INTERACTIVE=1 REINSTALL=0
 SMTP_HOST="" SMTP_PORT="587" SMTP_USER="" SMTP_PASS="" SMTP_FROM="" MQTT_PLAIN="true"
+MQTT_MODE="emqx" AWS_REGION_ARG="" STORAGE="local" S3_BUCKET="" S3_REGION="" S3_ENDPOINT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,6 +48,12 @@ while [[ $# -gt 0 ]]; do
     --smtp-pass) SMTP_PASS="$2"; shift 2 ;;
     --smtp-from) SMTP_FROM="$2"; shift 2 ;;
     --mqtt-plain=*) MQTT_PLAIN="${1#*=}"; shift ;;
+    --mqtt=*) MQTT_MODE="${1#*=}"; shift ;;
+    --aws-region) AWS_REGION_ARG="$2"; shift 2 ;;
+    --storage=*) STORAGE="${1#*=}"; shift ;;
+    --s3-bucket) S3_BUCKET="$2"; shift 2 ;;
+    --s3-region) S3_REGION="$2"; shift 2 ;;
+    --s3-endpoint) S3_ENDPOINT="$2"; shift 2 ;;
     --build) BUILD=1; shift ;;
     --non-interactive) INTERACTIVE=0; shift ;;
     --reinstall) REINSTALL=1; shift ;;
@@ -57,6 +70,13 @@ prompt() {
   read -r -p "$question: " value
   printf -v "$var" '%s' "$value"
 }
+
+[[ "$MQTT_MODE" == "emqx" || "$MQTT_MODE" == "aws-iot" ]] || die "Invalid --mqtt=$MQTT_MODE (emqx or aws-iot)" 64
+[[ "$STORAGE" == "local" || "$STORAGE" == "s3" ]] || die "Invalid --storage=$STORAGE (local or s3)" 64
+[[ "$STORAGE" != "s3" || -n "$S3_BUCKET" ]] || die "--storage=s3 needs --s3-bucket" 64
+AWS_REGION_VALUE="${AWS_REGION_ARG:-${S3_REGION:-us-east-1}}"
+AWS_IOT=0
+[[ "$MQTT_MODE" == "aws-iot" ]] && AWS_IOT=1
 
 if [[ -f "$PERSPICE_HOME/.env" && "$REINSTALL" != "1" ]]; then
   die "An existing installation was found in $PERSPICE_HOME. Use update.sh to upgrade, or --reinstall to replace it." 2
@@ -131,7 +151,18 @@ LOG_LEVEL=info
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:$ADMIN_EMAIL
+STORAGE_DRIVER=$STORAGE
+MQTT_TRANSPORT=$MQTT_MODE
 ENV
+if [[ "$STORAGE" == "s3" ]]; then
+  printf 'S3_BUCKET=%s\nS3_REGION=%s\nS3_ENDPOINT=%s\n' "$S3_BUCKET" "${S3_REGION:-$AWS_REGION_VALUE}" "$S3_ENDPOINT" >>"$PERSPICE_HOME/.env"
+fi
+if [[ "$STORAGE" == "s3" || "$AWS_IOT" == "1" ]]; then
+  printf 'AWS_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' "$AWS_REGION_VALUE" "${AWS_ACCESS_KEY_ID:-}" "${AWS_SECRET_ACCESS_KEY:-}" >>"$PERSPICE_HOME/.env"
+fi
+if [[ "$STORAGE" == "s3" && -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
+  printf 'S3_ACCESS_KEY_ID=%s\nS3_SECRET_ACCESS_KEY=%s\n' "$AWS_ACCESS_KEY_ID" "${AWS_SECRET_ACCESS_KEY:-}" >>"$PERSPICE_HOME/.env"
+fi
 chmod 600 "$PERSPICE_HOME/.env"
 umask 022
 ok "Wrote $PERSPICE_HOME/.env (mode 600)"
@@ -143,7 +174,7 @@ else
   src="$(mktemp -d)"
   run_or_print sh -c "curl -fsSL https://github.com/${PERSPICE_REPO}/archive/refs/tags/v${VERSION}.tar.gz | tar -xz -C '$src' --strip-components=1"
 fi
-run_or_print cp "$src/deploy/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml"
+run_or_print cp "$src/deploy/docker-compose.yml" "$src/deploy/docker-compose.aws.yml" "$PERSPICE_HOME/"
 run_or_print cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
 run_or_print install -m 0755 "$src/scripts/perspice" /usr/local/bin/perspice
 run_or_print install -d "$PERSPICE_HOME/scripts/lib"
@@ -159,9 +190,23 @@ if [[ "$BUILD" == "1" ]]; then
 else
   run_or_print compose pull --quiet
 fi
+if [[ "$AWS_IOT" == "1" ]]; then
+  # Endpoint, policies and the ingest certificate; the command prints the .env lines to add.
+  run_or_print install -d -m 0700 -o 1000 -g 1000 "$PERSPICE_HOME/aws"
+  setup=(compose run --rm --no-deps -e MQTT_TRANSPORT=emqx -v "$PERSPICE_HOME/aws:/etc/perspice/aws" api
+    node dist/cli.js aws-iot-setup --certs-dir /etc/perspice/aws --region "$AWS_REGION_VALUE")
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print "${setup[@]}"
+  else
+    aws_env="$("${setup[@]}")" || die "AWS IoT Core setup failed (check the AWS credentials and IAM permissions in docs/aws.md)."
+    while IFS='=' read -r key value; do [[ -n "$key" ]] && env_set "$key" "$value"; done <<<"$aws_env"
+  fi
+fi
 run_or_print compose up -d
 wait_healthy api 240 || die "The API did not become healthy. See: perspice logs api"
-wait_healthy emqx 180 || die "The MQTT broker did not become healthy. See: perspice logs emqx"
+if [[ "$AWS_IOT" != "1" ]]; then
+  wait_healthy emqx 180 || die "The MQTT broker did not become healthy. See: perspice logs emqx"
+fi
 if [[ "$DRY_RUN" != "1" ]]; then
   while IFS='=' read -r key value; do env_set "$key" "$value"; done < <(compose exec -T api node dist/cli.js vapid-keys)
   run_or_print compose up -d api
@@ -188,9 +233,15 @@ fi
 # 7. Firewall -------------------------------------------------------------------------------------
 step "7/8 Firewall"
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-  for port in 80/tcp 443/tcp 443/udp 8883/tcp; do run_or_print ufw allow "$port"; done
-  [[ "$MQTT_PLAIN" == "true" ]] && run_or_print ufw allow 1883/tcp
-  ok "Opened ports 80, 443, 8883$([[ "$MQTT_PLAIN" == "true" ]] && echo ', 1883') in ufw"
+  ports=(80/tcp 443/tcp 443/udp)
+  if [[ "$AWS_IOT" != "1" ]]; then
+    ports+=(8883/tcp)
+    [[ "$MQTT_PLAIN" == "true" ]] && ports+=(1883/tcp)
+  fi
+  for port in "${ports[@]}"; do run_or_print ufw allow "$port"; done
+  ok "Opened ports ${ports[*]} in ufw"
+elif [[ "$AWS_IOT" == "1" ]]; then
+  info "ufw is not active; make sure ports 80 and 443 are reachable (devices connect to AWS IoT Core)."
 else
   info "ufw is not active; make sure ports 80, 443, 8883$([[ "$MQTT_PLAIN" == "true" ]] && echo ' and 1883') are reachable."
 fi
@@ -202,7 +253,7 @@ cat <<SUMMARY
   Perspice IoT $VERSION is running.
 
   Web:   https://$DOMAIN   (customers: https://<slug>.$DOMAIN)
-  MQTT:  mqtts://mqtt.$DOMAIN:8883$([[ "$MQTT_PLAIN" == "true" ]] && echo "   (plain: mqtt://mqtt.$DOMAIN:1883)")
+$(if [[ "$AWS_IOT" == "1" ]]; then echo "  MQTT:  AWS IoT Core, mqtts://$(env_get AWS_IOT_ENDPOINT):8883 (certificate per device)"; else echo "  MQTT:  mqtts://mqtt.$DOMAIN:8883$([[ "$MQTT_PLAIN" == "true" ]] && echo "   (plain: mqtt://mqtt.$DOMAIN:1883)")"; fi)
 
   DNS records needed: A $DOMAIN, A *.$DOMAIN and A mqtt.$DOMAIN → this server.
 

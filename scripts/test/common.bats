@@ -45,3 +45,15 @@ setup() {
   [ "$a" != "$b" ]
   [[ "$a" =~ ^[A-Za-z0-9]+$ ]]
 }
+
+@test "compose adds the AWS override only when MQTT_TRANSPORT=aws-iot" {
+  load helpers
+  setup_home
+  install_docker_stub
+  write_env 0.4.0
+  compose ps
+  ! grep -q 'docker-compose.aws.yml' "$STUB_LOG"
+  echo 'MQTT_TRANSPORT=aws-iot' >>"$PERSPICE_HOME/.env"
+  compose ps
+  grep -q "\-f $PERSPICE_HOME/docker-compose.aws.yml" "$STUB_LOG"
+}

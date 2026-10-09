@@ -33,3 +33,37 @@ setup() {
   [ "$status" -eq 64 ]
   [[ "$output" == *"--domain"* ]]
 }
+
+@test "dry run for AWS writes S3 and IoT Core settings and runs the IoT Core setup" {
+  install_docker_stub
+  AWS_ACCESS_KEY_ID=AKIAEXAMPLE AWS_SECRET_ACCESS_KEY=secret run bash "$SCRIPTS/install.sh" --dry-run --non-interactive \
+    --domain example.com --admin-email admin@example.com --version 0.4.0 \
+    --storage=s3 --s3-bucket perspice-files --s3-region eu-west-1 --mqtt=aws-iot
+  [ "$status" -eq 0 ]
+  grep -q '^STORAGE_DRIVER=s3$' "$PERSPICE_HOME/.env"
+  grep -q '^S3_BUCKET=perspice-files$' "$PERSPICE_HOME/.env"
+  grep -q '^S3_REGION=eu-west-1$' "$PERSPICE_HOME/.env"
+  grep -q '^S3_ACCESS_KEY_ID=AKIAEXAMPLE$' "$PERSPICE_HOME/.env"
+  grep -q '^MQTT_TRANSPORT=aws-iot$' "$PERSPICE_HOME/.env"
+  grep -q '^AWS_REGION=eu-west-1$' "$PERSPICE_HOME/.env"
+  [[ "$output" == *"aws-iot-setup --certs-dir /etc/perspice/aws --region eu-west-1"* ]]
+  [[ "$output" != *"8883/tcp"* ]]
+}
+
+@test "defaults to local storage and EMQX" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  grep -q '^STORAGE_DRIVER=local$' "$PERSPICE_HOME/.env"
+  grep -q '^MQTT_TRANSPORT=emqx$' "$PERSPICE_HOME/.env"
+  ! grep -q '^AWS_REGION=' "$PERSPICE_HOME/.env"
+  [[ "$output" != *"aws-iot-setup"* ]]
+}
+
+@test "S3 storage needs a bucket, and unknown modes are refused" {
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0 --storage=s3
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"--s3-bucket"* ]]
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0 --mqtt=mosquitto
+  [ "$status" -eq 64 ]
+}

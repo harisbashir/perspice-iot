@@ -74,7 +74,10 @@ gen_secret() {
 }
 
 compose() {
-  docker compose -p perspice -f "$PERSPICE_HOME/docker-compose.yml" --env-file "$PERSPICE_HOME/.env" "$@"
+  local files=(-f "$PERSPICE_HOME/docker-compose.yml")
+  # AWS IoT Core installs replace EMQX through an override file.
+  if [[ "$(env_get MQTT_TRANSPORT 2>/dev/null || true)" == "aws-iot" ]]; then files+=(-f "$PERSPICE_HOME/docker-compose.aws.yml"); fi
+  docker compose -p perspice "${files[@]}" --env-file "$PERSPICE_HOME/.env" "$@"
 }
 
 # Reads KEY from the install's .env file.
@@ -134,7 +137,7 @@ fetch_deploy_files() {
       return 1
     fi
   fi
-  cp "$src/deploy/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml"
+  cp "$src/deploy/docker-compose.yml" "$src/deploy/docker-compose.aws.yml" "$PERSPICE_HOME/"
   cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
   install -d "$PERSPICE_HOME/scripts/lib"
   install -m 0644 "$src/scripts/lib/common.sh" "$PERSPICE_HOME/scripts/lib/common.sh"
