@@ -75,3 +75,36 @@ describe('live updates', () => {
     expect((dataOf(out.table) as ListData).items[0]!.status).toBe('offline');
   });
 });
+
+describe('KPI tiles', () => {
+  const kpiState = (filter?: { status: ('online' | 'offline')[] }): DashboardState => ({
+    id: 's',
+    name: 'S',
+    layout: [{ i: 'k', x: 0, y: 0, w: 2, h: 2 }],
+    widgets: [{ id: 'k', type: 'kpi', datasource: { kind: 'devicesOfProfile', profileId: null, keys: [], ...(filter ? { filter } : {}) }, settings: {} }],
+  });
+  const stats = { total: 3, online: 1, offline: 2, dead: 0, never: 0, messages24h: 7 };
+
+  it('moves fleet counts on a status change and leaves filtered KPIs to a refetch', () => {
+    const fleet = buildRequests(kpiState(), undefined, { kind: 'relative', lastMs: 1 }, {}).meta;
+    expect(fleet.k?.stats).toBe('fleet');
+    const out = applyStatus({ k: { ok: true, data: stats } }, { deviceId: 'x', from: 'offline', to: 'online', ts: 1 }, fleet);
+    expect(out.k).toEqual({ ok: true, data: { ...stats, online: 2, offline: 1 } });
+
+    const filtered = buildRequests(kpiState({ status: ['online'] }), undefined, { kind: 'relative', lastMs: 1 }, {}).meta;
+    expect(filtered.k?.stats).toBe('filtered');
+    const same = { k: { ok: true as const, data: stats } };
+    expect(applyStatus(same, { deviceId: 'x', from: 'offline', to: 'online', ts: 1 }, filtered)).toBe(same);
+  });
+
+  it('passes the customer filter of an entity list through', () => {
+    const state: DashboardState = {
+      id: 's',
+      name: 'S',
+      layout: [{ i: 't', x: 0, y: 0, w: 12, h: 6 }],
+      widgets: [{ id: 't', type: 'entity-table', datasource: { kind: 'entityList', profileId: null, columns: ['name'], pageSize: 25 }, settings: {} }],
+    };
+    const { requests } = buildRequests(state, undefined, { kind: 'relative', lastMs: 1 }, { t: { customerId: 'c1', page: 0 } });
+    expect(requests[0]).toMatchObject({ customerId: 'c1', page: 0 });
+  });
+});

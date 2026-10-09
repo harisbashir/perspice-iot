@@ -1,9 +1,9 @@
 import type { DashboardState, DataResponse, Timewindow } from '@perspice/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api/client';
 import { useDevicesSubscription } from '@/realtime/hooks';
-import { useSocketEvent } from '@/realtime/socket';
+import { useRoomSubscription, useSocketEvent } from '@/realtime/socket';
 import { type Results, type StatusEvent, type TelemetryEvent, type WidgetQuery, applyStatus, applyTelemetry, buildRequests, devicesIn } from './live';
 
 /**
@@ -27,8 +27,20 @@ export function useDashboardData(state: DashboardState, deviceId: string | undef
   }, [query.data]);
 
   useDevicesSubscription(devicesIn(results, meta));
+  // KPI tiles count the whole scope, so they need every status change, not just on-screen devices.
+  const stats = Object.values(meta).map((m) => m.stats);
+  useRoomSubscription('subscribe:status', null, stats.some(Boolean) ? {} : null);
+  const refetchTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(refetchTimer.current), []);
   useSocketEvent<TelemetryEvent>('telemetry', (e) => setResults((r) => applyTelemetry(r, meta, e, timewindow.kind === 'relative')));
-  useSocketEvent<StatusEvent>('status', (e) => setResults((r) => applyStatus(r, e)));
+  useSocketEvent<StatusEvent>('status', (e) => {
+    setResults((r) => applyStatus(r, e, meta));
+    if (stats.includes('filtered')) {
+      // Whether the device counts towards a filtered KPI is the server's call; refetch, debounced.
+      clearTimeout(refetchTimer.current);
+      refetchTimer.current = setTimeout(() => void query.refetch(), 1000);
+    }
+  });
 
   const setQuery = (widgetId: string, patch: WidgetQuery) => setQueries((q) => ({ ...q, [widgetId]: { ...q[widgetId], ...patch } }));
   // Widgets with nothing to fetch are "ready" with no data.

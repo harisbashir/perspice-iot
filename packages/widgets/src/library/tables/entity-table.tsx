@@ -28,6 +28,7 @@ export const entityTable: WidgetDefinition<Settings> = {
     const ds = config.datasource.kind === 'entityList' ? config.datasource : null;
     const columns = (ds?.columns ?? []).filter((c) => !(c === 'customer' && viewer.scopeType === 'customer'));
     const [sort, setSort] = useState<{ by: string; dir: 'asc' | 'desc' } | null>(null);
+    const [customerId, setCustomerId] = useState('');
     const list = isList(data) ? data : null;
 
     function sortBy(by: string) {
@@ -96,6 +97,24 @@ export const entityTable: WidgetDefinition<Settings> = {
           </div>
           {list && (
             <div className="flex items-center justify-end gap-2 pt-1 text-xs text-slate-500">
+              {viewer.scopeType === 'platform' && (list.customers?.length || customerId) ? (
+                <select
+                  aria-label="Filter by customer"
+                  className="mr-auto rounded border border-slate-200 bg-transparent px-1 py-0.5 dark:border-slate-700"
+                  value={customerId}
+                  onChange={(e) => {
+                    setCustomerId(e.target.value);
+                    actions.setQuery({ customerId: e.target.value || undefined, page: 0 });
+                  }}
+                >
+                  <option value="">All customers</option>
+                  {list.customers?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <span>{list.total ? `${from}–${to} of ${list.total}` : 'No devices'}</span>
               <button type="button" aria-label="Previous page" disabled={list.page === 0} className="disabled:opacity-40" onClick={() => actions.setQuery({ page: list.page - 1 })}>
                 <ChevronLeft className="h-4 w-4" />

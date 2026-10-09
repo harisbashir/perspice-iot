@@ -118,6 +118,8 @@ export const DataRequestSchema = z.object({
   sort: z
     .object({ by: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/), dir: z.enum(['asc', 'desc']).default('asc') })
     .optional(),
+  /** Entity lists: narrow to one customer (platform viewers; customers only ever see their own). */
+  customerId: z.string().uuid().optional(),
 });
 export type DataRequest = z.infer<typeof DataRequestSchema>;
 
@@ -161,6 +163,8 @@ export interface ListData {
   items: (DeviceSummary & { profileName: string | null; customerName: string | null; values: Record<string, LatestValueDto> })[];
   total: number;
   page: number;
+  /** Platform viewers only: the customers owning matching devices, for the customer filter. */
+  customers?: { id: string; name: string }[];
   pageSize: number;
 }
 /** mode `stats` on `devicesOfProfile`; `messages24h` counts values received in the last 24 h. */

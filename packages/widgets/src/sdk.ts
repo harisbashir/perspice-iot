@@ -33,7 +33,7 @@ export interface WidgetActions {
   writeShared(values: Record<string, unknown>): Promise<void>;
   openDevice(deviceId: string): void;
   /** Asks the dashboard to change this widget's request (e.g. a table's page or sort). */
-  setQuery(patch: { page?: number; sort?: { by: string; dir: 'asc' | 'desc' } }): void;
+  setQuery(patch: { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string }): void;
 }
 
 /**

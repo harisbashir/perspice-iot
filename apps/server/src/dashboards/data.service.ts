@@ -132,7 +132,8 @@ export class DataService {
   }
 
   private async list(scope: Scope, ds: Extract<DataSource, { kind: 'entityList' }>, r: DataRequest): Promise<ListData> {
-    const where = this.conditions(scope, ds.profileId, ds.filter);
+    const unfiltered = this.conditions(scope, ds.profileId, ds.filter);
+    const where = r.customerId ? and(unfiltered, eq(device.customerId, r.customerId)) : unfiltered;
     const [{ total } = { total: 0 }] = await this.db.select({ total: count() }).from(device).where(where);
 
     const dir = r.sort?.dir === 'desc' ? desc : asc;
@@ -173,7 +174,18 @@ export class DataService {
       total,
       page: r.page,
       pageSize: ds.pageSize,
+      ...(scope.kind === 'platform' ? { customers: await this.customersOf(unfiltered) } : {}),
     };
+  }
+
+  private async customersOf(where: SQL | undefined): Promise<{ id: string; name: string }[]> {
+    return this.db
+      .selectDistinct({ id: customer.id, name: customer.name })
+      .from(device)
+      .innerJoin(customer, eq(customer.id, device.customerId))
+      .where(where)
+      .orderBy(customer.name)
+      .limit(500);
   }
 
   private async stats(scope: Scope, profileId: string | null, filter: Filter): Promise<StatsData> {

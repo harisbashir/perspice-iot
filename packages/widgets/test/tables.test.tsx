@@ -79,6 +79,18 @@ describe('table widgets', () => {
     expect(screen.getByRole('columnheader', { name: /Customer/ })).toBeInTheDocument();
   });
 
+  it('entity table filters by customer for platform viewers only', async () => {
+    const data = { ...list(1), customers: [{ id: 'c1', name: 'Acme' }, { id: 'c2', name: 'Beta' }] };
+    const ds = { kind: 'entityList' as const, profileId: null, columns: ['name', 'customer'], pageSize: 2 };
+    const p = propsFor(entityTable, { datasource: ds, result: { ok: true, data } });
+    const { unmount } = render(<entityTable.Component {...p} />);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filter by customer' }), 'Beta');
+    expect(p.actions.setQuery).toHaveBeenLastCalledWith({ customerId: 'c2', page: 0 });
+    unmount();
+    render(<entityTable.Component {...propsFor(entityTable, { datasource: ds, result: { ok: true, data }, scopeType: 'customer' })} />);
+    expect(screen.queryByRole('combobox', { name: 'Filter by customer' })).not.toBeInTheDocument();
+  });
+
   it('entity table hides the customer column on customer portals', () => {
     render(
       <entityTable.Component

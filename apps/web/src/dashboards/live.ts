@@ -10,12 +10,12 @@ import type {
   WidgetDataResult,
 } from '@perspice/shared';
 import { ENTITY_COLUMNS } from '@perspice/shared';
-import { getWidget, isFleet, isHistory, isLatest, isList } from '@perspice/widgets';
+import { getWidget, isFleet, isHistory, isLatest, isList, isStats } from '@perspice/widgets';
 
 export type Results = Record<string, WidgetDataResult>;
 /** Per widget: the single device it shows (if any) and the telemetry keys it cares about. */
-export type WidgetMeta = Record<string, { deviceId?: string; keys: string[] }>;
-export type WidgetQuery = { page?: number; sort?: { by: string; dir: 'asc' | 'desc' } };
+export type WidgetMeta = Record<string, { deviceId?: string; keys: string[]; stats?: 'fleet' | 'filtered' }>;
+export type WidgetQuery = { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string };
 
 const BUILT_IN = new Set<string>(ENTITY_COLUMNS);
 
@@ -33,11 +33,24 @@ export function buildRequests(
     const ds = w.datasource;
     if (!def?.data.mode || ds.kind === 'none') continue;
     const q = queries[w.id] ?? {};
-    requests.push({ widgetId: w.id, datasource: ds, mode: def.data.mode, timewindow, agg: 'auto', page: q.page ?? 0, ...(q.sort ? { sort: q.sort } : {}) });
+    requests.push({
+      widgetId: w.id,
+      datasource: ds,
+      mode: def.data.mode,
+      timewindow,
+      agg: 'auto',
+      page: q.page ?? 0,
+      ...(q.sort ? { sort: q.sort } : {}),
+      ...(q.customerId ? { customerId: q.customerId } : {}),
+    });
     if (ds.kind === 'currentDevice' || ds.kind === 'device') {
       meta[w.id] = { deviceId: ds.kind === 'device' ? ds.deviceId : deviceId, keys: ds.keys };
     } else if (ds.kind === 'entityList') {
       meta[w.id] = { keys: ds.columns.filter((c) => !BUILT_IN.has(c)) };
+    } else if (def.data.mode === 'stats') {
+      // Whole-fleet counts can follow status events; filtered ones (by profile, tag…) are refetched.
+      const filtered = !!(ds.profileId || ds.filter?.status?.length || ds.filter?.tags?.length || ds.filter?.search);
+      meta[w.id] = { keys: ds.keys, stats: filtered ? 'filtered' : 'fleet' };
     } else {
       meta[w.id] = { keys: ds.keys };
     }
@@ -51,7 +64,7 @@ export interface TelemetryEvent {
 }
 export interface StatusEvent {
   deviceId: string;
-  from: string;
+  from: 'never' | 'online' | 'offline' | 'dead';
   to: 'never' | 'online' | 'offline' | 'dead';
   ts: number;
 }
@@ -90,13 +103,17 @@ export function applyTelemetry(results: Results, meta: WidgetMeta, e: TelemetryE
   return changed ? out : results;
 }
 
-export function applyStatus(results: Results, e: StatusEvent): Results {
+/** Merges a status change; fleet KPI counts move from the old status to the new one. */
+export function applyStatus(results: Results, e: StatusEvent, meta: WidgetMeta = {}): Results {
   let changed = false;
   const out: Results = { ...results };
   for (const [id, r] of Object.entries(results)) {
     if (!r.ok) continue;
     const d = r.data;
-    if (isLatest(d) && d.device.id === e.deviceId) {
+    if (isStats(d) && meta[id]?.stats === 'fleet' && e.from !== e.to) {
+      out[id] = { ok: true, data: { ...d, [e.from]: Math.max(0, d[e.from] - 1), [e.to]: d[e.to] + 1 } };
+      changed = true;
+    } else if (isLatest(d) && d.device.id === e.deviceId) {
       out[id] = { ok: true, data: { ...d, device: { ...d.device, status: e.to } } };
       changed = true;
     } else if (isList(d) && d.items.some((x) => x.id === e.deviceId)) {

@@ -30,13 +30,12 @@ export function patchDevice(qc: QueryClient, id: string, fn: (d: DeviceDto) => D
   });
 }
 
-/** Live status changes for list pages: rows update in place, counts are refetched. */
+/** Live status changes for list pages: rows update in place. */
 export function useStatusFeed(): void {
   const qc = useQueryClient();
   useRoomSubscription('subscribe:status', null, {});
   useSocketEvent<StatusEvent>('status', (e) => {
     patchDevice(qc, e.deviceId, (d) => ({ ...d, status: e.to, lastSeen: e.to === 'online' ? e.ts : d.lastSeen }));
-    void qc.invalidateQueries({ queryKey: ['devices', 'stats'] });
   });
 }
 

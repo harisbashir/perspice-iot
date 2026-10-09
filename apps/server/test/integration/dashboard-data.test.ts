@@ -119,6 +119,30 @@ describe('dashboard data API', () => {
     expect(page2.body.results.table.data.items.map((i: { name: string }) => i.name)).toEqual(['a3']);
   });
 
+  it('filters entity lists by customer, with a customer facet for platform viewers only', async () => {
+    const a = await customer();
+    const b = await customer();
+    const p = await createProfile(t.db);
+    await createDevice(t.db, { profileId: p.id, customerId: a.c.id, name: 'a1' });
+    await createDevice(t.db, { profileId: p.id, customerId: b.c.id, name: 'b1' });
+    const list = (auth: string, customerId?: string) =>
+      query(auth, {
+        requests: [{ widgetId: 't', datasource: { kind: 'entityList', profileId: p.id, columns: ['name', 'customer'], pageSize: 25 }, mode: 'list', customerId }],
+      }).then((r) => r.body.results.t.data);
+
+    const all = await list(platformAuth);
+    expect(all.total).toBe(2);
+    expect(all.customers.map((c: { id: string }) => c.id).sort()).toEqual([a.c.id, b.c.id].sort());
+    const onlyB = await list(platformAuth, b.c.id);
+    expect(onlyB.items.map((i: { name: string }) => i.name)).toEqual(['b1']);
+    expect(onlyB.customers).toHaveLength(2); // the facet ignores the customer filter itself
+
+    // A customer filtering on another customer just gets nothing, and no facet.
+    const own = await list(a.auth);
+    expect(own.customers).toBeUndefined();
+    expect((await list(a.auth, b.c.id)).total).toBe(0);
+  });
+
   it('computes fleet stats within scope', async () => {
     const a = await customer();
     const b = await customer();
