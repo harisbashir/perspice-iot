@@ -114,6 +114,9 @@ services:
   emqx:
     image: emqx/emqx:5.8.6
     restart: unless-stopped
+    # Every device connection is a file descriptor; Docker's default of 1024 caps the fleet.
+    ulimits:
+      nofile: { soft: 1048576, hard: 1048576 }
     entrypoint: ['/opt/perspice/entrypoint.sh']
     environment:
       PERSPICE_API_URL: http://api:3000

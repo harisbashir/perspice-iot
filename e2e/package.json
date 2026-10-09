@@ -1,0 +1,17 @@
+{
+  "name": "@perspice/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --project=core",
+    "test:live": "playwright test --project=live"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^24",
+    "mqtt": "^5.16.0",
+    "otplib": "^13.5.0",
+    "typescript": "^5.6"
+  }
+}

@@ -97,7 +97,7 @@ function CommandCard({ deviceId, deviceName, def }: { deviceId: string; deviceNa
   }
 
   return (
-    <Card>
+    <Card role="group" aria-label={def.label}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">{def.label}</CardTitle>
       </CardHeader>

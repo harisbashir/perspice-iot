@@ -13,7 +13,8 @@ const HELP = `Usage: perspice-sim --url <api> --api-key <pk_…> --mqtt <mqtt://
   --http                use the HTTP device API instead of MQTT
   --measure-latency     subscribe to ~1% of devices and report publish → websocket latency
   --max-p95-ms <ms>     exit 1 if p95 latency exceeds this (default 2000)
-  --report json         print the final report as JSON`;
+  --report json         print the final report as JSON
+  --insecure            accept self-signed TLS certificates (local test stacks only)`;
 
 const { values } = parseArgs({
   options: {
@@ -31,9 +32,13 @@ const { values } = parseArgs({
     'measure-latency': { type: 'boolean', default: false },
     'max-p95-ms': { type: 'string', default: '2000' },
     report: { type: 'string' },
+    insecure: { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
   },
 });
+
+// fetch() honours this; the websocket client takes `rejectUnauthorized` (see runSimulation).
+if (values.insecure) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 if (values.help || !values.url || !values['api-key'] || !values.profile || (!values.mqtt && !values.http)) {
   console.log(HELP);
@@ -53,6 +58,7 @@ const report = await runSimulation({
   http: values.http,
   measureLatency: values['measure-latency'],
   devicesFile: values['devices-file'],
+  insecure: values.insecure,
   log: values.report === 'json' ? () => undefined : (l) => console.log(l),
 });
 

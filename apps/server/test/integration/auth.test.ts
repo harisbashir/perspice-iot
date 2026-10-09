@@ -280,6 +280,9 @@ describe('auth rate limiting', () => {
   });
 
   it('limits /login to 10 requests per minute per IP', async () => {
+    // Fixed one-minute windows: don't start the burst just before a window rolls over.
+    const intoWindow = Date.now() % 60_000;
+    if (intoWindow > 57_000) await new Promise((r) => setTimeout(r, 60_000 - intoWindow + 50));
     const statuses: number[] = [];
     for (let i = 0; i < 11; i++) statuses.push((await login(t, 'x@example.com', 'whatever-pass')).status);
     expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);

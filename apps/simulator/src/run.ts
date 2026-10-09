@@ -16,6 +16,8 @@ export interface SimOptions {
   http: boolean;
   measureLatency: boolean;
   devicesFile: string;
+  /** Accept self-signed certificates (local test stacks only). */
+  insecure?: boolean;
   log?: (line: string) => void;
 }
 
@@ -57,7 +59,12 @@ async function loadOrCreate(api: ApiClient, o: SimOptions, profileId: string): P
 
 /** Subscribes to ~1% of the devices over the realtime API and records publish → push latency. */
 async function latencyProbe(o: SimOptions, devices: StoredDevice[], samples: number[]): Promise<Socket> {
-  const socket = io(`${o.url.replace(/\/$/, '')}/rt`, { path: '/api/socket.io', auth: { token: o.apiKey }, transports: ['websocket'] });
+  const socket = io(`${o.url.replace(/\/$/, '')}/rt`, {
+    path: '/api/socket.io',
+    auth: { token: o.apiKey },
+    transports: ['websocket'],
+    rejectUnauthorized: !o.insecure,
+  });
   await new Promise<void>((resolve, reject) => {
     socket.once('connect', () => resolve());
     socket.once('connect_error', reject);
