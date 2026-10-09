@@ -14,7 +14,7 @@ export const deviceProfile = pgTable('device_profile', {
   offlineTimeoutS: integer('offline_timeout_s').notNull().default(300),
   deadTimeoutS: integer('dead_timeout_s').notNull().default(86400),
   sleepy: boolean('sleepy').notNull().default(false),
-  transport: text('transport', { enum: ['mqtt', 'http'] })
+  transport: text('transport', { enum: ['mqtt', 'http', 'aws-iot'] })
     .notNull()
     .default('mqtt'),
   locationMode: text('location_mode', { enum: ['none', 'fixed', 'reported'] })
@@ -52,6 +52,8 @@ export const device = pgTable(
       .default('token'),
     /** SHA-256 hex of the device token. */
     credentialsHash: text('credentials_hash').notNull().unique(),
+    /** AWS IoT Core certificate (aws-iot profiles); the private key is never stored. */
+    awsCertificateArn: text('aws_certificate_arn'),
     attributes: jsonb('attributes')
       .$type<DeviceAttributes>()
       .notNull()

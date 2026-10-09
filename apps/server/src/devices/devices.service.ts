@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { DeviceDto, LatestValue } from '@perspice/shared';
+import { type AwsIotBundle, type DeviceDto, ErrorCode, type LatestValue } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { AuthUser } from '../auth/auth.types';
-import { forbidden, notFound, validation } from '../common/app-error';
+import { AppError, forbidden, notFound, validation } from '../common/app-error';
 import { REDIS } from '../common/redis.module';
 import { CustomersService } from '../customers/customers.service';
 import { DB } from '../db/db.module';
@@ -15,6 +15,7 @@ import { ScopeService } from '../rbac/scope';
 import { CredentialsService } from './credentials.service';
 import { DebugLogService } from './debug-log.service';
 import { ProfilesService } from './profiles.service';
+import { AwsIotProvisioning } from '../aws/iot-provisioning';
 
 type DeviceRow = typeof device.$inferSelect;
 type ProfileRow = typeof deviceProfile.$inferSelect;
@@ -87,6 +88,7 @@ export class DevicesService {
     private readonly credentials: CredentialsService,
     private readonly debug: DebugLogService,
     private readonly events: EventBus,
+    private readonly aws: AwsIotProvisioning,
   ) {}
 
   async list(actor: AuthUser, q: ListDevicesQuery): Promise<{ items: DeviceDto[]; nextCursor: string | null }> {
@@ -140,7 +142,7 @@ export class DevicesService {
     return dto!;
   }
 
-  async create(actor: AuthUser, input: CreateDeviceInput): Promise<{ device: DeviceDto; token: string }> {
+  async create(actor: AuthUser, input: CreateDeviceInput): Promise<{ device: DeviceDto; token: string; awsIot?: AwsIotBundle }> {
     const scope = await this.scopes.forUser(actor);
     const profile = await this.profiles.get(actor, input.profileId);
     let customerId = input.customerId ?? null;
@@ -168,8 +170,20 @@ export class DevicesService {
       })
       .returning();
     await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
+    let awsIot: AwsIotBundle | undefined;
+    if (profile.transport === 'aws-iot') {
+      // The thing and certificate are created now; the key is only in this response (Review Focus 4).
+      try {
+        const { certificateArn, bundle } = await this.aws.provision(row!.id);
+        await this.db.update(device).set({ awsCertificateArn: certificateArn }).where(eq(device.id, row!.id));
+        awsIot = bundle;
+      } catch (err) {
+        await this.db.delete(device).where(eq(device.id, row!.id));
+        throw new AppError(ErrorCode.INTERNAL, `AWS IoT Core refused the device: ${(err as Error).message}`, 502);
+      }
+    }
     const [dto] = await this.toDtos([row!]);
-    return { device: dto!, token };
+    return { device: dto!, token, ...(awsIot ? { awsIot } : {}) };
   }
 
   async update(actor: AuthUser, id: string, patch: UpdateDeviceInput): Promise<DeviceDto> {
@@ -222,6 +236,7 @@ export class DevicesService {
       .zrem(PRESENCE_LAST_SEEN, id)
       .exec();
     await this.debug.clear(id);
+    if (existing.awsCertificateArn) await this.aws.deprovision(id, existing.awsCertificateArn);
     await this.emit('device.deleted', existing);
     // History can be large; remove it in the background rather than holding the request.
     void this.db
@@ -230,13 +245,19 @@ export class DevicesService {
       .catch((err: Error) => this.logger.warn(`Telemetry cleanup for ${id} failed: ${err.message}`));
   }
 
-  async regenerateCredentials(actor: AuthUser, id: string): Promise<{ token: string }> {
+  async regenerateCredentials(actor: AuthUser, id: string): Promise<{ token: string; awsIot?: AwsIotBundle }> {
     const existing = await this.find(actor, id);
     const { token, hash } = this.credentials.newToken();
+    let awsIot: AwsIotBundle | undefined;
+    if (existing.awsCertificateArn) {
+      const rotated = await this.aws.rotate(id, existing.awsCertificateArn);
+      await this.db.update(device).set({ awsCertificateArn: rotated.certificateArn }).where(eq(device.id, id));
+      awsIot = rotated.bundle;
+    }
     await this.db.update(device).set({ credentialsHash: hash }).where(eq(device.id, id));
     await this.credentials.invalidate(id, existing.credentialsHash);
     await this.emit('device.credentials_changed', existing);
-    return { token };
+    return { token, ...(awsIot ? { awsIot } : {}) };
   }
 
   async setAttributes(actor: AuthUser, id: string, kind: 'server' | 'shared', values: Record<string, unknown>) {

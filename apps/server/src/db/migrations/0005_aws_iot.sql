@@ -1,0 +1,1 @@
+ALTER TABLE "device" ADD COLUMN "aws_certificate_arn" text;

@@ -17,6 +17,7 @@ import { PresenceModule } from './presence/presence.module';
 import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { AlarmsModule } from './alarms/alarms.module';
+import { AwsModule } from './aws/aws.module';
 import { BackupsModule } from './backups/backups.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
@@ -62,6 +63,7 @@ export class AppModule {
         AuthModule,
         RbacModule,
         EventsModule,
+        AwsModule,
         DevicesModule,
         EmqxModule.forRoot({ api: runsRole(role, 'api') }),
         SchedulerModule,

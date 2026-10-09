@@ -62,7 +62,7 @@ export interface DeviceProfileDto {
   offlineTimeoutS: number;
   deadTimeoutS: number;
   sleepy: boolean;
-  transport: 'mqtt' | 'http';
+  transport: 'mqtt' | 'http' | 'aws-iot';
   retentionDays: number;
   statusNotify: StatusNotifyConfig;
   defaultDashboardTemplateId: string | null;

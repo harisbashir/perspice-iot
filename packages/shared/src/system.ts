@@ -77,3 +77,17 @@ export interface SystemStatusDto {
   backup: Pick<BackupStatusDto, 'latest' | 'lastError' | 'running'>;
   maintenance: boolean;
 }
+
+// ── AWS IoT Core ─────────────────────────────────────────────────────────────────────────────
+
+/** Credentials for a device on AWS IoT Core. Returned once; the private key is not kept. */
+export interface AwsIotBundle {
+  endpoint: string;
+  /** MQTT client id: must equal the thing name (the device id). */
+  clientId: string;
+  certificatePem: string;
+  privateKey: string;
+  /** Amazon's root CA for the endpoint's TLS certificate. */
+  rootCaUrl: string;
+  topicPrefix: string;
+}

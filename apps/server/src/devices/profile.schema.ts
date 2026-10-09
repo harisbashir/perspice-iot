@@ -32,7 +32,7 @@ export const ProfileFields = z.object({
   offlineTimeoutS: z.number().int().min(10).max(30 * 86400),
   deadTimeoutS: z.number().int().min(11).max(365 * 86400),
   sleepy: z.boolean(),
-  transport: z.enum(['mqtt', 'http']),
+  transport: z.enum(['mqtt', 'http', 'aws-iot']),
   retentionDays: z.number().int().min(1).max(3650),
   statusNotify: StatusNotify,
 });
