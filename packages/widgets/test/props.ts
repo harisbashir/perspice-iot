@@ -41,7 +41,7 @@ export const latest = (values: Record<string, unknown>): WidgetDataResult => ({
 
 export function propsFor<S extends Record<string, unknown>>(
   def: WidgetDefinition<S>,
-  opts: { datasource?: DataSource; settings?: Record<string, unknown>; result?: WidgetDataResult; can?: { command?: boolean }; scopeType?: 'platform' | 'customer' } = {},
+  opts: { datasource?: DataSource; settings?: Record<string, unknown>; result?: WidgetDataResult; can?: { command?: boolean; ack?: boolean }; scopeType?: 'platform' | 'customer' } = {},
 ): WidgetProps<S> {
   const config: WidgetConfig = {
     id: 'w1',
@@ -57,12 +57,14 @@ export function propsFor<S extends Record<string, unknown>>(
     timewindow: { kind: 'relative', lastMs: 86_400_000 },
     device,
     profile,
-    can: { command: opts.can?.command ?? true, export: true },
+    can: { command: opts.can?.command ?? true, export: true, ack: opts.can?.ack ?? true },
     viewer: { scopeType: opts.scopeType ?? 'platform' },
     actions: {
       sendCommand: vi.fn().mockResolvedValue(undefined),
       writeShared: vi.fn().mockResolvedValue(undefined),
       openDevice: vi.fn(),
+      ackAlarm: vi.fn().mockResolvedValue(undefined),
+      openAlarm: vi.fn(),
       setQuery: vi.fn(),
     },
   };

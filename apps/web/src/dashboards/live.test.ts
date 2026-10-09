@@ -108,3 +108,17 @@ describe('KPI tiles', () => {
     expect(requests[0]).toMatchObject({ customerId: 'c1', page: 0 });
   });
 });
+
+describe('alarm sources', () => {
+  it('requests alarm lists and marks them for live refetching', () => {
+    const state: DashboardState = {
+      id: 's',
+      name: 'S',
+      layout: [{ i: 'a', x: 0, y: 0, w: 6, h: 4 }],
+      widgets: [{ id: 'a', type: 'alarm-table', datasource: { kind: 'alarms', filter: { status: ['active'] }, pageSize: 5 }, settings: {} }],
+    };
+    const { requests, meta } = buildRequests(state, 'd1', { kind: 'relative', lastMs: 60_000 }, {});
+    expect(requests[0]).toMatchObject({ widgetId: 'a', mode: 'list', datasource: { kind: 'alarms' } });
+    expect(meta.a).toEqual({ keys: [], alarms: true });
+  });
+});

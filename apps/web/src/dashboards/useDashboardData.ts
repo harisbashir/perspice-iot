@@ -29,10 +29,17 @@ export function useDashboardData(state: DashboardState, deviceId: string | undef
   useDevicesSubscription(devicesIn(results, meta));
   // KPI tiles count the whole scope, so they need every status change, not just on-screen devices.
   const stats = Object.values(meta).map((m) => m.stats);
+  const hasAlarms = Object.values(meta).some((m) => m.alarms);
   useRoomSubscription('subscribe:status', null, stats.some(Boolean) ? {} : null);
+  useRoomSubscription('subscribe:alarms', null, hasAlarms ? {} : null);
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(refetchTimer.current), []);
   useSocketEvent<TelemetryEvent>('telemetry', (e) => setResults((r) => applyTelemetry(r, meta, e, timewindow.kind === 'relative')));
+  useSocketEvent('alarm', () => {
+    if (!hasAlarms) return;
+    clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => void query.refetch(), 300);
+  });
   useSocketEvent<StatusEvent>('status', (e) => {
     setResults((r) => applyStatus(r, e, meta));
     if (stats.includes('filtered')) {

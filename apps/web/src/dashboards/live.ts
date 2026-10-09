@@ -14,7 +14,7 @@ import { getWidget, isFleet, isHistory, isLatest, isList, isStats } from '@persp
 
 export type Results = Record<string, WidgetDataResult>;
 /** Per widget: the single device it shows (if any) and the telemetry keys it cares about. */
-export type WidgetMeta = Record<string, { deviceId?: string; keys: string[]; stats?: 'fleet' | 'filtered' }>;
+export type WidgetMeta = Record<string, { deviceId?: string; keys: string[]; stats?: 'fleet' | 'filtered'; alarms?: boolean }>;
 export type WidgetQuery = { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string };
 
 const BUILT_IN = new Set<string>(ENTITY_COLUMNS);
@@ -47,6 +47,9 @@ export function buildRequests(
       meta[w.id] = { deviceId: ds.kind === 'device' ? ds.deviceId : deviceId, keys: ds.keys };
     } else if (ds.kind === 'entityList') {
       meta[w.id] = { keys: ds.columns.filter((c) => !BUILT_IN.has(c)) };
+    } else if (ds.kind === 'alarms') {
+      // Refetched on live alarm changes.
+      meta[w.id] = { keys: [], alarms: true };
     } else if (def.data.mode === 'stats') {
       // Whole-fleet counts can follow status events; filtered ones (by profile, tag…) are refetched.
       const filtered = !!(ds.profileId || ds.filter?.status?.length || ds.filter?.tags?.length || ds.filter?.search);

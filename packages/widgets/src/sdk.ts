@@ -23,7 +23,7 @@ export interface WidgetProps<S = Record<string, unknown>> {
   /** The device a device dashboard was opened for. */
   device: DeviceSummary | null;
   profile: DeviceProfileDto | null;
-  can: { command: boolean; export: boolean };
+  can: { command: boolean; export: boolean; ack: boolean };
   viewer: { scopeType: 'platform' | 'customer' };
   actions: WidgetActions;
 }
@@ -32,6 +32,9 @@ export interface WidgetActions {
   sendCommand(name: string, params: Record<string, unknown>): Promise<void>;
   writeShared(values: Record<string, unknown>): Promise<void>;
   openDevice(deviceId: string): void;
+  /** Acknowledges an alarm (alarm widgets; only offered when `can.ack`). */
+  ackAlarm(alarmId: string): Promise<void>;
+  openAlarm(alarmId: string): void;
   /** Asks the dashboard to change this widget's request (e.g. a table's page or sort). */
   setQuery(patch: { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string }): void;
 }

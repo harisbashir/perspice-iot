@@ -1,7 +1,10 @@
 import { z } from 'zod';
+import { ALARM_SEVERITIES, ALARM_STATUSES, type AlarmSeverity, type AlarmStatus } from './alarm-constants.js';
 import { TimewindowSchema } from './dashboard.js';
 import { KEY_PATTERN } from './protocol.js';
 import { BUILT_IN_ROLE_KEYS } from './roles.js';
+
+export { ALARM_SEVERITIES, ALARM_STATUSES, type AlarmSeverity, type AlarmStatus } from './alarm-constants.js';
 
 // ── Common ───────────────────────────────────────────────────────────────────────────────────
 
@@ -19,9 +22,6 @@ export const TimezoneSchema = z.string().max(64).refine(isTimezone, 'Unknown tim
 const Uuid = z.string().uuid();
 const Key = z.string().regex(KEY_PATTERN, 'Use letters, digits, ".", "_" or "-" (max 64)');
 const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM (24-hour)');
-
-export const ALARM_SEVERITIES = ['critical', 'major', 'minor', 'warning'] as const;
-export type AlarmSeverity = (typeof ALARM_SEVERITIES)[number];
 
 /** One scale for alarms and other notifications (status changes are `info`/`warning`/`critical`). */
 export const NOTIFY_LEVELS = ['info', 'warning', 'minor', 'major', 'critical'] as const;
@@ -153,8 +153,6 @@ export type AlarmRuleDto = AlarmRuleInput & {
 
 // ── Alarms ───────────────────────────────────────────────────────────────────────────────────
 
-export const ALARM_STATUSES = ['active', 'acknowledged', 'cleared'] as const;
-export type AlarmStatus = (typeof ALARM_STATUSES)[number];
 
 export interface AlarmDto {
   id: string;

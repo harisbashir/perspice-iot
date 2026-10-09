@@ -142,12 +142,18 @@ export class AlarmsService {
     return { id: e!.id, type: 'comment', ts: e!.ts.getTime(), user: { id: actor.id, name: actor.name }, comment: text, data: null };
   }
 
-  async summary(actor: AuthUser): Promise<AlarmSummary> {
+  async count(actor: AuthUser, f: AlarmFilter): Promise<number> {
+    const [row] = await this.db.select({ n: count() }).from(alarm).innerJoin(device, eq(device.id, alarm.deviceId)).where(await this.where(actor, f));
+    return row?.n ?? 0;
+  }
+
+  /** Open alarms by severity (optionally narrowed, e.g. to a profile or device). */
+  async summary(actor: AuthUser, f: Omit<AlarmFilter, 'status'> = {}): Promise<AlarmSummary> {
     const rows = await this.db
       .select({ severity: alarm.severity, status: alarm.status, n: count() })
       .from(alarm)
       .innerJoin(device, eq(device.id, alarm.deviceId))
-      .where(await this.where(actor, { status: ['active', 'acknowledged'] }))
+      .where(await this.where(actor, { ...f, status: ['active', 'acknowledged'] }))
       .groupBy(alarm.severity, alarm.status);
     const out = Object.fromEntries(ALARM_SEVERITIES.map((s) => [s, 0])) as AlarmSummary;
     out.total = 0;

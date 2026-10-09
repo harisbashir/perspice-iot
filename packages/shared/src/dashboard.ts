@@ -1,3 +1,5 @@
+import { ALARM_SEVERITIES, ALARM_STATUSES } from './alarm-constants.js';
+import type { AlarmDto, AlarmSummary } from './alarms.js';
 import { z } from 'zod';
 import { KEY_PATTERN } from './protocol.js';
 
@@ -36,6 +38,19 @@ export const DataSourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('currentDevice'), keys: Keys }),
   z.object({ kind: z.literal('device'), deviceId: z.string().uuid(), keys: Keys }),
   z.object({ kind: z.literal('devicesOfProfile'), profileId: z.string().uuid().nullable(), filter: DeviceFilter, keys: Keys }),
+  /** Alarms in the viewer's scope (on a device dashboard: optionally only that device's). */
+  z.object({
+    kind: z.literal('alarms'),
+    filter: z
+      .object({
+        status: z.array(z.enum(ALARM_STATUSES)).max(3).optional(),
+        severity: z.array(z.enum(ALARM_SEVERITIES)).max(4).optional(),
+        profileId: z.string().uuid().nullish(),
+        currentDeviceOnly: z.boolean().optional(),
+      })
+      .default({}),
+    pageSize: z.number().int().min(1).max(100).default(10),
+  }),
   z.object({
     kind: z.literal('entityList'),
     profileId: z.string().uuid().nullable(),
@@ -176,6 +191,14 @@ export interface StatsData {
   never: number;
   messages24h: number;
 }
+
+/** mode `list` on `alarms`: the newest matching alarms. */
+export interface AlarmListData {
+  alarms: AlarmDto[];
+  total: number;
+}
+/** mode `stats` on `alarms`: open alarms by severity. */
+export type AlarmStatsData = AlarmSummary;
 
 export type WidgetDataResult<T = unknown> = { ok: true; data: T } | { ok: false; code: string; message: string };
 export interface DataResponse {

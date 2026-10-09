@@ -64,6 +64,14 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
             }
           },
           openDevice: (id) => navigate(`/devices/${id}`),
+          openAlarm: (id) => navigate(`/alarms/${id}`),
+          async ackAlarm(id) {
+            try {
+              await api(`/alarms/${id}/ack`, { body: {} });
+            } catch (e) {
+              throw new Error(errorText(e));
+            }
+          },
           setQuery: (patch) => setQuery(w.id, patch),
         };
       },
@@ -102,7 +110,7 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
                   timewindow={timewindow}
                   device={summary}
                   profile={profile}
-                  can={{ command: hasPerm('device.command') && !edit, export: hasPerm('export.data') }}
+                  can={{ command: hasPerm('device.command') && !edit, export: hasPerm('export.data'), ack: hasPerm('alarm.ack') && !edit }}
                   viewer={{ scopeType: user?.scopeType ?? 'customer' }}
                   actions={actionsFor(w)}
                 />

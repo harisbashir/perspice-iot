@@ -26,6 +26,8 @@ const readOnly: WidgetActions = {
   sendCommand: () => Promise.reject(new Error('Not available in reports')),
   writeShared: () => Promise.reject(new Error('Not available in reports')),
   openDevice: () => undefined,
+  openAlarm: () => undefined,
+  ackAlarm: () => Promise.reject(new Error('Not available in reports')),
   setQuery: () => undefined,
 };
 
@@ -146,7 +148,7 @@ export function PrintDashboard() {
                     timewindow={s.timewindow}
                     device={summary}
                     profile={s.profile}
-                    can={{ command: false, export: false }}
+                    can={{ command: false, export: false, ack: false }}
                     viewer={s.viewer}
                     actions={readOnly}
                   />

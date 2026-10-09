@@ -1,6 +1,6 @@
 import { DashboardDefinitionSchema, type DeviceProfileDto } from '@perspice/shared';
 import { describe, expect, it } from 'vitest';
-import { generateDeviceDefinition, overviewDefinition } from '../../src/dashboards/defaults';
+import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets } from '../../src/dashboards/defaults';
 
 const profile: Pick<DeviceProfileDto, 'telemetrySchema' | 'commands'> = {
   telemetrySchema: [
@@ -57,5 +57,23 @@ describe('default dashboards', () => {
       'messages24h',
     ]);
     expect(widgets.find((w) => w.type === 'entity-table')?.datasource).toMatchObject({ kind: 'entityList', columns: ['status', 'name', 'profile', 'customer', 'lastSeen'] });
+  });
+});
+
+describe('overview alarm upgrade', () => {
+  it('appends the alarm block below an older overview once, keeping its widgets', () => {
+    const current = overviewDefinition();
+    expect(withAlarmWidgets(current)).toBeNull();
+    const old = {
+      ...current,
+      states: [{ ...current.states[0]!, widgets: current.states[0]!.widgets.filter((w) => !w.id.startsWith('alarm')), layout: [{ i: 'devices', x: 0, y: 0, w: 12, h: 12 }] }],
+    };
+    old.states[0]!.widgets = old.states[0]!.widgets.filter((w) => w.id === 'devices');
+    const up = withAlarmWidgets(old)!;
+    const ids = up.states[0]!.widgets.map((w) => w.id);
+    expect(ids[0]).toBe('devices');
+    expect(ids).toContain('alarms-recent');
+    expect(Math.min(...up.states[0]!.layout.filter((l) => l.i !== 'devices').map((l) => l.y))).toBe(12);
+    expect(withAlarmWidgets(up)).toBeNull();
   });
 });

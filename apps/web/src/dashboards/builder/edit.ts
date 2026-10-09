@@ -24,6 +24,7 @@ export function defaultDatasource(w: WidgetDefinition, profile: DeviceProfileDto
   if (sources.includes('entityList')) {
     return { kind: 'entityList', profileId: profile?.id ?? null, columns: ['status', 'name', 'lastSeen', ...numeric.slice(0, 2)], pageSize: 25 };
   }
+  if (sources[0] === 'alarms') return { kind: 'alarms', filter: { status: ['active', 'acknowledged'] }, pageSize: 10 };
   if (sources[0] === 'devicesOfProfile') return { kind: 'devicesOfProfile', profileId: profile?.id ?? null, keys: [] };
   if (sources[0] === 'none') return { kind: 'none' };
   if (sources.includes('currentDevice')) return { kind: 'currentDevice', keys: pickKeys };

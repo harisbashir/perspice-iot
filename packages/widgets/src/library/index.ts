@@ -1,4 +1,7 @@
 import { type WidgetDefinition, getWidget, registerWidget } from '../sdk';
+import { alarmKpi } from './alarms/alarm-kpi';
+import { alarmTable } from './alarms/alarm-table';
+import { alarmTimeline } from './alarms/alarm-timeline';
 import { CHART_WIDGETS } from './charts';
 import { commandButton } from './control/command-button';
 import { setpointWidget } from './control/setpoint';
@@ -35,6 +38,9 @@ export const BUILT_IN_WIDGETS = [
   setpointWidget,
   markdownCard,
   imageOverlay,
+  alarmTable,
+  alarmKpi,
+  alarmTimeline,
 ] as unknown as WidgetDefinition[];
 
 /** Registers the v1 library (idempotent). */

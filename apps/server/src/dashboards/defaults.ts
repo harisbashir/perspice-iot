@@ -72,12 +72,30 @@ const KPIS = [
   ['messages24h', 'Messages (24 h)'],
 ] as const;
 
-/** The built-in fleet overview used on both portals (spec §7.5, without alarms and maps). */
+const ALARM_KPIS = [
+  ['critical', 'Critical alarms'],
+  ['major', 'Major alarms'],
+  ['minor', 'Minor alarms'],
+  ['unacknowledged', 'Unacknowledged'],
+] as const;
+
+const OPEN_ALARMS = { kind: 'alarms' as const, filter: { status: ['active' as const, 'acknowledged' as const] }, pageSize: 10 };
+
+/** Active-alarm tiles and the recent-alarms table (added to the overview in v0.3.0). */
+function addAlarmBlock(p: Packer): void {
+  for (const [metric, label] of ALARM_KPIS) p.add({ id: `alarm-kpi-${metric}`, type: 'alarm-kpi', title: label, datasource: OPEN_ALARMS, settings: { metric } }, 3, 3);
+  p.newRow();
+  p.add({ id: 'alarms-recent', type: 'alarm-table', title: 'Open alarms', datasource: OPEN_ALARMS, settings: { showDevice: true } }, 12, 6);
+  p.newRow();
+}
+
+/** The built-in fleet overview used on both portals (spec §7.5, without maps). */
 export function overviewDefinition(): DashboardDefinition {
   const p = new Packer();
   const fleet = { kind: 'devicesOfProfile' as const, profileId: null, keys: [] };
   for (const [metric, label] of KPIS) p.add({ id: `kpi-${metric}`, type: 'kpi', title: label, datasource: fleet, settings: { metric } }, 2, 3);
   p.newRow();
+  addAlarmBlock(p);
   p.add(
     {
       id: 'devices',
@@ -92,5 +110,28 @@ export function overviewDefinition(): DashboardDefinition {
   return {
     states: [{ id: 'main', name: 'Overview', layout: p.layout, widgets: p.widgets }],
     settings: { timewindow: { kind: 'relative', lastMs: DAY_MS }, refreshS: 0 },
+  };
+}
+
+/**
+ * Upgrades an overview created before alarms existed: the alarm tiles and table are added below
+ * its first view's widgets, keeping any changes made to it. Null when it already has them.
+ */
+export function withAlarmWidgets(def: DashboardDefinition): DashboardDefinition | null {
+  const [first, ...rest] = def.states;
+  if (!first || first.widgets.some((w) => w.id === 'alarms-recent')) return null;
+  const p = new Packer();
+  addAlarmBlock(p);
+  const bottom = first.layout.reduce((m, l) => Math.max(m, l.y + l.h), 0);
+  return {
+    ...def,
+    states: [
+      {
+        ...first,
+        layout: [...first.layout, ...p.layout.map((l) => ({ ...l, y: l.y + bottom }))],
+        widgets: [...first.widgets, ...p.widgets],
+      },
+      ...rest,
+    ],
   };
 }

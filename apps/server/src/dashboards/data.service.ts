@@ -1,5 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  type AlarmListData,
+  type AlarmStatsData,
   type DataRequest,
   type DataSource,
   type DeviceSummary,
@@ -20,6 +22,7 @@ import { AppError, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
 import { customer, device, deviceProfile, telemetryLatest } from '../db/schema';
+import { AlarmsService } from '../alarms/alarms.service';
 import { DevicesService } from '../devices/devices.service';
 import { type Scope, ScopeService } from '../rbac/scope';
 import { TelemetryService } from '../telemetry/telemetry.service';
@@ -28,6 +31,8 @@ type DeviceRow = typeof device.$inferSelect;
 type Filter = Extract<DataSource, { kind: 'entityList' }>['filter'];
 
 const DAY_MS = 86_400_000;
+/** Matches no device: "this device only" on a dashboard that has none. */
+const NO_DEVICE = '00000000-0000-0000-0000-000000000000';
 const BUILT_IN = new Set<string>(ENTITY_COLUMNS);
 
 const summary = (d: DeviceRow, lastSeen: number | null): DeviceSummary => ({
@@ -58,6 +63,7 @@ export class DataService {
     private readonly devices: DevicesService,
     private readonly scopes: ScopeService,
     private readonly telemetry: TelemetryService,
+    private readonly alarms: AlarmsService,
   ) {}
 
   async query(actor: AuthUser, deviceId: string | undefined, requests: DataRequest[]): Promise<Record<string, WidgetDataResult>> {
@@ -95,6 +101,20 @@ export class DataService {
       case 'entityList':
         if (r.mode === 'list') return this.list(scope, ds, r);
         throw validation([], 'Entity lists support mode "list" only');
+      case 'alarms': {
+        const f = {
+          status: ds.filter.status,
+          severity: ds.filter.severity,
+          profileId: ds.filter.profileId ?? undefined,
+          deviceId: ds.filter.currentDeviceOnly ? (deviceId ?? NO_DEVICE) : undefined,
+        };
+        if (r.mode === 'stats') return (await this.alarms.summary(actor, f)) satisfies AlarmStatsData;
+        if (r.mode === 'list') {
+          const [{ items }, total] = await Promise.all([this.alarms.list(actor, f, undefined, ds.pageSize), this.alarms.count(actor, f)]);
+          return { alarms: items, total } satisfies AlarmListData;
+        }
+        throw validation([], 'Alarm sources support modes "list" and "stats"');
+      }
     }
   }
 

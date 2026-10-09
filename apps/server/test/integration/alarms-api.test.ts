@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { alarm } from '../../src/db/schema';
+import { eq } from 'drizzle-orm';
+import { alarm, device } from '../../src/db/schema';
 import { tokenFor } from '../auth-helpers';
 import { createCustomer, createDevice, createProfile, createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
@@ -155,5 +156,30 @@ describe('alarm API', () => {
     expect(lines[0]).toBe('Started (UTC),Severity,Status,Device,Rule,Message,Acknowledged (UTC),Acknowledged by,Cleared (UTC)');
     expect(lines[1]).toContain(',critical,active,Tower,Low fuel,fuel_level is 2 (< 20),,,');
     expect(await t.db.select().from(alarm)).not.toHaveLength(0);
+  });
+
+  it('serves the alarms data source within scope, per device and as counts (Review Focus 2)', async () => {
+    const a = await tenant();
+    const b = await tenant();
+    const { device: second, token: secondToken } = await createDevice(t.db, { profileId: (await t.db.query.device.findFirst({ where: eq(device.id, a.device.id) }))!.profileId, customerId: a.c.id, name: 'Tower 2' });
+    await send(a.token, { fuel_level: 1 });
+    await send(secondToken, { fuel_level: 1 });
+    await send(b.token, { fuel_level: 1 });
+    await waitForAlarms(a.opAuth, '', 2);
+    const query = (auth: string, deviceId: string | undefined, filter: object, mode: string) =>
+      t.http
+        .post('/api/dashboards/data')
+        .set('Authorization', auth)
+        .send({ deviceId, requests: [{ widgetId: 'w', datasource: { kind: 'alarms', filter, pageSize: 10 }, mode }] })
+        .then((r) => r.body.results.w);
+
+    const list = await query(a.opAuth, undefined, {}, 'list');
+    expect(list.data.total).toBe(2);
+    expect(list.data.alarms.map((x: { device: { name: string } }) => x.device.name).sort()).toEqual(['Tower', 'Tower 2']);
+    const own = await query(a.opAuth, second.id, { currentDeviceOnly: true }, 'list');
+    expect(own.data.alarms.map((x: { device: { id: string } }) => x.device.id)).toEqual([second.id]);
+    // Another tenant's device id as "the dashboard's device" yields nothing.
+    expect((await query(a.opAuth, b.device.id, { currentDeviceOnly: true }, 'list')).data.total).toBe(0);
+    expect((await query(a.opAuth, undefined, {}, 'stats')).data).toMatchObject({ critical: 2, total: 2, unacknowledged: 2 });
   });
 });

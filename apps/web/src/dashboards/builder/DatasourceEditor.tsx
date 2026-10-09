@@ -1,4 +1,4 @@
-import { type DataSource, type DeviceProfileDto, ENTITY_COLUMNS } from '@perspice/shared';
+import { ALARM_SEVERITIES, type AlarmStatus, type DataSource, type DeviceProfileDto, ENTITY_COLUMNS } from '@perspice/shared';
 import type { WidgetDefinition } from '@perspice/widgets';
 import { useId } from 'react';
 import { useProfiles } from '@/pages/devices/hooks';
@@ -9,7 +9,14 @@ const KIND_LABEL: Record<DataSource['kind'], string> = {
   device: 'A specific device',
   devicesOfProfile: 'Devices of a profile',
   entityList: 'Device list',
+  alarms: 'Alarms',
 };
+
+const ALARM_STATUS_CHOICES: { label: string; status: AlarmStatus[] | undefined }[] = [
+  { label: 'Open (active and acknowledged)', status: ['active', 'acknowledged'] },
+  { label: 'Unacknowledged', status: ['active'] },
+  { label: 'All, including cleared', status: undefined },
+];
 
 const selectClass = 'h-8 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
 
@@ -63,6 +70,7 @@ export function DatasourceEditor({
     else if (kind === 'currentDevice') onChange({ kind, keys: currentKeys });
     else if (kind === 'device') onChange({ kind, deviceId: value.kind === 'device' ? value.deviceId : '', keys: currentKeys });
     else if (kind === 'devicesOfProfile') onChange({ kind, profileId: profile?.id ?? null, keys: currentKeys });
+    else if (kind === 'alarms') onChange({ kind, filter: { status: ['active', 'acknowledged'] }, pageSize: 10 });
     else onChange({ kind, profileId: profile?.id ?? null, columns: ['status', 'name', 'lastSeen'], pageSize: 25 });
   }
 
@@ -104,6 +112,70 @@ export function DatasourceEditor({
             ))}
           </select>
         </div>
+      )}
+      {value.kind === 'alarms' && (
+        <>
+          <div className="space-y-1">
+            <label htmlFor={`${id}-astatus`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Alarms
+            </label>
+            <select
+              id={`${id}-astatus`}
+              className={selectClass}
+              value={ALARM_STATUS_CHOICES.findIndex((c) => JSON.stringify(c.status) === JSON.stringify(value.filter.status))}
+              onChange={(e) => onChange({ ...value, filter: { ...value.filter, status: ALARM_STATUS_CHOICES[Number(e.target.value)]!.status } })}
+            >
+              {ALARM_STATUS_CHOICES.map((c, i) => (
+                <option key={c.label} value={i}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <fieldset className="space-y-1">
+            <legend className="text-xs font-medium text-slate-600 dark:text-slate-300">Severities (none ticked = all)</legend>
+            <div className="flex flex-wrap gap-3">
+              {ALARM_SEVERITIES.map((s) => (
+                <label key={s} className="flex items-center gap-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={value.filter.severity?.includes(s) ?? false}
+                    onChange={(e) => {
+                      const next = e.target.checked ? [...(value.filter.severity ?? []), s] : (value.filter.severity ?? []).filter((x) => x !== s);
+                      onChange({ ...value, filter: { ...value.filter, severity: next.length ? next : undefined } });
+                    }}
+                  />
+                  {s}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="space-y-1">
+            <label htmlFor={`${id}-aprofile`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Profile
+            </label>
+            <select id={`${id}-aprofile`} className={selectClass} value={value.filter.profileId ?? ''} onChange={(e) => onChange({ ...value, filter: { ...value.filter, profileId: e.target.value || null } })}>
+              <option value="">All profiles</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!value.filter.currentDeviceOnly} onChange={(e) => onChange({ ...value, filter: { ...value.filter, currentDeviceOnly: e.target.checked } })} />
+            Only the dashboard’s device
+          </label>
+          {widget.data.mode === 'list' && (
+            <div className="space-y-1">
+              <label htmlFor={`${id}-asize`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Alarms shown
+              </label>
+              <input id={`${id}-asize`} type="number" min={1} max={100} className={selectClass} value={value.pageSize} onChange={(e) => onChange({ ...value, pageSize: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })} />
+            </div>
+          )}
+        </>
       )}
       {'keys' in value && widget.data.keys && <KeyPicker keys={keys} value={value.keys} max={keyLimit} onChange={(k) => onChange({ ...value, keys: k })} />}
       {value.kind === 'entityList' && (
