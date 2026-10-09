@@ -111,6 +111,20 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
+  # Prints dashboards to PDF with headless Chromium; loads the web app through Caddy's internal
+  # listener (port 8080, not published).
+  renderer:
+    <<: *server
+    image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-renderer:${PERSPICE_VERSION:-latest}
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: renderer
+      RENDERER_APP_URL: http://caddy:8080
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      caddy: { condition: service_started }
+
   emqx:
     image: emqx/emqx:5.8.6
     restart: unless-stopped

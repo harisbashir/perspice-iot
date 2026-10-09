@@ -18,6 +18,7 @@ import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { ExportsModule } from './exports/exports.module';
+import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { DocsModule } from './openapi';
@@ -26,7 +27,7 @@ import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 
-export const runsRole = (current: Role, wanted: Exclude<Role, 'all'>) => current === 'all' || current === wanted;
+export const runsRole = (current: Role, wanted: Exclude<Role, 'all' | 'renderer'>) => current === 'all' || current === wanted;
 
 @Module({})
 export class AppModule {
@@ -63,6 +64,8 @@ export class AppModule {
         TelemetryModule,
         DashboardsModule,
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
+        // Not part of `all`: the renderer needs Chromium, which only the renderer image has.
+        ReportsModule.forRoot({ api: runsRole(role, 'api'), renderer: role === 'renderer' }),
         NotificationsModule.forRoot({ rules: runsRole(role, 'rules') }),
         ...(runsRole(role, 'api') ? [RealtimeModule, DocsModule] : []),
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),

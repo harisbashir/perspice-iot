@@ -119,6 +119,9 @@ importers:
       pino-http:
         specifier: ^11.0.0
         version: 11.0.0
+      playwright-core:
+        specifier: 1.64.0
+        version: 1.64.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2

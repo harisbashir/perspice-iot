@@ -9,8 +9,8 @@ export interface DashboardViewProps {
   /** Set for device dashboards; resolves `currentDevice` sources and receives commands. */
   device?: DeviceDto | null;
   profile?: DeviceProfileDto | null;
-  /** Extra controls in the toolbar (customise, export…). */
-  toolbar?: ReactNode;
+  /** Extra controls in the toolbar (customise, report…); a function gets the current view and time window. */
+  toolbar?: ReactNode | ((ctx: { timewindow: Timewindow; stateId: string }) => ReactNode);
   /** Controls per widget frame; defaults to the export menu. */
   widgetActions?: (w: WidgetConfig, timewindow: Timewindow) => ReactNode;
 }
@@ -51,7 +51,7 @@ export function DashboardView({
         <StateTabs definition={definition} active={state.id} onChange={setStateId} />
         <div className="flex flex-wrap items-center gap-2">
           <TimewindowPicker value={timewindow} onChange={setTimewindow} />
-          {toolbar}
+          {typeof toolbar === 'function' ? toolbar({ timewindow, stateId: state.id }) : toolbar}
         </div>
       </div>
       <DashboardGrid

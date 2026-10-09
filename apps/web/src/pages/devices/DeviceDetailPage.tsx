@@ -17,6 +17,7 @@ import { LatestValuesPanel } from './LatestValuesPanel';
 import { StatusBadge } from './StatusBadge';
 import { timeAgo } from './format';
 import { useDevice, useProfile } from './hooks';
+import { ReportButton } from '@/exports/ReportButton';
 
 // ECharts is large; load it only when the History tab is opened.
 const HistoryChart = lazy(() => import('./HistoryChart').then((m) => ({ default: m.HistoryChart })));
@@ -62,7 +63,12 @@ export function DeviceDetailPage() {
               definition={view.definition}
               device={device}
               profile={profile ?? null}
-              toolbar={<DeviceDashboardToolbar deviceId={device.id} view={view} />}
+              toolbar={(ctx) => (
+                <>
+                  <DeviceDashboardToolbar deviceId={device.id} view={view} />
+                  <ReportButton deviceId={device.id} {...ctx} />
+                </>
+              )}
             />
           </TabsContent>
         )}

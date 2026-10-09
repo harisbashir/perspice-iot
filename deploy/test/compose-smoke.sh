@@ -2,6 +2,7 @@
 # End-to-end smoke test of the Compose stack: build images, start everything, create an admin
 # and a device, publish one MQTT message and read it back through the API.
 # Usage: deploy/test/compose-smoke.sh   (run from anywhere; needs docker and python3)
+# KEEP_STACK=1 leaves the stack running; SMOKE_OUT=<dir> keeps the rendered report PDF.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,7 +15,7 @@ ENV_FILE="$WORK/.env"
 COMPOSE=(docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/test/smoke.override.yml")
 
 log() { printf '\n==> %s\n' "$*"; }
-fail() { printf '\nSMOKE FAILED: %s\n' "$*" >&2; "${COMPOSE[@]}" logs --tail 40 api ingest emqx caddy >&2 || true; exit 1; }
+fail() { printf '\nSMOKE FAILED: %s\n' "$*" >&2; "${COMPOSE[@]}" logs --tail 40 api ingest emqx caddy renderer >&2 || true; exit 1; }
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {'d': d}))" "$1"; }
 
 cleanup() {
@@ -26,6 +27,7 @@ trap cleanup EXIT
 log "Building images"
 docker build -q -f "$ROOT/deploy/Dockerfile.server" -t "ghcr.io/$OWNER/perspice-server:$VERSION" "$ROOT" >/dev/null
 docker build -q -f "$ROOT/deploy/Dockerfile.web" -t "ghcr.io/$OWNER/perspice-web:$VERSION" "$ROOT" >/dev/null
+docker build -q -f "$ROOT/deploy/Dockerfile.renderer" -t "ghcr.io/$OWNER/perspice-renderer:$VERSION" "$ROOT" >/dev/null
 
 secret() { openssl rand -base64 "$1" | tr -d '\n=/+' ; }
 cat >"$ENV_FILE" <<ENV
@@ -87,5 +89,18 @@ for _ in $(seq 1 20); do
   sleep 0.5
 done
 [[ "$latest" == *'"v":21.5'* ]] || fail "telemetry not stored: $latest"
+
+log "Rendering the device dashboard to PDF"
+job="$(api "${auth[@]}" -X POST "$BASE/api/reports/dashboard" -d "{\"deviceId\":\"$device_id\",\"timewindow\":{\"kind\":\"relative\",\"lastMs\":3600000}}" | json "d['id']")" || fail "report request"
+for _ in $(seq 1 60); do
+  status="$(api "${auth[@]}" "$BASE/api/exports/$job" | json "d['status']")"
+  [[ "$status" == "done" || "$status" == "failed" ]] && break
+  sleep 2
+done
+[[ "$status" == "done" ]] || fail "report $status: $(api "${auth[@]}" "$BASE/api/exports/$job")"
+url="$(api "${auth[@]}" "$BASE/api/exports/$job" | json "d['downloadUrl']")"
+curl -fsSk -o "$WORK/report.pdf" "$BASE$url" || fail "report download"
+[[ "$(head -c 5 "$WORK/report.pdf")" == "%PDF-" ]] || fail "report is not a PDF"
+if [[ -n "${SMOKE_OUT:-}" ]]; then cp "$WORK/report.pdf" "$SMOKE_OUT/"; fi
 
 echo "SMOKE OK"

@@ -12,6 +12,6 @@ import { TemplatesService } from './templates.service';
   imports: [TelemetryModule],
   controllers: [TemplatesController, DashboardsController, DataController],
   providers: [TemplatesService, InstancesService, DataService],
-  exports: [TemplatesService, InstancesService],
+  exports: [TemplatesService, InstancesService, DataService],
 })
 export class DashboardsModule {}

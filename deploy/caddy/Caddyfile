@@ -25,3 +25,8 @@
 mqtt.{$BASE_DOMAIN} {
 	respond "MQTT broker: connect with an MQTT client on port 8883." 200
 }
+
+# Internal plain-HTTP listener for the PDF renderer (container network only; not published).
+http://:8080 {
+	import perspice
+}

@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LazyDashboardView as DashboardView } from '@/dashboards/LazyDashboardView';
+import { ReportButton } from '@/exports/ReportButton';
 import { useOverviewDashboard } from '@/dashboards/hooks';
 import { PageHeader } from '@/components/PageHeader';
 import { useStatusFeed } from '@/realtime/hooks';
@@ -23,7 +24,7 @@ export function OverviewPage() {
     return (
       <div>
         <PageHeader title="Overview" />
-        <DashboardView definition={view.definition} />
+        <DashboardView definition={view.definition} toolbar={(ctx) => <ReportButton {...ctx} />} />
       </div>
     );
   }

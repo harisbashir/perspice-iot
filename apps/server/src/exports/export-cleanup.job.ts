@@ -6,7 +6,7 @@ import { ExportsService } from './exports.service';
 @Injectable()
 export class ExportCleanupJob implements OnApplicationBootstrap {
   constructor(
-    private readonly exports: ExportsService,
+    private readonly exportJobs: ExportsService,
     private readonly jobs: JobRegistry,
     @Inject('SCHEDULE_EXPORT_JOBS') private readonly schedule: boolean,
   ) {}
@@ -16,6 +16,6 @@ export class ExportCleanupJob implements OnApplicationBootstrap {
   }
 
   run(now = new Date()): Promise<number> {
-    return this.exports.cleanup(now);
+    return this.exportJobs.cleanup(now);
   }
 }

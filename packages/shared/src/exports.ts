@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { DataSourceSchema, TimewindowSchema } from './dashboard.js';
+import type { BrandingDto, DeviceDto, DeviceProfileDto } from './api-types.js';
+import { type DashboardViewDto, DataSourceSchema, TimewindowSchema } from './dashboard.js';
 
 /** Exports above this many rows run as background jobs; smaller ones stream straight back. */
 export const EXPORT_SYNC_ROW_LIMIT = 50_000;
@@ -62,7 +63,7 @@ export type WidgetExportParams = z.infer<typeof WidgetExportParamsSchema>;
 
 export interface ExportJobDto {
   id: string;
-  kind: ExportRequest['kind'];
+  kind: ExportRequest['kind'] | 'report';
   format: ExportFormat;
   title: string;
   status: 'queued' | 'running' | 'done' | 'failed';
@@ -72,4 +73,33 @@ export interface ExportJobDto {
   expiresAt: number | null;
   /** Short-lived signed link; null until done and after expiry. */
   downloadUrl: string | null;
+}
+
+// ── Dashboard PDF reports ───────────────────────────────────────────────────────────────────
+
+export const ReportRequestSchema = z
+  .object({
+    /** A device dashboard… */
+    deviceId: z.string().uuid().optional(),
+    /** …or the viewer's overview dashboard. */
+    overview: z.boolean().optional(),
+    stateId: z.string().max(64).optional(),
+    timewindow: TimewindowSchema,
+  })
+  .refine((r) => !!r.deviceId !== !!r.overview, { message: 'Choose either a device dashboard or the overview' });
+export type ReportRequest = z.infer<typeof ReportRequestSchema>;
+
+/** What the print page gets for a render token: one dashboard, as one viewer sees it. */
+export interface PrintSessionDto {
+  /** Authorises `POST /api/print/data` for this dashboard only, for a short time. */
+  session: string;
+  title: string;
+  generatedAt: number;
+  timewindow: z.infer<typeof TimewindowSchema>;
+  stateId: string;
+  viewer: { scopeType: 'platform' | 'customer' };
+  branding: BrandingDto;
+  dashboard: DashboardViewDto;
+  device: DeviceDto | null;
+  profile: DeviceProfileDto | null;
 }

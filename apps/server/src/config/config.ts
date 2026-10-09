@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const ROLES = ['api', 'ingest', 'rules', 'scheduler', 'all'] as const;
+/** `renderer` (dashboard PDFs, needs Chromium) is never part of `all`; it runs in its own image. */
+export const ROLES = ['api', 'ingest', 'rules', 'scheduler', 'renderer', 'all'] as const;
 export type Role = (typeof ROLES)[number];
 
 const ConfigSchema = z.object({
@@ -22,6 +23,8 @@ const ConfigSchema = z.object({
     .refine((v) => Buffer.from(v, 'base64').length === 32, 'MASTER_KEY must be base64 decoding to 32 bytes'),
   PUBLIC_URL: z.string().url().default('http://localhost'),
   BASE_DOMAIN: z.string().min(1).default('localhost'),
+  /** Where the renderer loads the web app (print page); defaults to PUBLIC_URL. */
+  RENDERER_APP_URL: z.string().url().optional(),
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   STORAGE_LOCAL_PATH: z.string().default('/var/lib/perspice/storage'),
   /** Requests per minute per IP on /auth/login and /auth/forgot. */

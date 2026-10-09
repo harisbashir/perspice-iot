@@ -27,6 +27,8 @@ export const routes: RouteObject[] = [
   { path: '/forgot', element: <ForgotPage /> },
   { path: '/reset', element: <ResetPage /> },
   { path: '/activate', element: <ActivatePage /> },
+  // Opened by the PDF renderer with a render token; no user session.
+  { path: '/print/dashboard', lazy: async () => ({ Component: (await import('./print/PrintDashboard')).PrintDashboard }) },
   {
     element: (
       <RequireAuth>

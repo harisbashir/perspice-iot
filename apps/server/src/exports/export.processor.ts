@@ -13,12 +13,12 @@ export class ExportProcessor implements OnModuleInit, OnApplicationShutdown {
 
   constructor(
     @Inject(CONFIG) private readonly config: Config,
-    private readonly exports: ExportsService,
+    private readonly exportJobs: ExportsService,
   ) {}
 
   onModuleInit(): void {
     this.connection = new Redis(this.config.REDIS_URL, { maxRetriesPerRequest: null });
-    this.worker = new Worker<{ jobId: string }>(EXPORTS_QUEUE, (job) => this.exports.process(job.data.jobId), {
+    this.worker = new Worker<{ jobId: string }>(EXPORTS_QUEUE, (job) => this.exportJobs.process(job.data.jobId), {
       connection: this.connection,
       concurrency: 2,
     });

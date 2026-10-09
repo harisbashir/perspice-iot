@@ -7,24 +7,24 @@ import { ExportsService } from './exports.service';
 
 @Controller('exports')
 export class ExportsController {
-  constructor(private readonly exports: ExportsService) {}
+  constructor(private readonly exportJobs: ExportsService) {}
 
   /** 200 with the file for up to 50,000 rows; 202 with a background job above that. */
   @Post()
   @Require('export.data')
   async create(@CurrentUser() user: AuthUser, @Body() body: unknown, @Res() res: Response): Promise<void> {
-    await this.exports.export(user, body, res);
+    await this.exportJobs.export(user, body, res);
   }
 
   @Get()
   @Require('export.data')
   list(@CurrentUser() user: AuthUser) {
-    return this.exports.list(user);
+    return this.exportJobs.list(user);
   }
 
   @Get(':id')
   @Require('export.data')
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.exports.get(user, id);
+    return this.exportJobs.get(user, id);
   }
 }

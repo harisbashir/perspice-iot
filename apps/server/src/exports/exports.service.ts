@@ -32,11 +32,11 @@ const LINK_TTL_S = 300;
 type JobRow = typeof exportJob.$inferSelect;
 
 /** What a background job needs to act as the requester: their scope and permissions at request time. */
-type ActorSnapshot = Pick<AuthUser, 'kind' | 'apiKeyId' | 'scopeType' | 'customerId' | 'groupId' | 'permissions'>;
+export type ActorSnapshot = Pick<AuthUser, 'kind' | 'apiKeyId' | 'scopeType' | 'customerId' | 'groupId' | 'permissions'>;
 
 interface StoredParams {
   title: string;
-  request: ExportRequest;
+  request: unknown;
   actor: ActorSnapshot;
 }
 
@@ -102,9 +102,16 @@ export class ExportsService implements OnApplicationShutdown {
   }
 
   private async enqueue(actor: AuthUser, request: ExportRequest, title: string): Promise<JobRow> {
+    const job = await this.createJob(actor, { kind: request.kind, format: request.format, title, request });
+    await this.queue.add('export', { jobId: job.id }, { jobId: job.id, removeOnComplete: 1000, removeOnFail: 1000 });
+    return job;
+  }
+
+  /** Records a background job owned by `actor`, keeping what is needed to act as them later. */
+  async createJob(actor: AuthUser, j: { kind: string; format: JobRow['format']; title: string; request: unknown }): Promise<JobRow> {
     const params: StoredParams = {
-      title,
-      request,
+      title: j.title,
+      request: j.request,
       actor: {
         kind: actor.kind,
         apiKeyId: actor.apiKeyId,
@@ -116,86 +123,91 @@ export class ExportsService implements OnApplicationShutdown {
     };
     const [job] = await this.db
       .insert(exportJob)
-      .values({
-        userId: actor.id,
-        customerId: actor.customerId,
-        kind: request.kind,
-        format: request.format,
-        params: params as unknown as Record<string, unknown>,
-      })
+      .values({ userId: actor.id, customerId: actor.customerId, kind: j.kind, format: j.format, params: params as unknown as Record<string, unknown> })
       .returning();
-    await this.queue.add('export', { jobId: job!.id }, { jobId: job!.id, removeOnComplete: 1000, removeOnFail: 1000 });
     return job!;
   }
 
-  /** Runs one background export (BullMQ worker, scheduler role). */
-  async process(jobId: string): Promise<void> {
+  /** The job owner as a request principal, with the scope and permissions captured at request time. */
+  async actorFor(userId: string, snapshot: ActorSnapshot): Promise<AuthUser> {
+    const owner = await this.db.query.user.findFirst({ where: eq(user.id, userId) });
+    if (!owner || owner.status !== 'active') throw new Error('The requesting user is no longer active');
+    return { ...snapshot, id: owner.id, sessionId: null, email: owner.email, name: owner.name, roleId: owner.roleId, roleKey: null, totpEnabled: owner.totpEnabled };
+  }
+
+  /** Storage key for a job's file: private to its owner, named for download. */
+  fileKey(job: JobRow): string {
+    return `exports/${job.userId}/${job.id}/${exportFilename((job.params as unknown as StoredParams).title, job.format, job.createdAt)}`;
+  }
+
+  /**
+   * Runs a queued job as its owner. `produce` stores the file under `fileKey(job)` and returns
+   * the row count (null when rows don't apply); the owner is then notified either way.
+   */
+  async runJob(jobId: string, produce: (job: JobRow, actor: AuthUser, request: unknown) => Promise<number | null>): Promise<void> {
     const job = await this.db.query.exportJob.findFirst({ where: eq(exportJob.id, jobId) });
     if (!job || job.status !== 'queued') return;
-    const owner = await this.db.query.user.findFirst({ where: eq(user.id, job.userId) });
     const params = job.params as unknown as StoredParams;
     await this.db.update(exportJob).set({ status: 'running', updatedAt: new Date() }).where(eq(exportJob.id, jobId));
     try {
-      if (!owner || owner.status !== 'active') throw new Error('The requesting user is no longer active');
-      const actor: AuthUser = {
-        ...params.actor,
-        id: owner.id,
-        sessionId: null,
-        email: owner.email,
-        name: owner.name,
-        roleId: owner.roleId,
-        roleKey: null,
-        totpEnabled: owner.totpEnabled,
-      };
-      const source = await this.sources.for(actor, params.request);
-      const key = `exports/${owner.id}/${jobId}/${exportFilename(params.title, job.format, job.createdAt)}`;
+      const actor = await this.actorFor(job.userId, params.actor);
+      const rowCount = await produce(job, actor, params.request);
+      const now = new Date();
+      await this.db
+        .update(exportJob)
+        .set({ status: 'done', rowCount, fileKey: this.fileKey(job), expiresAt: new Date(now.getTime() + RETENTION_MS), updatedAt: now })
+        .where(eq(exportJob.id, jobId));
+      await this.notifyReady(job, params.title, rowCount);
+    } catch (err) {
+      const message = (err as Error).message;
+      this.logger.error(`Job ${jobId} (${job.kind}) failed: ${message}`);
+      await this.db.update(exportJob).set({ status: 'failed', error: message, updatedAt: new Date() }).where(eq(exportJob.id, jobId));
+      await this.notifications.create(job.userId, {
+        type: 'export.failed',
+        severity: 'warning',
+        title: 'Export failed',
+        body: `${params.title}: ${message}`,
+        link: `/exports/${jobId}`,
+      });
+    }
+  }
+
+  /** Runs one background export (BullMQ worker, scheduler role). */
+  process(jobId: string): Promise<void> {
+    return this.runJob(jobId, async (job, actor, request) => {
+      const source = await this.sources.for(actor, request as ExportRequest);
       const out = new PassThrough();
-      const stored = this.storage.putStream(key, out, CONTENT_TYPES[job.format]);
-      let rowCount: number;
+      const stored = this.storage.putStream(this.fileKey(job), out, CONTENT_TYPES[job.format]);
       try {
-        rowCount = await writeExport(job.format, { ...source, rows: source.rows(), branding: await this.branding.resolve(actor.customerId) }, out);
+        const branding = await this.branding.resolve(actor.customerId);
+        const rows = await writeExport(job.format, { ...source, rows: source.rows(), branding }, out);
+        await stored;
+        return rows;
       } catch (err) {
         out.destroy(err as Error);
         await stored.catch(() => undefined);
         throw err;
       }
-      await stored;
-      const now = new Date();
-      await this.db
-        .update(exportJob)
-        .set({ status: 'done', rowCount, fileKey: key, expiresAt: new Date(now.getTime() + RETENTION_MS), updatedAt: now })
-        .where(eq(exportJob.id, jobId));
-      await this.notifyReady(owner, jobId, params.title, rowCount);
-    } catch (err) {
-      const message = (err as Error).message;
-      this.logger.error(`Export ${jobId} failed: ${message}`);
-      await this.db.update(exportJob).set({ status: 'failed', error: message, updatedAt: new Date() }).where(eq(exportJob.id, jobId));
-      if (owner) {
-        await this.notifications.create(owner.id, {
-          type: 'export.failed',
-          severity: 'warning',
-          title: 'Export failed',
-          body: `${params.title}: ${message}`,
-          link: `/exports/${jobId}`,
-        });
-      }
-    }
+    });
   }
 
-  private async notifyReady(owner: typeof user.$inferSelect, jobId: string, title: string, rowCount: number): Promise<void> {
-    const link = `/exports/${jobId}`;
-    await this.notifications.create(owner.id, {
+  private async notifyReady(job: JobRow, title: string, rowCount: number | null): Promise<void> {
+    const link = `/exports/${job.id}`;
+    const summary = rowCount === null ? job.format.toUpperCase() : `${rowCount.toLocaleString('en')} rows`;
+    await this.notifications.create(job.userId, {
       type: 'export.ready',
       severity: 'info',
       title: 'Your export is ready',
-      body: `${title} (${rowCount.toLocaleString('en')} rows). The download is available for 24 hours.`,
+      body: `${title} (${summary}). The download is available for 24 hours.`,
       link,
     });
+    const owner = await this.db.query.user.findFirst({ where: eq(user.id, job.userId) });
+    if (!owner) return;
     const c = owner.customerId ? await this.db.query.customer.findFirst({ where: eq(customer.id, owner.customerId) }) : undefined;
     await this.email.send(
       'export_ready',
       owner.email,
-      { name: owner.name, title, rowCount: rowCount.toLocaleString('en'), link: this.auth.publicUrlFor(c?.slug ?? null) + link },
+      { name: owner.name, title, summary, link: this.auth.publicUrlFor(c?.slug ?? null) + link },
       { customerId: owner.customerId },
     );
   }
@@ -236,7 +248,7 @@ export class ExportsService implements OnApplicationShutdown {
     return stale.length;
   }
 
-  private async toDto(j: JobRow, now = Date.now()): Promise<ExportJobDto> {
+  async toDto(j: JobRow, now = Date.now()): Promise<ExportJobDto> {
     const live = j.status === 'done' && j.fileKey && j.expiresAt && j.expiresAt.getTime() > now;
     return {
       id: j.id,

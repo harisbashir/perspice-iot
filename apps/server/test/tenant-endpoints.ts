@@ -181,6 +181,13 @@ TENANT_ENDPOINTS.push(
     body: (i) => ({ kind: 'widget', format: 'csv', params: { datasource: { kind: 'device', deviceId: i.deviceId, keys: ['a'] }, mode: 'latest' } }),
     create: bDevice,
   },
+  {
+    name: 'dashboard PDF report',
+    method: 'post',
+    path: () => '/api/reports/dashboard',
+    body: (i) => ({ deviceId: i.deviceId, timewindow: { kind: 'relative', lastMs: 3_600_000 } }),
+    create: bDevice,
+  },
   { name: "get B's export", method: 'get', path: (i) => `/api/exports/${i.exportId}`, create: bExport },
   { name: 'list exports', method: 'list', path: () => '/api/exports', create: bExport },
 );
