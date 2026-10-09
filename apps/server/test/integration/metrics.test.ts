@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Heartbeat } from '../../src/system/heartbeat';
 import { createDevice, createProfile } from '../factories';
@@ -49,5 +51,19 @@ describe('metrics and heartbeats', () => {
     const ttl = await t.redis.ttl(hb.key);
     expect(ttl).toBeGreaterThan(0);
     expect(ttl).toBeLessThanOrEqual(30);
+  });
+
+  it('serves every metric the Grafana dashboard charts', async () => {
+    const dashboard = JSON.parse(readFileSync(join(__dirname, '../../../../deploy/monitoring/grafana/dashboards/perspice.json'), 'utf8')) as {
+      panels: { title: string; targets: { expr: string }[] }[];
+    };
+    const text = (await t.http.get('/metrics')).text;
+    for (const p of dashboard.panels) {
+      for (const target of p.targets) {
+        for (const name of target.expr.match(/perspice_[a-z0-9_]+/g) ?? []) {
+          expect(text, `${p.title}: ${name}`).toContain(`# TYPE ${name.replace(/_total$/, '')}`);
+        }
+      }
+    }
   });
 });

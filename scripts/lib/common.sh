@@ -135,7 +135,7 @@ fetch_deploy_files() {
     fi
   fi
   cp "$src/deploy/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml"
-  cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$PERSPICE_HOME/"
+  cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
   install -d "$PERSPICE_HOME/scripts/lib"
   install -m 0644 "$src/scripts/lib/common.sh" "$PERSPICE_HOME/scripts/lib/common.sh"
   if [[ -n "$tmp" ]]; then rm -rf "$tmp"; fi

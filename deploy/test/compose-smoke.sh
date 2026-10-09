@@ -12,7 +12,7 @@ VERSION="smoke"
 BASE="https://localhost:18443"
 WORK="$(mktemp -d)"
 ENV_FILE="$WORK/.env"
-COMPOSE=(docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/test/smoke.override.yml")
+COMPOSE=(docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/test/smoke.override.yml" --profile monitoring)
 
 log() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nSMOKE FAILED: %s\n' "$*" >&2; "${COMPOSE[@]}" logs --tail 40 api ingest emqx caddy renderer >&2 || true; exit 1; }
@@ -48,7 +48,10 @@ MQTT_PLAIN_ENABLED=true
 ENV
 
 log "Starting the stack"
-"${COMPOSE[@]}" up -d --build --quiet-pull >/dev/null 2>&1 || fail "docker compose up"
+if ! "${COMPOSE[@]}" up -d --build --quiet-pull >"$WORK/up.log" 2>&1; then
+  tail -n 30 "$WORK/up.log" >&2
+  fail "docker compose up"
+fi
 
 log "Waiting for $BASE/health"
 for _ in $(seq 1 90); do
@@ -113,5 +116,15 @@ url="$(api "${auth[@]}" "$BASE/api/exports/$job" | json "d['downloadUrl']")"
 curl -fsSk -o "$WORK/report.pdf" "$BASE$url" || fail "report download"
 [[ "$(head -c 5 "$WORK/report.pdf")" == "%PDF-" ]] || fail "report is not a PDF"
 if [[ -n "${SMOKE_OUT:-}" ]]; then cp "$WORK/report.pdf" "$SMOKE_OUT/"; fi
+
+log "Checking Prometheus scrapes every process"
+targets=""
+for _ in $(seq 1 30); do
+  targets="$("${COMPOSE[@]}" exec -T prometheus wget -qO- 'http://localhost:9090/api/v1/targets?state=active' || true)"
+  up="$(python3 -c "import json,sys; t=json.load(sys.stdin)['data']['activeTargets']; print(sorted({x['labels']['service'] for x in t if x['labels']['job']=='perspice' and x['health']=='up'}))" <<<"$targets" 2>/dev/null || true)"
+  [[ "$up" == "['api', 'ingest', 'renderer', 'rules', 'scheduler']" ]] && break
+  sleep 3
+done
+[[ "$up" == "['api', 'ingest', 'renderer', 'rules', 'scheduler']" ]] || fail "Prometheus targets: $up"
 
 echo "SMOKE OK"

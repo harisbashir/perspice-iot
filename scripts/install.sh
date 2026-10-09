@@ -144,7 +144,7 @@ else
   run_or_print sh -c "curl -fsSL https://github.com/${PERSPICE_REPO}/archive/refs/tags/v${VERSION}.tar.gz | tar -xz -C '$src' --strip-components=1"
 fi
 run_or_print cp "$src/deploy/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml"
-run_or_print cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$PERSPICE_HOME/"
+run_or_print cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
 run_or_print install -m 0755 "$src/scripts/perspice" /usr/local/bin/perspice
 run_or_print install -d "$PERSPICE_HOME/scripts/lib"
 run_or_print install -m 0755 "$src/scripts/update.sh" "$PERSPICE_HOME/scripts/update.sh"
