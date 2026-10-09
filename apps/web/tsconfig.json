@@ -16,7 +16,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@perspice/shared": ["../../packages/shared/src/index.ts"]
+      "@perspice/shared": ["../../packages/shared/src/index.ts"],
+      "@perspice/widgets": ["../../packages/widgets/src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts", "vitest.config.ts", "tailwind.config.ts"]

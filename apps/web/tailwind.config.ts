@@ -8,7 +8,7 @@ const fromVar = (name: string) =>
 
 export default {
   darkMode: 'class',
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  content: ['./index.html', './src/**/*.{ts,tsx}', '../../packages/widgets/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
