@@ -8,3 +8,5 @@ export * from './notifications';
 export * from './audit';
 export * from './settings';
 export * from './dashboards';
+export * from './alarms';
+export * from './delivery';
