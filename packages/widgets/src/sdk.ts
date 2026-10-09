@@ -24,6 +24,7 @@ export interface WidgetProps<S = Record<string, unknown>> {
   device: DeviceSummary | null;
   profile: DeviceProfileDto | null;
   can: { command: boolean; export: boolean };
+  viewer: { scopeType: 'platform' | 'customer' };
   actions: WidgetActions;
 }
 
