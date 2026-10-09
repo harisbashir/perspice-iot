@@ -52,15 +52,16 @@ export class Dispatcher implements OnApplicationShutdown {
   }
 
   /** Returns the number of deliveries queued (held ones excluded). */
-  async dispatch(recipients: Recipient[], message: Message, channels: NotifyChannel[], now = Date.now()): Promise<number> {
+  async dispatch(recipients: Recipient[], message: Message, channels: NotifyChannel[], now = Date.now(), opts: { ignoreLevelAndQuiet?: boolean } = {}): Promise<number> {
     let queued = 0;
     for (const r of recipients) {
       const p = await this.prefs.get(r.id);
       for (const channel of channels) {
         if (channel === 'webhook' || !this.channels.has(channel)) continue;
         if (channel !== 'inapp') {
-          if (!p[channel] || !notifyLevelAtLeast(message.level, p.minSeverity)) continue;
-          if (isQuiet(p, message.level, now, r.timezone)) {
+          if (!p[channel]) continue;
+          if (!opts.ignoreLevelAndQuiet && !notifyLevelAtLeast(message.level, p.minSeverity)) continue;
+          if (!opts.ignoreLevelAndQuiet && isQuiet(p, message.level, now, r.timezone)) {
             await this.log(channel, r, message, 'held');
             continue;
           }

@@ -146,4 +146,22 @@ describe('notification delivery', () => {
     expect((await t.http.put('/api/me/notification-preferences').set('Authorization', s.auth).send({ timezone: 'Mars/Base', preferences: {} })).status).toBe(400);
     expect(await logs(s.admin.id)).toHaveLength(0);
   });
+
+  it('sends a test notification on the channels the user switched on', async () => {
+    const s = await setup();
+    await t.http.put('/api/me/notification-preferences').set('Authorization', s.auth).send({ preferences: { minSeverity: 'critical', quietHours: { from: '00:00', to: '00:00' } } }).expect(200);
+    const res = await t.http.post('/api/me/notification-preferences/test').set('Authorization', s.auth);
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({ queued: 2 }); // in-app and email (push needs VAPID keys)
+    const mail = await waitForMail(s.admin.email);
+    expect(mail.Subject).toContain('Test email');
+  });
+
+  it('lets platform admins set a customer timezone, used for its users by default', async () => {
+    const s = await setup();
+    const res = await t.http.patch(`/api/customers/${s.c.id}`).set('Authorization', platform).send({ timezone: 'Europe/Berlin' });
+    expect(res.body).toMatchObject({ timezone: 'Europe/Berlin' });
+    expect((await t.http.patch(`/api/customers/${s.c.id}`).set('Authorization', platform).send({ timezone: 'Nope/Nope' })).status).toBe(400);
+    expect((await t.http.get('/api/me/notification-preferences').set('Authorization', s.auth)).body.effectiveTimezone).toBe('Europe/Berlin');
+  });
 });

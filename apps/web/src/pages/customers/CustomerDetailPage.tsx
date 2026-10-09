@@ -6,6 +6,7 @@ import { useCustomer, useGroups } from '@/api/hooks';
 import { useAuth } from '@/auth/AuthProvider';
 import { ErrorText } from '@/components/ErrorText';
 import { PageHeader } from '@/components/PageHeader';
+import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,9 +30,9 @@ export function CustomerDetailPage() {
 
   const canManage = hasPerm('customer.manage');
 
-  async function setStatus(status: 'active' | 'suspended') {
+  async function update(body: { status?: 'active' | 'suspended'; timezone?: string }) {
     try {
-      await api(`/customers/${id}`, { method: 'PATCH', body: { status } });
+      await api(`/customers/${id}`, { method: 'PATCH', body });
       await qc.invalidateQueries({ queryKey: ['customers'] });
     } catch (e) {
       setMutationError(e);
@@ -57,17 +58,25 @@ export function CustomerDetailPage() {
         actions={
           canManage &&
           (customer.status === 'active' ? (
-            <Button variant="outline" onClick={() => void setStatus('suspended')}>
+            <Button variant="outline" onClick={() => void update({ status: 'suspended' })}>
               Suspend
             </Button>
           ) : (
-            <Button onClick={() => void setStatus('active')}>Reactivate</Button>
+            <Button onClick={() => void update({ status: 'active' })}>Reactivate</Button>
           ))
         }
       />
-      <Badge variant={customer.status === 'active' ? 'success' : 'warning'} className="mb-4">
-        {customer.status}
-      </Badge>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Badge variant={customer.status === 'active' ? 'success' : 'warning'}>{customer.status}</Badge>
+        <label className="flex items-center gap-2 text-sm">
+          Timezone
+          {canManage ? (
+            <TimezoneSelect className="w-56" value={customer.timezone ?? 'UTC'} onChange={(tz) => void update({ timezone: tz ?? 'UTC' })} />
+          ) : (
+            <span>{customer.timezone ?? 'UTC'}</span>
+          )}
+        </label>
+      </div>
       <ErrorText error={mutationError} />
       <Tabs defaultValue="groups">
         <TabsList>

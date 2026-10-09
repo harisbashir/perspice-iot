@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { BrandingSettings } from './BrandingSettings';
 import { EmailSettings } from './EmailSettings';
+import { NotificationSettings } from './NotificationSettings';
 import { ProfileSettings } from './ProfileSettings';
 import { SecuritySettings } from './SecuritySettings';
 
@@ -11,6 +12,7 @@ export function SettingsPage() {
   const { hasPerm } = useAuth();
   const tabs = [
     { to: 'profile', label: 'My profile', show: true },
+    { to: 'notifications', label: 'Notifications', show: true },
     { to: 'branding', label: 'Branding', show: hasPerm('branding.edit') },
     { to: 'email', label: 'Email', show: hasPerm('system.settings') },
     { to: 'security', label: 'Security', show: hasPerm('system.settings') },
@@ -37,6 +39,7 @@ export function SettingsPage() {
       <Routes>
         <Route index element={<Navigate to="profile" replace />} />
         <Route path="profile" element={<ProfileSettings />} />
+        <Route path="notifications" element={<NotificationSettings />} />
         {hasPerm('branding.edit') && <Route path="branding" element={<BrandingSettings />} />}
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}
         {hasPerm('system.settings') && <Route path="security" element={<SecuritySettings />} />}

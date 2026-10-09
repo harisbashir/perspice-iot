@@ -17,6 +17,18 @@ const PLATFORM_ROLES: BuiltInRoleKey[] = ['super_admin', 'platform_admin', 'supp
 export class RecipientResolver {
   constructor(@Inject(DB) private readonly db: DB) {}
 
+  /** The user as a recipient of their own messages (e.g. a test notification). */
+  async self(userId: string): Promise<Recipient | null> {
+    const [row] = await this.db
+      .select({ u: user, slug: customer.slug, customerTz: customer.timezone })
+      .from(user)
+      .leftJoin(customer, eq(customer.id, user.customerId))
+      .where(and(eq(user.id, userId), eq(user.status, 'active')));
+    if (!row) return null;
+    const { u, slug, customerTz } = row;
+    return { id: u.id, email: u.email, name: u.name, scopeType: u.scopeType, customerId: u.customerId, customerSlug: slug, timezone: u.timezone ?? customerTz ?? 'UTC' };
+  }
+
   async resolve(spec: Recipients, d: { customerId: string | null; groupId: string | null }): Promise<Recipient[]> {
     // `platform_admin` also means super admins (as for status notifications).
     const roles = new Set<BuiltInRoleKey>(spec.roles);

@@ -29,6 +29,8 @@ export interface CustomerDto {
   name: string;
   slug: string;
   status: 'active' | 'suspended';
+  /** IANA zone for alarm schedules and reports (default UTC). */
+  timezone?: string;
   createdAt: string;
 }
 

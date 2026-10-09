@@ -48,7 +48,7 @@ export class CustomersService {
     }
   }
 
-  async update(id: string, patch: { name?: string; slug?: string; status?: 'active' | 'suspended' }): Promise<CustomerRow> {
+  async update(id: string, patch: { name?: string; slug?: string; status?: 'active' | 'suspended'; timezone?: string }): Promise<CustomerRow> {
     const existing = await this.get(id);
     if (patch.slug) this.assertSlug(patch.slug);
     try {
