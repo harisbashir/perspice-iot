@@ -7,3 +7,4 @@ export * from './palette.js';
 export * from './dashboard.js';
 export * from './exports.js';
 export * from './alarms.js';
+export * from './system.js';

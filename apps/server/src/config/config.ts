@@ -25,7 +25,29 @@ const ConfigSchema = z.object({
   BASE_DOMAIN: z.string().min(1).default('localhost'),
   /** Where the renderer loads the web app (print page); defaults to PUBLIC_URL. */
   RENDERER_APP_URL: z.string().url().optional(),
-  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /** S3 or any S3-compatible service (MinIO, Wasabi, Spaces, B2). */
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  /** Encrypts backups (never stored in them). Backups are unavailable without it. */
+  BACKUP_PASSPHRASE: z.string().min(16, 'BACKUP_PASSPHRASE must be at least 16 characters').optional(),
+  /** Include MASTER_KEY in backups (only if the backup's storage is as trusted as the server). */
+  BACKUP_INCLUDE_MASTER_KEY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  PG_DUMP_PATH: z.string().default('pg_dump'),
+  PG_RESTORE_PATH: z.string().default('pg_restore'),
+  /** Device MQTT: the bundled EMQX broker, or AWS IoT Core. */
+  MQTT_TRANSPORT: z.enum(['emqx', 'aws-iot']).default('emqx'),
+  AWS_REGION: z.string().default('us-east-1'),
+  AWS_IOT_ENDPOINT: z.string().optional(),
+  AWS_IOT_POLICY_NAME: z.string().default('perspice-device'),
+  AWS_IOT_CERT_PATH: z.string().optional(),
+  AWS_IOT_KEY_PATH: z.string().optional(),
+  AWS_IOT_CA_PATH: z.string().optional(),
+  METRICS_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   STORAGE_LOCAL_PATH: z.string().default('/var/lib/perspice/storage'),
   /** Requests per minute per IP on /auth/login and /auth/forgot. */
   AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
@@ -35,12 +57,22 @@ const ConfigSchema = z.object({
   VAPID_SUBJECT: z.string().optional(),
 });
 
+const CheckedConfigSchema = ConfigSchema.superRefine((c, ctx) => {
+  if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) ctx.addIssue({ code: 'custom', path: ['S3_BUCKET'], message: 'required when STORAGE_DRIVER=s3' });
+  if (c.MQTT_TRANSPORT === 'aws-iot') {
+    for (const k of ['AWS_IOT_ENDPOINT', 'AWS_IOT_CERT_PATH', 'AWS_IOT_KEY_PATH', 'AWS_IOT_CA_PATH'] as const) {
+      if (!c[k]) ctx.addIssue({ code: 'custom', path: [k], message: 'required when MQTT_TRANSPORT=aws-iot' });
+    }
+  }
+});
+
 export type Config = z.infer<typeof ConfigSchema> & { masterKey: Buffer };
 
 export const CONFIG = Symbol('CONFIG');
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
-  const result = ConfigSchema.safeParse(env);
+  // Compose passes unset variables as empty strings: treat those as unset.
+  const result = CheckedConfigSchema.safeParse(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '')));
   if (!result.success) {
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid configuration: ${problems}`);
