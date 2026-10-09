@@ -8,3 +8,5 @@ export * from './dashboard.js';
 export * from './exports.js';
 export * from './alarms.js';
 export * from './system.js';
+export * from './geo.js';
+export * from './location.js';
