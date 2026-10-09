@@ -11,15 +11,19 @@ import { PreferencesService } from './preferences.service';
 import { PushController } from './push.controller';
 import { PushService } from './push.service';
 import { RecipientResolver } from './recipients';
+import { WebhookEvents } from './webhook-events';
+import { WebhookSender } from './webhook-sender';
+import { WebhooksController } from './webhooks.controller';
+import { WebhooksService } from './webhooks.service';
 import { CHANNELS, type NotificationChannel } from './types';
 
 @Global()
 @Module({})
 export class DeliveryModule {
-  static forRoot(opts: { api: boolean; worker: boolean; scheduler: boolean }): DynamicModule {
+  static forRoot(opts: { api: boolean; worker: boolean; scheduler: boolean; rules: boolean }): DynamicModule {
     return {
       module: DeliveryModule,
-      controllers: opts.api ? [PreferencesController, PushController] : [],
+      controllers: opts.api ? [PreferencesController, PushController, WebhooksController] : [],
       providers: [
         PreferencesService,
         RecipientResolver,
@@ -36,11 +40,15 @@ export class DeliveryModule {
         },
         Dispatcher,
         AlarmNotifier,
+        WebhookSender,
+        WebhooksService,
+        WebhookEvents,
+        { provide: 'CONSUME_STATUS_FOR_WEBHOOKS', useValue: opts.rules },
         DigestJob,
         { provide: 'SCHEDULE_DELIVERY_JOBS', useValue: opts.scheduler },
         ...(opts.worker ? [NotifyProcessor] : []),
       ],
-      exports: [Dispatcher, RecipientResolver, PreferencesService, PushService, DigestJob],
+      exports: [Dispatcher, RecipientResolver, PreferencesService, PushService, DigestJob, WebhooksService],
     };
   }
 }

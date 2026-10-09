@@ -10,6 +10,7 @@ import { CONFIG, type Config } from '../config/config';
 import { DB } from '../db/db.module';
 import { deliveryLog } from '../db/schema';
 import { PreferencesService } from './preferences.service';
+import { WebhookSender } from './webhook-sender';
 import { CHANNELS, type Message, type NotificationChannel, type Recipient } from './types';
 
 export const NOTIFY_QUEUE = 'notify';
@@ -21,6 +22,13 @@ export function isQuiet(p: NotificationPreferences, level: Message['level'], ts:
   if (!p.quietHours) return false;
   if (level === 'critical' && p.criticalBypassesQuietHours) return false;
   return inSchedule({ days: ALL_DAYS, ...p.quietHours }, ts, tz);
+}
+
+export interface WebhookPayload {
+  [k: string]: unknown;
+  event: string;
+  /** The exact JSON that is signed and sent (stable across retries). */
+  body: string;
 }
 
 export interface DeliveryPayload {
@@ -47,6 +55,7 @@ export class Dispatcher implements OnApplicationShutdown {
     @Inject(CHANNELS) channels: NotificationChannel[],
     private readonly prefs: PreferencesService,
     private readonly auth: AuthService,
+    private readonly webhooks: WebhookSender,
   ) {
     this.connection = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
     this.queue = new Queue(NOTIFY_QUEUE, { connection: this.connection });
@@ -83,6 +92,18 @@ export class Dispatcher implements OnApplicationShutdown {
     return id;
   }
 
+  /** Queues one webhook call (signed JSON `{id, event, ts, data}`). */
+  async enqueueWebhook(webhookId: string, customerId: string | null, host: string, event: string, data: Record<string, unknown>): Promise<string> {
+    const [row] = await this.db
+      .insert(deliveryLog)
+      .values({ channel: 'webhook', webhookId, customerId, recipient: host, subject: event, payload: {}, status: 'queued' })
+      .returning({ id: deliveryLog.id });
+    const body = JSON.stringify({ id: row!.id, event, ts: Date.now(), data });
+    await this.db.update(deliveryLog).set({ payload: { event, body } satisfies WebhookPayload }).where(eq(deliveryLog.id, row!.id));
+    await this.queue.add('deliver', { deliveryId: row!.id }, { attempts: MAX_ATTEMPTS, backoff: { type: 'exponential', delay: 30_000 }, removeOnComplete: 1000, removeOnFail: 5000 });
+    return row!.id;
+  }
+
   /** Counts this message in the user's window; true once more than `threshold` fall within it. */
   private async overLimit(userId: string, p: NotificationPreferences, now: number): Promise<boolean> {
     const key = `notify:rate:${userId}`;
@@ -101,12 +122,17 @@ export class Dispatcher implements OnApplicationShutdown {
   async run(deliveryId: string): Promise<void> {
     const row = await this.db.query.deliveryLog.findFirst({ where: eq(deliveryLog.id, deliveryId) });
     if (!row || row.status === 'sent' || row.status === 'dead') return;
-    const channel = this.channels.get(row.channel);
-    const { message, recipient } = row.payload as unknown as DeliveryPayload;
     try {
-      if (!channel) throw new Error(`Channel ${row.channel} is not available`);
-      const base = this.auth.publicUrlFor(recipient.scopeType === 'customer' ? recipient.customerSlug : null);
-      await channel.send({ id: row.id, recipient, message, url: message.link ? base + message.link : null });
+      if (row.webhookId) {
+        const { event, body } = row.payload as unknown as WebhookPayload;
+        await this.webhooks.send(row.webhookId, { deliveryId: row.id, event, body });
+      } else {
+        const channel = this.channels.get(row.channel);
+        const { message, recipient } = row.payload as unknown as DeliveryPayload;
+        if (!channel) throw new Error(`Channel ${row.channel} is not available`);
+        const base = this.auth.publicUrlFor(recipient.scopeType === 'customer' ? recipient.customerSlug : null);
+        await channel.send({ id: row.id, recipient, message, url: message.link ? base + message.link : null });
+      }
       await this.db.update(deliveryLog).set({ status: 'sent', attempts: row.attempts + 1, error: null, updatedAt: new Date() }).where(eq(deliveryLog.id, row.id));
     } catch (err) {
       const attempts = row.attempts + 1;

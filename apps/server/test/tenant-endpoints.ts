@@ -1,4 +1,4 @@
-import { alarm, alarmRule, command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
+import { alarm, alarmRule, command, webhook, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -241,4 +241,23 @@ TENANT_ENDPOINTS.push(
   { name: "clear B's alarm", method: 'post', path: (i) => `/api/alarms/${i.alarmId}/clear`, body: () => ({}), create: bAlarm },
   { name: "comment on B's alarm", method: 'post', path: (i) => `/api/alarms/${i.alarmId}/comments`, body: () => ({ comment: 'x' }), create: bAlarm },
   { name: 'list alarms', method: 'list', path: () => '/api/alarms', create: bAlarm },
+);
+
+/** Customer B's webhook. */
+const bWebhook = async ({ t, b }: TenantContext): Promise<Ids> => {
+  const [w] = await t.db
+    .insert(webhook)
+    .values({ customerId: b.customer.id, name: 'B hook', url: 'https://hooks.example.com/b', secretEnc: 'x', events: ['alarm.raised'] })
+    .returning({ id: webhook.id });
+  return { webhookId: w!.id };
+};
+const hookBody = () => ({ name: 'Mine now', url: 'https://8.8.8.8/x', events: ['alarm.raised'] });
+
+TENANT_ENDPOINTS.push(
+  { name: "update B's webhook", method: 'put', path: (i) => `/api/webhooks/${i.webhookId}`, body: hookBody, create: bWebhook },
+  { name: "delete B's webhook", method: 'delete', path: (i) => `/api/webhooks/${i.webhookId}`, create: bWebhook },
+  { name: "rotate B's webhook secret", method: 'post', path: (i) => `/api/webhooks/${i.webhookId}/rotate-secret`, create: bWebhook },
+  { name: "test B's webhook", method: 'post', path: (i) => `/api/webhooks/${i.webhookId}/test`, create: bWebhook },
+  { name: 'webhook for B', method: 'post', path: () => '/api/webhooks', body: (i) => ({ ...hookBody(), customerId: i.customerId }), create: async (ctx) => ({ customerId: ctx.b.customer.id }) },
+  { name: 'list webhooks', method: 'list', path: () => '/api/webhooks', create: bWebhook },
 );

@@ -29,6 +29,8 @@ export interface SettingValues {
   'platform.branding': Partial<BrandingDto>;
   'auth.enforceTotpForSuperAdmin': boolean;
   'api.docsPublic': boolean;
+  /** Webhook destinations: plain HTTP and private networks are refused unless allowed here. */
+  'webhooks.policy': { allowHttp: boolean; allowPrivate: boolean };
 }
 
 export type SettingKey = keyof SettingValues;

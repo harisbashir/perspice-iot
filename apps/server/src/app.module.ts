@@ -70,7 +70,7 @@ export class AppModule {
         // Not part of `all`: the renderer needs Chromium, which only the renderer image has.
         ReportsModule.forRoot({ api: runsRole(role, 'api'), renderer: role === 'renderer' }),
         NotificationsModule.forRoot({ rules: runsRole(role, 'rules') }),
-        DeliveryModule.forRoot({ api: runsRole(role, 'api'), worker: runsRole(role, 'api') || runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler') }),
+        DeliveryModule.forRoot({ api: runsRole(role, 'api'), worker: runsRole(role, 'api') || runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler'), rules: runsRole(role, 'rules') }),
         ...(runsRole(role, 'api') ? [RealtimeModule, DocsModule] : []),
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),
       ],
