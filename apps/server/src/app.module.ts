@@ -16,6 +16,7 @@ import { IngestModule } from './ingest/ingest.module';
 import { PresenceModule } from './presence/presence.module';
 import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
+import { DashboardsModule } from './dashboards/dashboards.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { DocsModule } from './openapi';
@@ -59,6 +60,7 @@ export class AppModule {
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
+        DashboardsModule,
         NotificationsModule.forRoot({ rules: runsRole(role, 'rules') }),
         ...(runsRole(role, 'api') ? [RealtimeModule, DocsModule] : []),
         IngestModule.forRoot({ mqtt: runsRole(role, 'ingest'), http: runsRole(role, 'api') }),
