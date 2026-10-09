@@ -1,0 +1,4 @@
+<mj-text font-size="18px" font-weight="700">Your export is ready</mj-text>
+<mj-text>Hi {{name}}, your export "{{title}}" ({{rowCount}} rows) has finished. Sign in to download it; the file is kept for 24 hours.</mj-text>
+<mj-button href="{{link}}">Download export</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>

@@ -5,3 +5,4 @@ export * from './protocol.js';
 export * from './api-types.js';
 export * from './palette.js';
 export * from './dashboard.js';
+export * from './exports.js';

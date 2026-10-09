@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ExportMenu } from '@/exports/ExportMenu';
 import { useStatusFeed } from '@/realtime/hooks';
 import { CreateDeviceDialog } from './CreateDeviceDialog';
 import { DevicesTable } from './DevicesTable';
@@ -25,11 +26,27 @@ export function DevicesPage() {
       <PageHeader
         title="Devices"
         actions={
-          hasPerm('device.write') && (
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" /> New device
-            </Button>
-          )
+          <div className="flex gap-2">
+            <ExportMenu
+              request={(format) => ({
+                kind: 'devices',
+                format,
+                params: {
+                  columns: ['name', 'status', 'lastSeen', 'profile', 'customer', 'tags'],
+                  profileId: filters.profileId || null,
+                  filter: {
+                    search: filters.search || undefined,
+                    status: filters.status ? [filters.status as 'online' | 'offline' | 'dead' | 'never'] : undefined,
+                  },
+                },
+              })}
+            />
+            {hasPerm('device.write') && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" /> New device
+              </Button>
+            )}
+          </div>
         }
       />
       <div className="mb-4 flex flex-wrap gap-2">

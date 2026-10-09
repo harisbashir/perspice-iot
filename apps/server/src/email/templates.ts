@@ -5,6 +5,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'device_offline',
   'device_online',
   'device_dead',
+  'export_ready',
   'test',
 ] as const;
 
@@ -18,5 +19,6 @@ export const EMAIL_SUBJECTS: Record<EmailTemplateKey, string> = {
   device_offline: '[{{productName}}] Device offline: {{deviceName}}',
   device_online: '[{{productName}}] Device online: {{deviceName}}',
   device_dead: '[{{productName}}] Device dead: {{deviceName}}',
+  export_ready: '[{{productName}}] Your export is ready: {{title}}',
   test: 'Test email from {{productName}}',
 };

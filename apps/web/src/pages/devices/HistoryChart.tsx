@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ExportMenu } from '@/exports/ExportMenu';
 
 echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -94,6 +95,12 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
         )}
         {data && <Badge variant="secondary">Source: {data.source === 'raw' ? 'raw data' : `${data.source} averages`}</Badge>}
         {isFetching && <span className="text-xs text-slate-500">Loading…</span>}
+        <ExportMenu
+          className="ml-auto"
+          request={(format) =>
+            selected.length ? { kind: 'telemetry', format, params: { deviceId, keys: selected, from: window_.from, to: window_.to } } : null
+          }
+        />
       </div>
       <fieldset className="flex flex-wrap gap-3 text-sm">
         <legend className="sr-only">Keys</legend>

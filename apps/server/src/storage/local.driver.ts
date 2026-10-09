@@ -1,7 +1,10 @@
 import { createHmac } from 'node:crypto';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { safeEqual } from '../common/internal-secret.guard';
+import type { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { StorageDriver } from './storage.driver';
 
 const KEY_PATTERN = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
@@ -45,6 +48,25 @@ export class LocalStorageDriver implements StorageDriver {
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, body);
     await writeFile(`${file}.meta`, JSON.stringify({ contentType }));
+  }
+
+  async putStream(key: string, body: Readable, contentType: string): Promise<void> {
+    const file = this.path(key);
+    await mkdir(dirname(file), { recursive: true });
+    try {
+      await pipeline(body, createWriteStream(file));
+    } catch (err) {
+      await rm(file, { force: true });
+      throw err;
+    }
+    await writeFile(`${file}.meta`, JSON.stringify({ contentType }));
+  }
+
+  async getStream(key: string): Promise<{ body: Readable; contentType: string; size: number }> {
+    const file = this.path(key);
+    const [info, meta] = await Promise.all([stat(file), readFile(`${file}.meta`, 'utf8').catch(() => '{}')]);
+    const { contentType } = JSON.parse(meta) as { contentType?: string };
+    return { body: createReadStream(file), contentType: contentType ?? 'application/octet-stream', size: info.size };
   }
 
   async get(key: string): Promise<{ body: Buffer; contentType: string }> {

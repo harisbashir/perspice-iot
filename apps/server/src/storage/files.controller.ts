@@ -1,6 +1,7 @@
 import { Public } from '../auth/decorators';
 import { Controller, Get, Inject, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { pipeline } from 'node:stream/promises';
 import { notFound } from '../common/app-error';
 import { CONFIG, type Config } from '../config/config';
 import { verifySignedUrl } from './local.driver';
@@ -24,12 +25,15 @@ export class FilesController {
   ) {
     const key = Array.isArray(keyParts) ? keyParts.join('/') : keyParts;
     if (!exp || !sig || !verifySignedUrl(this.config.JWT_SECRET, key, exp, sig)) throw notFound();
-    const obj = await this.storage.get(key).catch(() => {
+    const obj = await this.storage.getStream(key).catch(() => {
       throw notFound();
     });
     res.setHeader('content-type', obj.contentType);
+    res.setHeader('content-length', String(obj.size));
     res.setHeader('cache-control', 'private, max-age=300');
     res.setHeader('x-content-type-options', 'nosniff');
-    res.send(obj.body);
+    // Exports are downloads, named after the last key segment.
+    if (key.startsWith('exports/')) res.setHeader('content-disposition', `attachment; filename="${key.split('/').pop()}"`);
+    await pipeline(obj.body, res);
   }
 }

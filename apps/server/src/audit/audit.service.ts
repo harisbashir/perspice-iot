@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { type SQL, and, desc, eq, gte, lt, lte, or } from 'drizzle-orm';
+import { type SQL, and, count, desc, eq, gte, lt, lte, or } from 'drizzle-orm';
 import { validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { auditLog } from '../db/schema';
@@ -69,13 +69,7 @@ export class AuditService {
 
   /** Newest first; `customerId` undefined = all customers (platform), null = platform-only rows. */
   async list(q: AuditQuery): Promise<{ items: AuditRow[]; nextCursor: string | null }> {
-    const conds: SQL[] = [];
-    if (q.customerId !== undefined && q.customerId !== null) conds.push(eq(auditLog.customerId, q.customerId));
-    if (q.targetType) conds.push(eq(auditLog.targetType, q.targetType));
-    if (q.targetId) conds.push(eq(auditLog.targetId, q.targetId));
-    if (q.actorId) conds.push(eq(auditLog.actorId, q.actorId));
-    if (q.from) conds.push(gte(auditLog.ts, q.from));
-    if (q.to) conds.push(lte(auditLog.ts, q.to));
+    const conds = this.conditions(q);
     if (q.cursor) {
       const c = decodeCursor(q.cursor);
       conds.push(or(lt(auditLog.ts, c.ts), and(eq(auditLog.ts, c.ts), lt(auditLog.id, c.id)))!);
@@ -88,5 +82,21 @@ export class AuditService {
       .limit(q.limit + 1);
     const items = rows.slice(0, q.limit);
     return { items, nextCursor: rows.length > q.limit ? encodeCursor(items[items.length - 1]!) : null };
+  }
+
+  async count(q: Omit<AuditQuery, 'cursor' | 'limit'>): Promise<number> {
+    const [row] = await this.db.select({ n: count() }).from(auditLog).where(and(...this.conditions(q)));
+    return row?.n ?? 0;
+  }
+
+  private conditions(q: Omit<AuditQuery, 'cursor' | 'limit'>): SQL[] {
+    const conds: SQL[] = [];
+    if (q.customerId !== undefined && q.customerId !== null) conds.push(eq(auditLog.customerId, q.customerId));
+    if (q.targetType) conds.push(eq(auditLog.targetType, q.targetType));
+    if (q.targetId) conds.push(eq(auditLog.targetId, q.targetId));
+    if (q.actorId) conds.push(eq(auditLog.actorId, q.actorId));
+    if (q.from) conds.push(gte(auditLog.ts, q.from));
+    if (q.to) conds.push(lte(auditLog.ts, q.to));
+    return conds;
   }
 }

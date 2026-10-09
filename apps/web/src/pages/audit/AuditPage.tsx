@@ -5,6 +5,7 @@ import type { AuditEntryDto, Page } from '@/api/types';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ExportMenu } from '@/exports/ExportMenu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export function AuditPage() {
@@ -21,7 +22,15 @@ export function AuditPage() {
 
   return (
     <div>
-      <PageHeader title="Audit log" description="Who did what, and when." />
+      <PageHeader
+        title="Audit log"
+        description="Who did what, and when."
+        actions={
+          <ExportMenu
+            request={(format) => ({ kind: 'audit', format, params: { targetType: targetType || undefined, targetId: targetId || undefined } })}
+          />
+        }
+      />
       <div className="mb-4 flex flex-wrap gap-2">
         <Input aria-label="Target type" placeholder="Target type (e.g. device)" className="w-56" value={targetType} onChange={(e) => setTargetType(e.target.value)} />
         <Input aria-label="Target id" placeholder="Target id" className="w-80" value={targetId} onChange={(e) => setTargetId(e.target.value)} />

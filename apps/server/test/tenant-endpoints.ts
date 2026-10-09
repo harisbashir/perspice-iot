@@ -1,4 +1,4 @@
-import { command, dashboardInstance, dashboardTemplate } from '../src/db/schema';
+import { command, dashboardInstance, dashboardTemplate, exportJob } from '../src/db/schema';
 import { sampleDefinition } from './dashboard-fixtures';
 import { createDevice, createProfile, ensureRole } from './factories';
 import type { TestApp } from './harness';
@@ -156,4 +156,31 @@ TENANT_ENDPOINTS.push(
   { name: 're-sync instance', method: 'delete', path: (i) => `/api/dashboard-instances/${i.instanceId}/override`, create: bInstance },
   { name: "get B's template", method: 'get', path: (i) => `/api/dashboard-templates/${i.templateId}`, create: bInstance },
   { name: 'list templates', method: 'list', path: () => '/api/dashboard-templates', create: bInstance },
+);
+
+const bExport = async ({ t, b }: TenantContext): Promise<Ids> => {
+  const [row] = await t.db
+    .insert(exportJob)
+    .values({ userId: b.admin.id, customerId: b.customer.id, kind: 'devices', format: 'csv', params: { title: 'Devices' } })
+    .returning({ id: exportJob.id });
+  return { exportId: row!.id };
+};
+
+TENANT_ENDPOINTS.push(
+  {
+    name: 'export telemetry',
+    method: 'post',
+    path: () => '/api/exports',
+    body: (i) => ({ kind: 'telemetry', format: 'csv', params: { deviceId: i.deviceId, keys: ['a'], from: 0, to: Date.now() } }),
+    create: bDevice,
+  },
+  {
+    name: 'export widget data',
+    method: 'post',
+    path: () => '/api/exports',
+    body: (i) => ({ kind: 'widget', format: 'csv', params: { datasource: { kind: 'device', deviceId: i.deviceId, keys: ['a'] }, mode: 'latest' } }),
+    create: bDevice,
+  },
+  { name: "get B's export", method: 'get', path: (i) => `/api/exports/${i.exportId}`, create: bExport },
+  { name: 'list exports', method: 'list', path: () => '/api/exports', create: bExport },
 );

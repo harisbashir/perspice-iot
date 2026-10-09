@@ -1,5 +1,6 @@
 import type { DashboardDefinition, DeviceDto, DeviceProfileDto, Timewindow, WidgetConfig } from '@perspice/shared';
 import { type ReactNode, useState } from 'react';
+import { widgetExportAction } from '@/exports/widgetExport';
 import { DashboardGrid } from './DashboardGrid';
 import { TimewindowPicker } from './TimewindowPicker';
 
@@ -10,7 +11,7 @@ export interface DashboardViewProps {
   profile?: DeviceProfileDto | null;
   /** Extra controls in the toolbar (customise, export…). */
   toolbar?: ReactNode;
-  /** Extra controls per widget frame (export menu). */
+  /** Controls per widget frame; defaults to the export menu. */
   widgetActions?: (w: WidgetConfig, timewindow: Timewindow) => ReactNode;
 }
 
@@ -33,7 +34,13 @@ export function StateTabs({ definition, active, onChange }: { definition: Dashbo
   );
 }
 
-export function DashboardView({ definition, device = null, profile = null, toolbar, widgetActions }: DashboardViewProps) {
+export function DashboardView({
+  definition,
+  device = null,
+  profile = null,
+  toolbar,
+  widgetActions = (w, tw) => widgetExportAction(w, tw, device),
+}: DashboardViewProps) {
   const [stateId, setStateId] = useState(definition.states[0]!.id);
   const state = definition.states.find((s) => s.id === stateId) ?? definition.states[0]!;
   const [timewindow, setTimewindow] = useState<Timewindow>(definition.settings.timewindow);
@@ -54,7 +61,7 @@ export function DashboardView({ definition, device = null, profile = null, toolb
         refreshS={definition.settings.refreshS}
         device={device}
         profile={profile}
-        widgetActions={widgetActions && ((w) => widgetActions(w, timewindow))}
+        widgetActions={(w) => widgetActions(w, timewindow)}
       />
     </div>
   );

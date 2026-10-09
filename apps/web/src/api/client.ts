@@ -95,13 +95,19 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   });
 }
 
-/** JSON API call; on 401 refreshes the session once and retries. Throws ApiError. */
-export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
+/** Like `api`, but returns the raw response (file downloads). Throws ApiError when not ok. */
+export async function apiResponse(path: string, opts: RequestOptions = {}): Promise<Response> {
   let res = await send(path, opts);
   if (res.status === 401 && !path.startsWith('/auth/')) {
     if (await refreshSession()) res = await send(path, opts);
   }
   if (!res.ok) throw await toError(res);
+  return res;
+}
+
+/** JSON API call; on 401 refreshes the session once and retries. Throws ApiError. */
+export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await apiResponse(path, opts);
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
