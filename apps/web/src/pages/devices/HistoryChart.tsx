@@ -45,9 +45,11 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
   });
 
   const el = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
   useEffect(() => {
     if (!el.current || !data) return;
     const chart = echarts.getInstanceByDom(el.current) ?? echarts.init(el.current);
+    chartRef.current = chart;
     const dark = document.documentElement.classList.contains('dark');
     chart.setOption(
       {
@@ -74,7 +76,8 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [data, keys]);
-  useEffect(() => () => echarts.getInstanceByDom(el.current!)?.dispose(), []);
+  // The ref is already null on unmount, so dispose through the instance we created.
+  useEffect(() => () => chartRef.current?.dispose(), []);
 
   return (
     <div className="space-y-3">
