@@ -4,7 +4,7 @@ import { barOption } from '../src/library/charts/bar';
 import { gaugeOption } from '../src/library/charts/radial-gauge';
 import { heatmapCells, heatmapOption } from '../src/library/charts/heatmap';
 import { linearGaugeModel } from '../src/library/charts/linear-gauge';
-import { lineOption } from '../src/library/charts/line';
+import { lineOption, windowRange } from '../src/library/charts/line';
 import { pieOption } from '../src/library/charts/pie';
 import { sparklineModel } from '../src/library/charts/sparkline';
 import { CHART_WIDGETS } from '../src/library/charts';
@@ -105,5 +105,15 @@ describe('chart widgets', () => {
   it('sparkline reports the last value and the change', () => {
     expect(sparklineModel(history, 'fuel_level')).toMatchObject({ last: 20, delta: 10, points: [10, 20] });
     expect(sparklineModel({ source: 'raw', series: {} }, 'x')).toMatchObject({ last: null, points: [] });
+  });
+});
+
+describe('line chart time axis', () => {
+  it('spans the dashboard time window and marks a lone point', () => {
+    const data: HistoryData = { source: 'raw', series: { t: [[5_000, 21.5]], h: [[1_000, 1], [2_000, 2]] } };
+    const opt = lineOption({ area: false, smooth: false }, data, {}, windowRange({ kind: 'relative', lastMs: 3_600_000 }, 10_000_000));
+    expect(opt.xAxis).toEqual({ type: 'time', min: 6_400_000, max: 10_000_000 });
+    expect(opt.series.map((s) => s.showSymbol)).toEqual([true, false]);
+    expect(windowRange({ kind: 'absolute', fromMs: 1, toMs: 2 })).toEqual({ min: 1, max: 2 });
   });
 });
