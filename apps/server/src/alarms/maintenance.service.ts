@@ -22,7 +22,7 @@ const toDto = (r: ServiceRow): DeviceServiceDto => ({
   deviceId: r.deviceId,
   servicedAt: r.servicedAt.getTime(),
   note: r.note,
-  runHours: r.runHours,
+  runHours: Object.fromEntries(Object.entries(r.runHours).map(([k, v]) => [k, Math.round(v * 10) / 10])),
   createdBy: r.createdBy,
 });
 
@@ -100,9 +100,10 @@ export class MaintenanceService {
     const { key } = z.object({ key: z.string().regex(KEY_PATTERN) }).parse(raw);
     await this.devices.find(actor, deviceId); // scope: 404 outside it
     const [totals, last] = await Promise.all([this.totals([deviceId], [key]), this.lastServices([deviceId])]);
-    const total = round1(totals.get(`${deviceId}/${key}`) ?? 0);
+    const exact = totals.get(`${deviceId}/${key}`) ?? 0;
+    const total = round1(exact);
     const service = last.get(deviceId);
-    return { key, total, sinceService: round1(Math.max(0, total - (service?.runHours[key] ?? 0))), lastService: service ? toDto(service) : null };
+    return { key, total, sinceService: round1(Math.max(0, exact - (service?.runHours[key] ?? 0))), lastService: service ? toDto(service) : null };
   }
 
   async list(actor: AuthUser, deviceId: string): Promise<DeviceServiceDto[]> {
@@ -119,7 +120,8 @@ export class MaintenanceService {
     const d = await this.devices.find(actor, deviceId);
     const keys = await this.runtimeKeys(d.profileId);
     const totals = await this.totals([d.id], keys);
-    const runHours = Object.fromEntries(keys.map((k) => [k, round1(totals.get(`${d.id}/${k}`) ?? 0)]));
+    // Full precision: the reminder compares against these (rounding would leave a short interval due).
+    const runHours = Object.fromEntries(keys.map((k) => [k, totals.get(`${d.id}/${k}`) ?? 0]));
     const [row] = await this.db
       .insert(deviceService)
       .values({ deviceId: d.id, servicedAt: new Date(input.servicedAt ?? now), note: input.note, runHours, createdBy: actor.kind === 'user' ? actor.id : null })

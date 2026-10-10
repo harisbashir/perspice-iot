@@ -129,5 +129,8 @@ describe('run hours and maintenance reminders', () => {
       if (!found) await new Promise((r) => setTimeout(r, 200));
     }
     expect(found?.message).toMatch(/^Service due: [\d.]+ h run since the last service \(every 0 h\)$/);
+    // A short interval: logging a service must clear it (totals are kept at full precision).
+    expect((await t.http.post(`/api/devices/${device.id}/services`).set('Authorization', a.operator).send({})).status).toBe(201);
+    expect((await open(device.id))?.status).toBe('cleared');
   });
 });
