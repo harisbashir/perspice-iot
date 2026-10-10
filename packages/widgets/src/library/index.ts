@@ -14,6 +14,7 @@ import { entityTable } from './tables/entity-table';
 import { historyTable } from './tables/history-table';
 import { latestTable } from './tables/latest-table';
 import { batteryWidget } from './values/battery';
+import { energySummary } from './values/energy-summary';
 import { kpiWidget } from './values/kpi';
 import { ledWidget } from './values/led';
 import { multiValueWidget } from './values/multi-value';
@@ -31,6 +32,7 @@ export const BUILT_IN_WIDGETS = [
   batteryWidget,
   tankWidget,
   kpiWidget,
+  energySummary,
   latestTable,
   historyTable,
   entityTable,
