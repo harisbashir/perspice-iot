@@ -49,7 +49,7 @@ describe('realtime gateway', () => {
     const key = await t.http
       .post('/api/api-keys')
       .set('Authorization', `Bearer ${await tokenFor(t, a.u.email, a.u.password, `${a.c.slug}.localhost`)}`)
-      .send({ name: 'sim', permissions: ['device.read'] });
+      .send({ name: 'sim', permissions: ['device.read', 'telemetry.read'] });
     const socket = await connectSocket(base, key.body.key);
     sockets.push(socket);
     expect(await socket.emitWithAck('subscribe:device', { deviceId: a.device.id })).toEqual({ ok: true });

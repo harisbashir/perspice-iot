@@ -41,6 +41,8 @@ const ROUTES: Record<string, { room: string; event: string }> = {
  * Live updates (spec §7.4). Each api instance subscribes to the `ws:*` Redis channels and emits
  * to its own local sockets, so every event reaches every instance's subscribers exactly once.
  */
+const canFollowValues = (u: { permissions: readonly string[] }) => u.permissions.includes('device.read') && u.permissions.includes('telemetry.read');
+
 @WebSocketGateway({ namespace: '/rt', path: '/api/socket.io', serveClient: false })
 export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
   private readonly logger = new Logger(RealtimeGateway.name);
@@ -83,6 +85,8 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
 
   @SubscribeMessage('subscribe:device')
   async subscribeDevice(@ConnectedSocket() socket: AuthedSocket, @MessageBody() body: { deviceId?: string }) {
+    // Device rooms carry live values and positions: the same permissions as reading them.
+    if (!canFollowValues(socket.data.user)) return { ok: false, code: 'FORBIDDEN' };
     try {
       const d = await this.devices.find(socket.data.user, String(body?.deviceId ?? ''));
       await socket.join(`device:${d.id}`);
@@ -95,6 +99,7 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
   /** Dashboards follow many devices at once; one scoped query decides which may be joined. */
   @SubscribeMessage('subscribe:devices')
   async subscribeDevices(@ConnectedSocket() socket: AuthedSocket, @MessageBody() body: { deviceIds?: unknown }) {
+    if (!canFollowValues(socket.data.user)) return { ok: false, code: 'FORBIDDEN' };
     const requested = Array.isArray(body?.deviceIds) ? body.deviceIds.map(String) : [];
     if (requested.length > MAX_DASHBOARD_DEVICES) return { ok: false, code: 'VALIDATION' };
     const candidates = [...new Set(requested.filter(isUuid))];
@@ -128,6 +133,7 @@ export class RealtimeGateway implements OnGatewayInit, OnApplicationShutdown {
   @SubscribeMessage('subscribe:status')
   async subscribeStatus(@ConnectedSocket() socket: AuthedSocket) {
     const u = socket.data.user;
+    if (!u.permissions.includes('device.read')) return { ok: false, code: 'FORBIDDEN' };
     await socket.join(u.scopeType === 'platform' ? 'status:platform' : `status:${u.customerId}`);
     return { ok: true };
   }
