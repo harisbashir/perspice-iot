@@ -30,7 +30,7 @@ run_suite() {
   case "$1" in
     unit) pnpm test:unit ;;
     integration) pnpm test:integration ;;
-    e2e) bash e2e/run.sh operations ;; # runs every project before it (dependencies)
+    e2e) bash e2e/run.sh location ;; # runs every project before it (dependencies)
     load)
       if [[ -z "${PERSPICE_LOAD_URL:-}" ]]; then
         bash deploy/test/loadtest.sh

@@ -40,6 +40,8 @@ A dashboard has one or more **views** (tabs), each a 12-column grid of up to 60 
 - **Data sources**: the device the dashboard is open for (*current device*), one chosen device,
   all devices of a profile (optionally filtered by status, tags or name), or a device list with
   chosen columns (built-in columns or telemetry keys).
+- **Map** widgets show devices with a location (markers coloured by status, clustered when there
+  are many) or one device's route with playback; see [location.md](location.md).
 - The **time window** (relative, e.g. last 24 h, or absolute) and refresh interval are dashboard
   settings. Viewers can change the window for their session with the picker.
 - In the template editor, **Preview with** shows the dashboard with live data from one of the

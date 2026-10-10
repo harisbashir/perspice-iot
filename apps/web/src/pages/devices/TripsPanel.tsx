@@ -28,7 +28,12 @@ export function TripsPanel({ deviceId }: { deviceId: string }) {
   // Fixed per period choice so the queries don't refetch on every render.
   const [to] = useState(() => Date.now());
   const from = to - days * DAY;
-  const trips = useQuery({ queryKey: ['trips', deviceId, days], queryFn: () => api<TripDto[]>(`/devices/${deviceId}/trips?from=${from}&to=${to}&limit=500`) });
+  // Refreshed every 30 s: a trip under way grows.
+  const trips = useQuery({
+    queryKey: ['trips', deviceId, days],
+    queryFn: () => api<TripDto[]>(`/devices/${deviceId}/trips?from=${from}&to=${Date.now()}&limit=500`),
+    refetchInterval: 30_000,
+  });
   const distance = useQuery({
     queryKey: ['distance', deviceId, days],
     queryFn: () => api<{ timezone: string; days: { day: string; distanceM: number }[] }>(`/devices/${deviceId}/distance?from=${from}&to=${to}`),

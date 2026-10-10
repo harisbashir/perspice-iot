@@ -5,6 +5,8 @@
 # publish to the realtime API is under 2 s.
 # Usage: deploy/test/loadtest.sh   (needs docker, node, python3 and at least 6 cores; run from anywhere)
 #   LOAD_COUNT=10000 LOAD_DURATION=900 LOAD_INTERVAL=10   the load (defaults shown)
+#   LOAD_MOBILE_SHARE=0.1   this fraction of devices drive around reporting positions (locations
+#                           and trips switched on for the profile)
 #   LOAD_OUT=<dir>   where the summary, per-minute report and container stats go (default: a temp dir)
 #   SKIP_BUILD=1     reuse images built by an earlier run; KEEP_STACK=1 leaves the stack running
 #   LOAD_OVERRIDE=<file>  one more compose override (e.g. to profile a service)
@@ -86,6 +88,12 @@ code="$("${COMPOSE[@]}" exec -T api node -e "process.stdout.write(require('otpli
 api -X POST -H "authorization: Bearer $access" "$BASE/api/auth/totp/enable" -d "{\"code\":\"$code\"}" >/dev/null || fail "totp enable"
 key="$(api -X POST -H "authorization: Bearer $access" "$BASE/api/api-keys" \
   -d '{"name":"load test","permissions":["device.read","device.write","profile.read","telemetry.read"]}' | json "d['key']")"
+MOBILE_SHARE="${LOAD_MOBILE_SHARE:-0}"
+if [[ "$MOBILE_SHARE" != "0" ]]; then
+  profile_id="$(api -H "authorization: Bearer $access" "$BASE/api/device-profiles" | json "[p['id'] for p in d if p['name']=='Generic Sensor'][0]")"
+  api -X PATCH -H "authorization: Bearer $access" "$BASE/api/device-profiles/$profile_id" \
+    -d '{"locationMode":"reported","trips":{"enabled":true}}' >/dev/null || fail "enable locations on the profile"
+fi
 
 # Devices connect to EMQX's container address: through the published port, Docker's userland
 # proxy would spend CPU outside the stack's cores on every connection.
@@ -101,12 +109,13 @@ log "Recording container usage every 10 s"
 stats_pid=$!
 
 min_rate="$(python3 -c "print(round($COUNT / $INTERVAL * 0.99, 1))")"
-log "Simulating $COUNT devices, one message every $INTERVAL s for $DURATION s (pass: ≥ $min_rate msg/s, p95 < 2 s, no loss)"
+log "Simulating $COUNT devices ($MOBILE_SHARE mobile), one message every $INTERVAL s for $DURATION s (pass: ≥ $min_rate msg/s, p95 < 2 s, no loss)"
 sim_status=0
 # The simulator stays off the stack's cores.
 taskset -c "4-$(($(nproc) - 1))" node "$ROOT/apps/simulator/dist/index.js" --url "$BASE" --mqtt "mqtt://$emqx_ip:1883" --api-key "$key" --insecure \
   --profile "Generic Sensor" --create --devices-file "$WORK/devices.json" --count "$COUNT" --interval "$INTERVAL" \
   --duration "$DURATION" --measure-latency --max-p95-ms 2000 --min-rate "$min_rate" --summary "$OUT/summary.json" \
+  --mobile-share "$MOBILE_SHARE" \
   | tee "$OUT/simulator.log" || sim_status=$?
 [[ -s "$OUT/summary.json" ]] || fail "the simulator produced no summary"
 

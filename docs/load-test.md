@@ -66,6 +66,19 @@ Memory peaked at 1.1 GB (EMQX), 460 MB (PostgreSQL), about 300 MB per Node.js pr
 
 **Headroom is modest:** the stack uses about 3.3 of the 4 cores at this rate. The test defines no alarm rules; a deployment with many rules per device will spend more in `rules`. For fleets near this size, plan on a larger server or move PostgreSQL to its own machine.
 
+### v0.5.0, with mobile devices
+
+Rerun with `LOAD_MOBILE_SHARE=0.1`: 1,000 of the 10,000 devices drive and park around a city,
+reporting positions on a profile with reported locations and trip detection (location fixes,
+trip state machine and geofence evaluation in the path). Same host and limits.
+
+| | result |
+| --- | --- |
+| sustained rate | 1000.0 messages/s (every minute 999.9–1000) |
+| sent / stored | 899,975 / 899,975 — **0 lost** |
+| latency, publish → websocket | p50 13 ms, **p95 63 ms**, p99 701 ms, max 891 ms |
+| whole stack CPU | 310% average, 376% peak of 400% |
+
 ## Bottlenecks found and fixed
 
 The first runs failed. What the test found, in order:

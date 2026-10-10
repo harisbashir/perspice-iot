@@ -21,6 +21,7 @@ export default defineConfig({
     { name: 'alarms', testMatch: 'alarms.spec.ts', dependencies: ['dashboards'] },
     // Restores a backup, so it runs after everything else that shares the stack.
     { name: 'operations', testMatch: 'operations.spec.ts', dependencies: ['alarms'] },
+    { name: 'location', testMatch: 'location.spec.ts', dependencies: ['operations'] },
     { name: 'live', testMatch: 'live.spec.ts' },
   ],
 });

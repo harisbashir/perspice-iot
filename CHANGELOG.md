@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-10
+
+Location and fleet (sub-project 5a, the first part of the domain features).
+
+### Added
+
+- **Device locations**: fixed (set on the device's Location tab by clicking the map or typing
+  coordinates) or reported by the device as telemetry (`lat`, `lng`, optional `speed`, `heading`,
+  `acc`, `alt`; key names per profile). The newest fix by timestamp wins; invalid fixes (out of
+  range, 0,0) go to the debug log. Live location updates over websockets.
+- **Map widget**: devices coloured by status, clustered above 100, popups with chosen values and a
+  link, geofence overlay, live movement; **route playback** for one device with a time slider,
+  play/pause and its trips. The built-in overview gains a map. Tile server in Settings → Maps
+  (default OpenStreetMap; the CSP follows `MAP_TILE_HOSTS`).
+- **Trips**: detected per profile (start by movement or speed, end after standing; or by an
+  ignition key), with figures computed from every stored fix and GPS jumps left out; trips tab with
+  distance per day in the customer's timezone, export to XLSX/CSV/PDF.
+- **Geofences**: circles and polygons per customer or platform-wide, drawn on a map; permission
+  `geofence.manage`.
+- **Geofence alarm rule**: device leaves (or enters) a geofence, with a clear margin against GPS
+  jitter. A geofence in use by rules can't be deleted.
+- `GpsTracker` firmware example (ESP32 + serial GPS); simulator `--mobile-share` for driving
+  devices; the load test can include mobile devices (`LOAD_MOBILE_SHARE`).
+- Docs: `location.md`.
+
+### Fixed
+
+- Ingest handles each device's MQTT messages in order, so a burst of buffered messages (e.g. a
+  tracker back in coverage) keeps its order.
+- Signing in after signing out goes to the overview instead of the page signed out from.
+
 ## [0.4.0] - 2026-10-09
 
 Operations (sub-project 4).

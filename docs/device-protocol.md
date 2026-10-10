@@ -34,6 +34,9 @@ Devices connect over MQTT (recommended) or HTTP. Each device has an **id** (UUID
   device's **Debug** tab.
 - A message with the same device, key and timestamp as a stored one is ignored.
 - Rejected messages (bad JSON, bad keys, too large) appear in the **Debug** tab.
+- **Positions** are telemetry too: for a profile with reported locations, a message with `lat` and
+  `lng` (plus optional `speed` km/h, `heading`, `acc` m, `alt`; key names set per profile) moves
+  the device on maps and feeds trips and geofence alarms. See [location.md](location.md).
 
 ### Commands
 
