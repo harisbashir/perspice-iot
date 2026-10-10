@@ -27,13 +27,16 @@ tar -xzf /work/current.tar.gz -C /opt/src
 NEW="$(tr -d '[:space:]' </opt/src/new/VERSION)"
 
 log "Installing $FROM with its own install.sh (images built from its source)"
-old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" "$@" 2>&1 | tee /work/install.log; }
-# In a nested container TimescaleDB's first-boot tuning can crash and restart the database; before
-# 1.0 the healthcheck could call that window ready and the migration failed. A user would run the
-# installer again, which keeps the data: so do we, once.
+old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" 2>&1 | tee /work/install.log; }
+# A first database boot in a nested container is slow, and before 1.0 the healthcheck could call
+# its initialisation ready, so the old installer's migration sometimes failed. Its --reinstall
+# can't recover (it replaced the database password; fixed in 1.0), so start over, as a user would
+# after a failed first install.
 if ! old_install; then
-  log "The $FROM install failed; running it again with --reinstall"
-  old_install --reinstall || fail "install of $FROM failed twice"
+  log "The $FROM install failed; removing it and installing again"
+  "${COMPOSE[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+  rm -f /opt/perspice/.env
+  old_install || fail "install of $FROM failed twice"
 fi
 [[ "$(version)" == "$FROM" ]] || fail "installed version is $(version)"
 for _ in $(seq 1 60); do api "$BASE/health" >/dev/null 2>&1 && break; sleep 2; done
