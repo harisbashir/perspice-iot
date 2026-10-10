@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-10
+
+Fleet operations (sub-project 5b).
+
+### Added
+
+- **Firmware images** per device profile (Firmware page, permission `firmware.manage`): upload
+  up to 16 MB with the version the firmware reports as `fw`; size and SHA-256 recorded.
+- **OTA updates** with staged rollout: deploy a version to a profile's devices (optionally one
+  customer's, with tags). The scheduler sends to online devices in batches, fails devices past the
+  timeout, halts when more than the threshold of finished devices failed, and resends to devices
+  that reconnect. A device is updated once it reports the new version. Update page with progress,
+  halt reason, per-device states and cancel; Firmware tab on devices. Devices receive
+  `perspice/v1/<id>/ota` (24-hour download link, SHA-256, size) and report
+  `ota/progress`; HTTP devices use `/api/v1/device/ota`.
+- **Firmware library OTA** on ESP32: HTTPS download into the inactive partition, SHA-256 checked
+  before the image is committed, progress reports, restart; `firmwareVersion` reported as `fw` on
+  every connect; the image is marked valid once it connects (rollback-safe). `OtaUpdate` example.
+- **Claim codes**: unassigned devices created with a 12-character code (stored hashed); customer
+  admins (`device.claim`) add a device by entering it. Single-use, same answer for every failure,
+  10 attempts a minute.
+- **CSV import** of up to 5,000 devices (profile, customer, group, tags, fixed location, claim
+  code): checked row by row first, created in one transaction, credentials CSV offered once.
+- **Bulk actions** on up to 500 selected devices: tags, group, assign to a customer, command,
+  delete; per-device results and one audit entry.
+- Simulator: `--fw <version>` and `--ota`.
+- Docs: [fleet.md](docs/fleet.md).
+
+### Fixed
+
+- Claim codes in request bodies are redacted from the audit log.
+
 ## [0.5.0] - 2026-10-10
 
 Location and fleet (sub-project 5a, the first part of the domain features).
