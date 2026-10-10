@@ -141,6 +141,10 @@ fetch_deploy_files() {
   cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
   install -d "$PERSPICE_HOME/scripts/lib"
   install -m 0644 "$src/scripts/lib/common.sh" "$PERSPICE_HOME/scripts/lib/common.sh"
+  # The updater and CLI of the target, so the next update runs the new code. `install` writes a
+  # new file, so a running update.sh keeps reading its own copy.
+  if [[ -f "$src/scripts/update.sh" ]]; then install -m 0755 "$src/scripts/update.sh" "$PERSPICE_HOME/scripts/update.sh"; fi
+  if [[ -f "$src/scripts/perspice" && -w /usr/local/bin ]]; then install -m 0755 "$src/scripts/perspice" /usr/local/bin/perspice; fi
   if [[ -n "$tmp" ]]; then rm -rf "$tmp"; fi
 }
 

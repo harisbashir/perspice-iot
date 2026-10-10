@@ -79,3 +79,57 @@ setup() {
   grep -q '^PERSPICE_VERSION=0.4.0$' "$PERSPICE_HOME/.env"
   [ -z "$(ls "$PERSPICE_HOME"/backups/*.pbk 2>/dev/null)" ]
 }
+
+# A minimal source tree of release $1 (what --source reads).
+make_source() {
+  local dir="$BATS_TEST_TMPDIR/src-$1"
+  mkdir -p "$dir/deploy" "$dir/scripts/lib"
+  echo "$1" >"$dir/VERSION"
+  cp -r "$SCRIPTS/../deploy/." "$dir/deploy/"
+  cp "$SCRIPTS/lib/common.sh" "$dir/scripts/lib/common.sh"
+  cp "$SCRIPTS/update.sh" "$dir/scripts/update.sh"
+  echo '# new updater' >>"$dir/scripts/update.sh"
+  echo "$dir"
+}
+
+@test "--source builds the target's images from the tree instead of pulling" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.0)"
+  run bash "$SCRIPTS/update.sh" --yes --source "$src"
+  [ "$status" -eq 0 ]
+  grep -q "build -t ghcr.io/perspice/perspice-server:0.9.0 -f $src/deploy/Dockerfile.server $src" "$STUB_LOG"
+  grep -q "build -t ghcr.io/perspice/perspice-web:0.9.0" "$STUB_LOG"
+  grep -q "build -t ghcr.io/perspice/perspice-renderer:0.9.0" "$STUB_LOG"
+  ! grep -q 'pull' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.9.0$' "$PERSPICE_HOME/.env"
+  # The deployment files and the updater itself come from the target.
+  grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
+  grep -q '# new updater' "$PERSPICE_HOME/scripts/update.sh"
+}
+
+@test "--source also takes a release tarball" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.1)"
+  tar -czf "$BATS_TEST_TMPDIR/perspice-0.9.1.tar.gz" -C "$(dirname "$src")" "$(basename "$src")"
+  run bash "$SCRIPTS/update.sh" --yes --source "$BATS_TEST_TMPDIR/perspice-0.9.1.tar.gz"
+  [ "$status" -eq 0 ]
+  grep -q 'build -t ghcr.io/perspice/perspice-server:0.9.1' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.9.1$' "$PERSPICE_HOME/.env"
+}
+
+@test "a failed build rolls back without touching the database" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.0)"
+  STUB_FAIL_ON="Dockerfile.web" run bash "$SCRIPTS/update.sh" --yes --source "$src"
+  [ "$status" -eq 1 ]
+  ! grep -q 'run --rm migrate' "$STUB_LOG"
+  ! grep -q 'pg_restore' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.1.0$' "$PERSPICE_HOME/.env"
+}
+
+@test "--source without a VERSION file is refused" {
+  mkdir -p "$BATS_TEST_TMPDIR/empty"
+  run bash "$SCRIPTS/update.sh" --yes --source "$BATS_TEST_TMPDIR/empty"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"VERSION"* ]]
+}
