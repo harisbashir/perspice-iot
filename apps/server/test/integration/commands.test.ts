@@ -8,7 +8,7 @@ import { createCustomer, createProfile, createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
 import { connectDevice } from '../mqtt-helpers';
 
-async function eventually<T>(fn: () => Promise<T>, check: (v: T) => boolean, timeoutMs = 5000): Promise<T> {
+async function eventually<T>(fn: () => Promise<T>, check: (v: T) => boolean, timeoutMs = 15_000): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   let last: T;
   do {

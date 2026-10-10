@@ -12,7 +12,9 @@ export const REDIS = Symbol('REDIS');
       provide: REDIS,
       inject: [CONFIG, HealthRegistry],
       useFactory: (config: Config, health: HealthRegistry) => {
-        const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 3 });
+        // Auto-pipelining sends the commands issued in one tick as one write: at 1000 messages/s,
+        // writing each command separately was the largest CPU cost in ingest, rules and api.
+        const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 3, enableAutoPipelining: true });
         const logger = new Logger('Redis');
         let lastLogged = 0;
         redis.on('error', (err) => {

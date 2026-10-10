@@ -1,6 +1,7 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { CommandDef, DeviceStatus, StatusNotifyConfig, TelemetryKeyDef } from '@perspice/shared';
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { CalculatedKey, CommandDef, DeviceLocationDto, DeviceStatus, LocationKeys, StatusNotifyConfig, TelemetryKeyDef, TripSettings } from '@perspice/shared';
 import { id, timestamps } from './_common';
+import { dashboardTemplate } from './dashboards';
 import { customer, customerGroup } from './customers';
 import { user } from './users';
 
@@ -13,17 +14,26 @@ export const deviceProfile = pgTable('device_profile', {
   offlineTimeoutS: integer('offline_timeout_s').notNull().default(300),
   deadTimeoutS: integer('dead_timeout_s').notNull().default(86400),
   sleepy: boolean('sleepy').notNull().default(false),
-  transport: text('transport', { enum: ['mqtt', 'http'] })
+  transport: text('transport', { enum: ['mqtt', 'http', 'aws-iot'] })
     .notNull()
     .default('mqtt'),
   locationMode: text('location_mode', { enum: ['none', 'fixed', 'reported'] })
     .notNull()
     .default('none'),
+  /** Telemetry keys of a reported location (missing entries take the defaults). */
+  locationKeys: jsonb('location_keys').$type<Partial<LocationKeys>>().notNull().default({}),
+  /** Trip detection (missing entries take the defaults; off unless enabled). */
+  tripSettings: jsonb('trip_settings').$type<Partial<TripSettings>>().notNull().default({}),
+  /** Derived keys computed as data arrives (spec §11). */
+  calculated: jsonb('calculated').$type<CalculatedKey[]>().notNull().default([]),
   retentionDays: integer('retention_days').notNull().default(365),
   statusNotify: jsonb('status_notify')
     .$type<StatusNotifyConfig>()
     .notNull()
     .default({ enabled: false, roleKeys: [], channels: [] }),
+  defaultDashboardTemplateId: uuid('default_dashboard_template_id').references((): AnyPgColumn => dashboardTemplate.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 
@@ -48,17 +58,14 @@ export const device = pgTable(
       .default('token'),
     /** SHA-256 hex of the device token. */
     credentialsHash: text('credentials_hash').notNull().unique(),
+    /** AWS IoT Core certificate (aws-iot profiles); the private key is never stored. */
+    awsCertificateArn: text('aws_certificate_arn'),
     attributes: jsonb('attributes')
       .$type<DeviceAttributes>()
       .notNull()
       .default({ client: {}, server: {}, shared: {} }),
-    location: jsonb('location').$type<{
-      lat: number;
-      lng: number;
-      alt?: number;
-      source: string;
-      updatedAt: number;
-    } | null>(),
+    /** Fixed locations, and reported ones written back from Redis (`loc:{id}`) once a minute behind. */
+    location: jsonb('location').$type<DeviceLocationDto | null>(),
     tags: text('tags').array().notNull().default([]),
     status: text('status').$type<DeviceStatus>().notNull().default('never'),
     lastSeen: timestamp('last_seen', { withTimezone: true }),

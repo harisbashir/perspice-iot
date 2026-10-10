@@ -6,14 +6,16 @@ import { api } from '@/api/client';
 import { ErrorText } from '@/components/ErrorText';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
+import { selectClass } from '@/components/TimezoneSelect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useProfile } from '../devices/hooks';
+import { CalculatedKeysEditor } from './CalculatedKeysEditor';
 import { CommandsEditor } from './CommandsEditor';
 import { TelemetryKeysEditor } from './TelemetryKeysEditor';
 
-type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt'>;
+type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt' | 'defaultDashboardTemplateId'>;
 
 const EMPTY: Draft = {
   name: '',
@@ -26,7 +28,20 @@ const EMPTY: Draft = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: ['customer_admin'], channels: ['email', 'inapp'] },
+  locationMode: 'none',
+  locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
+  trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
+  calculated: [],
 };
+
+const LOCATION_KEYS = [
+  ['lat', 'Latitude key'],
+  ['lng', 'Longitude key'],
+  ['speed', 'Speed key (km/h)'],
+  ['heading', 'Heading key'],
+  ['accuracy', 'Accuracy key (m)'],
+  ['alt', 'Altitude key'],
+] as const;
 
 const NOTIFY_ROLES: [BuiltInRoleKey, string][] = [
   ['customer_admin', 'Customer admins'],
@@ -45,7 +60,7 @@ export function ProfileEditor() {
 
   useEffect(() => {
     if (data) {
-      const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
+      const { id: _id, createdAt: _c, updatedAt: _u, defaultDashboardTemplateId: _d, ...rest } = data;
       setDraft(rest);
     }
   }, [data]);
@@ -113,10 +128,80 @@ export function ProfileEditor() {
         </Card>
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Location</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <Field label="Location">
+              {(fid) => (
+                <select id={fid} className={`${selectClass} max-w-sm`} value={draft.locationMode} onChange={(e) => set('locationMode', e.target.value as Draft['locationMode'])}>
+                  <option value="none">None</option>
+                  <option value="fixed">Fixed, set by hand</option>
+                  <option value="reported">Reported by the device</option>
+                </select>
+              )}
+            </Field>
+            {draft.locationMode === 'reported' && (
+              <>
+                <p className="text-slate-500">Telemetry keys that carry the position (a message needs both latitude and longitude).</p>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {LOCATION_KEYS.map(([k, label]) => (
+                    <Field key={k} label={label}>
+                      {(fid) => <Input id={fid} value={draft.locationKeys[k]} onChange={(e) => set('locationKeys', { ...draft.locationKeys, [k]: e.target.value })} />}
+                    </Field>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={draft.trips.enabled} onChange={(e) => set('trips', { ...draft.trips, enabled: e.target.checked })} />
+                  Detect trips
+                </label>
+                {draft.trips.enabled && (
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <Field label="Starts at (km/h)">
+                      {(fid) => <Input id={fid} type="number" min={0.5} step="any" value={draft.trips.minSpeedKmh} onChange={(e) => set('trips', { ...draft.trips, minSpeedKmh: Number(e.target.value) })} />}
+                    </Field>
+                    <Field label="…or after moving (m)">
+                      {(fid) => <Input id={fid} type="number" min={10} value={draft.trips.minMoveM} onChange={(e) => set('trips', { ...draft.trips, minMoveM: Number(e.target.value) })} />}
+                    </Field>
+                    <Field label="Ends after standing (s)">
+                      {(fid) => <Input id={fid} type="number" min={60} value={draft.trips.stopAfterS} onChange={(e) => set('trips', { ...draft.trips, stopAfterS: Number(e.target.value) })} />}
+                    </Field>
+                    <Field label="Ignition key (optional)" help="A true/false key: trips then follow ignition">
+                      {(fid) => (
+                        <Input
+                          id={fid}
+                          value={draft.trips.ignitionKey ?? ''}
+                          onChange={(e) => {
+                            const { ignitionKey: _drop, ...rest } = draft.trips;
+                            set('trips', e.target.value ? { ...rest, ignitionKey: e.target.value } : rest);
+                          }}
+                        />
+                      )}
+                    </Field>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Telemetry keys</CardTitle>
           </CardHeader>
           <CardContent>
             <TelemetryKeysEditor value={draft.telemetrySchema} onChange={(v) => set('telemetrySchema', v)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Calculated keys</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CalculatedKeysEditor
+              value={draft.calculated}
+              onChange={(v) => set('calculated', v as Draft['calculated'])}
+              telemetry={draft.telemetrySchema}
+              profileId={isNew ? undefined : id}
+            />
           </CardContent>
         </Card>
         <Card>

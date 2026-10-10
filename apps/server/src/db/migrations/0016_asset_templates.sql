@@ -1,0 +1,1 @@
+ALTER TABLE "dashboard_template" ADD COLUMN "asset_type_id" uuid;

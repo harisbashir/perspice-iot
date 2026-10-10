@@ -74,7 +74,10 @@ gen_secret() {
 }
 
 compose() {
-  docker compose -p perspice -f "$PERSPICE_HOME/docker-compose.yml" --env-file "$PERSPICE_HOME/.env" "$@"
+  local files=(-f "$PERSPICE_HOME/docker-compose.yml")
+  # AWS IoT Core installs replace EMQX through an override file.
+  if [[ "$(env_get MQTT_TRANSPORT 2>/dev/null || true)" == "aws-iot" ]]; then files+=(-f "$PERSPICE_HOME/docker-compose.aws.yml"); fi
+  docker compose -p perspice "${files[@]}" --env-file "$PERSPICE_HOME/.env" "$@"
 }
 
 # Reads KEY from the install's .env file.
@@ -119,7 +122,27 @@ latest_release() {
   curl -fsSL "https://api.github.com/repos/${PERSPICE_REPO}/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1
 }
 
-APP_SERVICES=(api ingest rules scheduler)
+APP_SERVICES=(api ingest rules scheduler renderer)
+
+# Installs the deployment files of release $1 (compose file, EMQX and cert-sync config, this
+# library) into $PERSPICE_HOME: from the checkout in $PERSPICE_SRC when set, otherwise from the
+# release's source archive.
+fetch_deploy_files() {
+  local version="$1" src="${PERSPICE_SRC:-}" tmp=""
+  if [[ -z "$src" ]]; then
+    tmp="$(mktemp -d)"
+    src="$tmp"
+    if ! curl -fsSL "https://github.com/${PERSPICE_REPO}/archive/refs/tags/v${version}.tar.gz" | tar -xz -C "$src" --strip-components=1; then
+      rm -rf "$tmp"
+      return 1
+    fi
+  fi
+  cp "$src/deploy/docker-compose.yml" "$src/deploy/docker-compose.aws.yml" "$PERSPICE_HOME/"
+  cp -r "$src/deploy/emqx" "$src/deploy/cert-sync" "$src/deploy/monitoring" "$PERSPICE_HOME/"
+  install -d "$PERSPICE_HOME/scripts/lib"
+  install -m 0644 "$src/scripts/lib/common.sh" "$PERSPICE_HOME/scripts/lib/common.sh"
+  if [[ -n "$tmp" ]]; then rm -rf "$tmp"; fi
+}
 
 # Writes a custom-format dump of the database to $1.
 db_snapshot_to() {

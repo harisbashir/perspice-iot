@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDevice, createProfile } from '../factories';
+import { dashboardInstance, dashboardTemplate } from '../../src/db/schema';
+import { createCustomer, createDevice, createProfile } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
 
 describe('database', () => {
@@ -47,5 +48,18 @@ describe('database', () => {
   it('reports ready when database and redis are reachable', async () => {
     const res = await t.http.get('/ready');
     expect(res.status).toBe(200);
+  });
+
+  it('keeps one dashboard instance per (template, customer), including the platform instance', async () => {
+    const definition = {
+      states: [{ id: 'main', name: 'Main', layout: [], widgets: [] }],
+      settings: { timewindow: { kind: 'relative' as const, lastMs: 86_400_000 }, refreshS: 0 },
+    };
+    const [tpl] = await t.db.insert(dashboardTemplate).values({ name: 'T', kind: 'overview', definition }).returning();
+    await t.db.insert(dashboardInstance).values({ templateId: tpl!.id, customerId: null });
+    await expect(t.db.insert(dashboardInstance).values({ templateId: tpl!.id, customerId: null })).rejects.toThrow();
+    const c = await createCustomer(t.db);
+    await t.db.insert(dashboardInstance).values({ templateId: tpl!.id, customerId: c.id });
+    await expect(t.db.insert(dashboardInstance).values({ templateId: tpl!.id, customerId: c.id })).rejects.toThrow();
   });
 });

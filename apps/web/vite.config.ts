@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 export const alias = {
   '@': resolve(__dirname, 'src'),
   '@perspice/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
+  '@perspice/widgets': resolve(__dirname, '../../packages/widgets/src/index.ts'),
 };
 
 export default defineConfig({

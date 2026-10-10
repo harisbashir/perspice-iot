@@ -65,10 +65,10 @@ export class StreamConsumer {
         )) as StreamReply;
         const entries = reply?.[0]?.[1] ?? [];
         if (cursor === '0' && entries.length === 0) cursor = '>';
-        for (const [id, fields] of entries) {
-          await this.dispatch(fields);
-          await this.redis.xack(this.stream, this.opts.group, id);
-        }
+        for (const [, fields] of entries) await this.dispatch(fields);
+        // One acknowledgement per read (up to 100 entries). After a crash the unacknowledged
+        // ones are delivered again, as before: handling is at-least-once either way.
+        if (entries.length) await this.redis.xack(this.stream, this.opts.group, ...entries.map(([id]) => id));
       } catch (err) {
         if (!this.running) return;
         this.logger.warn(`Read failed: ${(err as Error).message}`);

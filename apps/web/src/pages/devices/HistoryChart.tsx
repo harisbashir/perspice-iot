@@ -9,6 +9,7 @@ import { api } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ExportMenu } from '@/exports/ExportMenu';
 
 echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -44,9 +45,11 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
   });
 
   const el = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
   useEffect(() => {
     if (!el.current || !data) return;
     const chart = echarts.getInstanceByDom(el.current) ?? echarts.init(el.current);
+    chartRef.current = chart;
     const dark = document.documentElement.classList.contains('dark');
     chart.setOption(
       {
@@ -73,7 +76,8 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [data, keys]);
-  useEffect(() => () => echarts.getInstanceByDom(el.current!)?.dispose(), []);
+  // The ref is already null on unmount, so dispose through the instance we created.
+  useEffect(() => () => chartRef.current?.dispose(), []);
 
   return (
     <div className="space-y-3">
@@ -94,6 +98,12 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
         )}
         {data && <Badge variant="secondary">Source: {data.source === 'raw' ? 'raw data' : `${data.source} averages`}</Badge>}
         {isFetching && <span className="text-xs text-slate-500">Loading…</span>}
+        <ExportMenu
+          className="ml-auto"
+          request={(format) =>
+            selected.length ? { kind: 'telemetry', format, params: { deviceId, keys: selected, from: window_.from, to: window_.to } } : null
+          }
+        />
       </div>
       <fieldset className="flex flex-wrap gap-3 text-sm">
         <legend className="sr-only">Keys</legend>

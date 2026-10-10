@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { CommandsService } from '../commands/commands.service';
+import { OtaService } from '../firmware/ota.service';
 import { Public } from '../auth/decorators';
 import { notFound, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
@@ -20,6 +21,7 @@ export class HttpDeviceController {
     @Inject(DB) private readonly db: DB,
     private readonly router: MessageRouter,
     private readonly commands: CommandsService,
+    private readonly ota: OtaService,
   ) {}
 
   @Post('telemetry')
@@ -49,6 +51,24 @@ export class HttpDeviceController {
     });
     if (!row) throw notFound();
     return row.attributes.shared;
+  }
+
+  /** The firmware update to apply now; 204 when there is none. */
+  @Get('ota')
+  async otaUpdate(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const msg = await this.ota.messageFor(req.deviceId!);
+    if (!msg) {
+      res.status(204);
+      return;
+    }
+    return msg;
+  }
+
+  @Post('ota/progress')
+  @HttpCode(202)
+  async otaProgress(@Req() req: Request, @Body() body: unknown) {
+    if (!(await this.ota.progress(req.deviceId!, body))) throw validation([], 'No update in progress for this version');
+    return {};
   }
 
   /** Long-poll for the next command (`wait` 0–30 s); 204 when none arrives. */

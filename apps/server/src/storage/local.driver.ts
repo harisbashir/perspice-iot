@@ -1,7 +1,10 @@
 import { createHmac } from 'node:crypto';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { safeEqual } from '../common/internal-secret.guard';
+import type { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { StorageDriver } from './storage.driver';
 
 const KEY_PATTERN = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
@@ -14,6 +17,13 @@ export function assertValidKey(key: string): void {
 
 function sign(secret: string, key: string, exp: string): string {
   return createHmac('sha256', secret).update(`${key}\n${exp}`).digest('base64url');
+}
+
+/** An API link (`/api/files/…`) to `key`, valid for `ttlSeconds`, served by FilesController. */
+export function signedFileUrl(secret: string, key: string, ttlSeconds: number): string {
+  assertValidKey(key);
+  const exp = String(Math.floor(Date.now() / 1000) + ttlSeconds);
+  return `/api/files/${key}?exp=${exp}&sig=${sign(secret, key, exp)}`;
 }
 
 export function verifySignedUrl(secret: string, key: string, exp: string, sig: string, now = Date.now()): boolean {
@@ -47,6 +57,25 @@ export class LocalStorageDriver implements StorageDriver {
     await writeFile(`${file}.meta`, JSON.stringify({ contentType }));
   }
 
+  async putStream(key: string, body: Readable, contentType: string): Promise<void> {
+    const file = this.path(key);
+    await mkdir(dirname(file), { recursive: true });
+    try {
+      await pipeline(body, createWriteStream(file));
+    } catch (err) {
+      await rm(file, { force: true });
+      throw err;
+    }
+    await writeFile(`${file}.meta`, JSON.stringify({ contentType }));
+  }
+
+  async getStream(key: string): Promise<{ body: Readable; contentType: string; size: number }> {
+    const file = this.path(key);
+    const [info, meta] = await Promise.all([stat(file), readFile(`${file}.meta`, 'utf8').catch(() => '{}')]);
+    const { contentType } = JSON.parse(meta) as { contentType?: string };
+    return { body: createReadStream(file), contentType: contentType ?? 'application/octet-stream', size: info.size };
+  }
+
   async get(key: string): Promise<{ body: Buffer; contentType: string }> {
     const file = this.path(key);
     const [body, meta] = await Promise.all([
@@ -64,9 +93,15 @@ export class LocalStorageDriver implements StorageDriver {
   }
 
   async getSignedUrl(key: string, ttlSeconds: number): Promise<string> {
-    assertValidKey(key);
-    const exp = String(Math.floor(Date.now() / 1000) + ttlSeconds);
-    return `/api/files/${key}?exp=${exp}&sig=${sign(this.signingSecret, key, exp)}`;
+    return signedFileUrl(this.signingSecret, key, ttlSeconds);
+  }
+
+  async move(from: string, to: string): Promise<void> {
+    const src = this.path(from);
+    const dst = this.path(to);
+    await mkdir(dirname(dst), { recursive: true });
+    await rename(src, dst);
+    await rename(`${src}.meta`, `${dst}.meta`).catch(() => undefined);
   }
 
   async list(prefix: string): Promise<string[]> {

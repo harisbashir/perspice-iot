@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeSocket } from '@/test/fake-socket';
 import { makeUser, renderApp } from '@/test/render';
 import { server } from '@/test/server';
@@ -21,6 +21,7 @@ const device = (overrides: Partial<DeviceDto> = {}): DeviceDto => ({
   status: 'online',
   lastSeen: Date.now(),
   firmwareVersion: null,
+  location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,
   attributes: { client: {}, server: {}, shared: {} },
@@ -42,6 +43,11 @@ const profile: DeviceProfileDto = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: [], channels: [] },
+  locationMode: 'none',
+  locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
+  trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
+  calculated: [],
+  defaultDashboardTemplateId: null,
   createdAt: '',
   updatedAt: '',
 };
@@ -131,6 +137,25 @@ describe('TokenDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByTestId('device-token')).not.toBeInTheDocument());
     expect(screen.queryByText(/pdt_secret/)).not.toBeInTheDocument();
+  });
+});
+
+describe('TokenDialog on AWS IoT Core', () => {
+  it('offers the AWS IoT Core certificate and key once, as downloads', async () => {
+    const bundle = { endpoint: 'abc-ats.iot.eu-west-1.amazonaws.com', clientId: 'd1', certificatePem: 'CERT', privateKey: 'KEY', rootCaUrl: 'https://www.amazontrust.com/repository/AmazonRootCA1.pem', topicPrefix: 'perspice/v1/d1/' };
+    const saved: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() });
+    const user = userEvent.setup();
+    render(<TokenDialog deviceId="d1" token="pdt_secret" awsIot={bundle} onClose={() => undefined} />);
+    const section = screen.getByTestId('aws-iot-bundle');
+    expect(section).toHaveTextContent('abc-ats.iot.eu-west-1.amazonaws.com:8883');
+    await user.click(screen.getByRole('button', { name: 'Download certificate' }));
+    await user.click(screen.getByRole('button', { name: 'Download private key' }));
+    expect(saved).toEqual(['d1.cert.pem', 'd1.private.key']);
+    click.mockRestore();
   });
 });
 

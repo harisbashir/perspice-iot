@@ -44,3 +44,10 @@ export function useRoomSubscription(subscribe: string, _unsubscribe: string | nu
     if (key !== null) fakeSocket.emitted.push([subscribe, JSON.parse(key)]);
   }, [subscribe, key]);
 }
+
+export function useDeviceRooms(deviceIds: string[]): void {
+  const key = [...new Set(deviceIds)].sort().join(',');
+  useEffect(() => {
+    if (key) fakeSocket.emitted.push(['subscribe:devices', { deviceIds: key.split(',') }]);
+  }, [key]);
+}

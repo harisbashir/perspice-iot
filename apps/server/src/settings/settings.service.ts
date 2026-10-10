@@ -29,6 +29,11 @@ export interface SettingValues {
   'platform.branding': Partial<BrandingDto>;
   'auth.enforceTotpForSuperAdmin': boolean;
   'api.docsPublic': boolean;
+  /** Webhook destinations: plain HTTP and private networks are refused unless allowed here. */
+  'webhooks.policy': { allowHttp: boolean; allowPrivate: boolean };
+  'backup.schedule': import('@perspice/shared').BackupSchedule;
+  'backup.latest': import('../backups/backup.service').LatestBackup;
+  'map.tiles': import('@perspice/shared').MapTiles;
 }
 
 export type SettingKey = keyof SettingValues;

@@ -4,6 +4,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { MaintenanceBanner } from './MaintenanceBanner';
 
 /** Signed-in layout. A super admin without 2FA is sent to enrol first (the API requires it). */
 export function AppShell({ topbarActions }: { topbarActions?: ReactNode }) {
@@ -28,6 +29,7 @@ export function AppShell({ topbarActions }: { topbarActions?: ReactNode }) {
       {open && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setOpen(false)} />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setOpen(true)} actions={topbarActions} />
+        <MaintenanceBanner />
         <main className="flex-1 p-4 md:p-6">
           <Outlet />
         </main>

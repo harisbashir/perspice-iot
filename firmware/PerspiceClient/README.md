@@ -67,3 +67,5 @@ Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
 - `BasicSensor` — W5500/W5100 Ethernet on ESP32 or Arduino Mega
 - `GeneratorController` — relay control with `gen_start` / `gen_stop` over TLS
 - `DeepSleepSensor` — wake, send, deep sleep (use a *sleepy* profile)
+- `OtaUpdate` — ESP32 taking firmware updates from the platform (set `firmwareVersion`)
+- `GpsTracker` — ESP32 with a serial GPS (TinyGPS++): position every 10 s, optional ignition input for trips; needs the `TinyGPSPlus` library

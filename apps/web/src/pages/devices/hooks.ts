@@ -8,6 +8,8 @@ export interface DeviceFilters {
   search?: string;
   status?: string;
   profileId?: string;
+  /** Devices anywhere in this asset's subtree. */
+  assetId?: string;
 }
 
 export const useDeviceList = (filters: DeviceFilters) =>
@@ -25,8 +27,3 @@ export const useProfiles = () => useQuery({ queryKey: ['profiles'], queryFn: () 
 export const useProfile = (id: string | undefined) =>
   useQuery({ queryKey: ['profiles', id], queryFn: () => api<DeviceProfileDto>(`/device-profiles/${id}`), enabled: !!id });
 
-export const useDeviceStats = () =>
-  useQuery({
-    queryKey: ['devices', 'stats'],
-    queryFn: () => api<{ total: number; online: number; offline: number; dead: number; never: number }>('/devices/stats'),
-  });

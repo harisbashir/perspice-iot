@@ -1,3 +1,4 @@
+import type { AwsIotBundle } from '@perspice/shared';
 import type { DeviceDto } from '@perspice/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
@@ -26,12 +27,12 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
   const [customerId, setCustomerId] = useState('');
   const [tags, setTags] = useState('');
   const [error, setError] = useState<unknown>(null);
-  const [created, setCreated] = useState<{ id: string; token: string } | null>(null);
+  const [created, setCreated] = useState<{ id: string; token: string; awsIot?: AwsIotBundle } | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     try {
-      const res = await api<{ device: DeviceDto; token: string }>('/devices', {
+      const res = await api<{ device: DeviceDto; token: string; awsIot?: AwsIotBundle }>('/devices', {
         body: {
           name,
           profileId,
@@ -43,7 +44,7 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
       onOpenChange(false);
       setName('');
       setTags('');
-      setCreated({ id: res.device.id, token: res.token });
+      setCreated({ id: res.device.id, token: res.token, awsIot: res.awsIot });
     } catch (err) {
       setError(err);
     }
@@ -98,7 +99,7 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
           </form>
         </DialogContent>
       </Dialog>
-      <TokenDialog deviceId={created?.id ?? ''} token={created?.token ?? null} onClose={() => setCreated(null)} />
+      <TokenDialog deviceId={created?.id ?? ''} token={created?.token ?? null} awsIot={created?.awsIot} onClose={() => setCreated(null)} />
     </>
   );
 }

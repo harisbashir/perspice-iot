@@ -1,3 +1,4 @@
+import type { AwsIotBundle } from '@perspice/shared';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '@/api/client';
@@ -5,6 +6,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { ErrorText } from '@/components/ErrorText';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { saveBlob } from '@/exports/download';
 
 export function mqttHost(): string {
   const host = window.location.hostname;
@@ -41,8 +43,38 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-/** Shows a freshly issued token exactly once; it cannot be retrieved after the dialog closes. */
-export function TokenDialog({ deviceId, token, onClose }: { deviceId: string; token: string | null; onClose: () => void }) {
+/** AWS IoT Core credentials: certificate and key as files to put on the device. */
+function AwsIotSection({ bundle }: { bundle: AwsIotBundle }) {
+  const save = (text: string, name: string) => saveBlob(new Blob([text], { type: 'application/x-pem-file' }), name);
+  return (
+    <div data-testid="aws-iot-bundle" className="space-y-2 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800">
+      <p className="font-medium">AWS IoT Core</p>
+      <dl className="grid grid-cols-[120px_1fr] gap-1">
+        <dt className="text-slate-500">Endpoint</dt>
+        <dd className="break-all font-mono">{bundle.endpoint}:8883</dd>
+        <dt className="text-slate-500">Client ID</dt>
+        <dd className="font-mono">{bundle.clientId}</dd>
+        <dt className="text-slate-500">Topics</dt>
+        <dd className="font-mono">{bundle.topicPrefix}…</dd>
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => save(bundle.certificatePem, `${bundle.clientId}.cert.pem`)}>
+          Download certificate
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => save(bundle.privateKey, `${bundle.clientId}.private.key`)}>
+          Download private key
+        </Button>
+        <a className="self-center text-xs underline" href={bundle.rootCaUrl} target="_blank" rel="noreferrer">
+          Amazon root CA
+        </a>
+      </div>
+      <p className="text-xs text-amber-700">Download the private key now: it is not kept and can’t be shown again.</p>
+    </div>
+  );
+}
+
+/** Shows freshly issued credentials exactly once; they cannot be retrieved after the dialog closes. */
+export function TokenDialog({ deviceId, token, awsIot, onClose }: { deviceId: string; token: string | null; awsIot?: AwsIotBundle | null; onClose: () => void }) {
   return (
     <Dialog open={!!token} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -55,7 +87,7 @@ export function TokenDialog({ deviceId, token, onClose }: { deviceId: string; to
             <code data-testid="device-token" className="block break-all rounded bg-slate-100 p-3 font-mono text-sm dark:bg-slate-800">
               {token}
             </code>
-            <pre className="overflow-x-auto rounded bg-slate-900 p-3 text-xs text-slate-100">{arduinoSnippet(deviceId, token)}</pre>
+            {awsIot ? <AwsIotSection bundle={awsIot} /> : <pre className="overflow-x-auto rounded bg-slate-900 p-3 text-xs text-slate-100">{arduinoSnippet(deviceId, token)}</pre>}
           </div>
         )}
         <DialogFooter>
@@ -71,11 +103,14 @@ export function TokenDialog({ deviceId, token, onClose }: { deviceId: string; to
 export function CredentialsPanel({ deviceId, initialToken = null }: { deviceId: string; initialToken?: string | null }) {
   const { hasPerm } = useAuth();
   const [token, setToken] = useState<string | null>(initialToken);
+  const [awsIot, setAwsIot] = useState<AwsIotBundle | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   async function regenerate() {
     try {
-      setToken((await api<{ token: string }>(`/devices/${deviceId}/credentials/regenerate`, { method: 'POST' })).token);
+      const res = await api<{ token: string; awsIot?: AwsIotBundle }>(`/devices/${deviceId}/credentials/regenerate`, { method: 'POST' });
+      setAwsIot(res.awsIot ?? null);
+      setToken(res.token);
     } catch (e) {
       setError(e);
     }
@@ -104,7 +139,7 @@ export function CredentialsPanel({ deviceId, initialToken = null }: { deviceId: 
         </div>
       )}
       <ErrorText error={error} />
-      <TokenDialog deviceId={deviceId} token={token} onClose={() => setToken(null)} />
+      <TokenDialog deviceId={deviceId} token={token} awsIot={awsIot} onClose={() => setToken(null)} />
     </div>
   );
 }

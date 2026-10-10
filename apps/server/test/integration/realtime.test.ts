@@ -55,6 +55,26 @@ describe('realtime gateway', () => {
     expect(await socket.emitWithAck('subscribe:device', { deviceId: a.device.id })).toEqual({ ok: true });
   });
 
+  it('bulk-subscribes only to in-scope devices', async () => {
+    const a = await customerSide();
+    const b = await customerSide();
+    const ack = await a.socket.emitWithAck('subscribe:devices', { deviceIds: [a.device.id, b.device.id, 'not-a-uuid'] });
+    expect(ack).toEqual({ ok: true, joined: [a.device.id], rejected: [b.device.id, 'not-a-uuid'] });
+    const tooMany = Array.from({ length: 501 }, () => a.device.id);
+    expect(await a.socket.emitWithAck('subscribe:devices', { deviceIds: tooMany })).toMatchObject({ ok: false, code: 'VALIDATION' });
+
+    // Telemetry for the joined device arrives; unsubscribing stops it.
+    const got = nextEvent<{ deviceId: string }>(a.socket, 'telemetry', 2000);
+    await t.redis.publish(`ws:telemetry:${a.device.id}`, JSON.stringify({ deviceId: a.device.id, values: { t: { ts: 1, v: 1 } } }));
+    expect((await got).deviceId).toBe(a.device.id);
+    await a.socket.emitWithAck('unsubscribe:devices', { deviceIds: [a.device.id] });
+    let late = false;
+    a.socket.on('telemetry', () => (late = true));
+    await t.redis.publish(`ws:telemetry:${a.device.id}`, JSON.stringify({ deviceId: a.device.id, values: {} }));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(late).toBe(false);
+  });
+
   it("customer A cannot subscribe to customer B's device", async () => {
     const a = await customerSide();
     const b = await customerSide();

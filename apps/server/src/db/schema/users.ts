@@ -24,6 +24,8 @@ export const user = pgTable(
       .notNull()
       .default('invited'),
     lastLogin: timestamp('last_login', { withTimezone: true }),
+    /** IANA zone for schedules and quiet hours; null = the customer's (or UTC). */
+    timezone: text('timezone'),
     ...timestamps(),
   },
   (t) => [index('user_customer_idx').on(t.customerId)],

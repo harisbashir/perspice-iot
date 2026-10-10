@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Post, Put } from '@nestjs/common';
+import { DEFAULT_MAP_TILES, MapTilesSchema, tileHostAllowed } from '@perspice/shared';
+import { CONFIG, type Config } from '../config/config';
 import { z } from 'zod';
 import { validation } from '../common/app-error';
 import { EmailService } from '../email/email.service';
@@ -39,6 +41,7 @@ export class SettingsController {
   constructor(
     private readonly settings: SettingsService,
     private readonly email: EmailService,
+    @Inject(CONFIG) private readonly config: Config,
   ) {}
 
   @Get('email')
@@ -90,6 +93,25 @@ export class SettingsController {
     if (body.enforceTotpForSuperAdmin !== undefined) await this.settings.set('auth.enforceTotpForSuperAdmin', body.enforceTotpForSuperAdmin);
     if (body.docsPublic !== undefined) await this.settings.set('api.docsPublic', body.docsPublic);
     return this.getSecurity();
+  }
+
+  /** Any signed-in user: map widgets need it. */
+  @Get('map')
+  async map() {
+    return (await this.settings.get('map.tiles')) ?? DEFAULT_MAP_TILES;
+  }
+
+  @Put('map')
+  @Require('system.settings')
+  async setMap(@Body() raw: unknown) {
+    const tiles = MapTilesSchema.parse(raw);
+    if (!tileHostAllowed(tiles.urlTemplate, this.config.MAP_TILE_HOSTS)) {
+      throw validation([
+        { path: ['urlTemplate'], message: `Browsers would block this tile server: add its host to MAP_TILE_HOSTS in .env (now: ${this.config.MAP_TILE_HOSTS})` },
+      ]);
+    }
+    await this.settings.set('map.tiles', tiles);
+    return tiles;
   }
 
   @Post('email/test')

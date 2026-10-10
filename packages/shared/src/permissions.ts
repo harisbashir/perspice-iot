@@ -17,6 +17,21 @@ export const PERMISSIONS = [
   'audit.read',
   'backup.manage',
   'notification.read',
+  'dashboard.edit',
+  'dashboard.customize',
+  'alarm.read',
+  'alarm.ack',
+  'alarm.rule.write',
+  'webhook.manage',
+  'report.schedule',
+  'geofence.manage',
+  'firmware.manage',
+  'device.claim',
+  'tariff.manage',
+  'device.service',
+  'asset.read',
+  'asset.write',
+  'asset.type.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

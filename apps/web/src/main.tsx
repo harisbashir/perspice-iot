@@ -7,6 +7,9 @@ import { AuthProvider } from './auth/AuthProvider';
 import { BrandingProvider } from './branding/BrandingProvider';
 import { Toaster } from './components/ui/toast';
 import { TooltipProvider } from './components/ui/tooltip';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import './index.css';
 import { createRouter } from './router';
 

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import mqtt, { type MqttClient } from 'mqtt';
 import { generateSync } from 'otplib';
 
@@ -48,4 +50,66 @@ export async function connectDevice(id: string, token: string): Promise<{ client
       await client.publishAsync(`perspice/v1/${id}/telemetry`, JSON.stringify({ values }), { qos: 1 });
     },
   };
+}
+
+/**
+ * A device that takes firmware updates as the firmware library does: reports its version (fw) on
+ * connect, downloads the image, checks the SHA-256, reports progress, and reconnects on the new one.
+ */
+export async function connectOtaDevice(id: string, token: string, version: string): Promise<{ version: () => string; close: () => Promise<void> }> {
+  let current = version;
+  let client: MqttClient;
+  const progress = (body: object) => client.publishAsync(`perspice/v1/${id}/ota/progress`, JSON.stringify(body), { qos: 1 });
+  const connect = async () => {
+    client = await mqtt.connectAsync(MQTT_URL, { clientId: id, username: id, password: token, reconnectPeriod: 0 });
+    await client.subscribeAsync(`perspice/v1/${id}/ota`, { qos: 1 });
+    await client.publishAsync(`perspice/v1/${id}/attributes`, JSON.stringify({ fw: current }), { qos: 1 });
+    client.on('message', (topic, payload) => {
+      if (topic.endsWith('/ota')) void update(JSON.parse(payload.toString()) as { version: string; url: string; sha256: string });
+    });
+  };
+  let busy = false;
+  const update = async (msg: { version: string; url: string; sha256: string }) => {
+    if (busy || msg.version === current) return;
+    busy = true;
+    await progress({ version: msg.version, state: 'downloading', pct: 0 });
+    const image = Buffer.from(await (await fetch(msg.url)).arrayBuffer());
+    await progress({ version: msg.version, state: 'verifying', pct: 100 });
+    if (createHash('sha256').update(image).digest('hex') !== msg.sha256) {
+      await progress({ version: msg.version, state: 'failed', error: 'checksum mismatch' });
+      busy = false;
+      return;
+    }
+    await progress({ version: msg.version, state: 'applied', pct: 100 });
+    await client.endAsync();
+    current = msg.version;
+    await connect();
+    busy = false;
+  };
+  await connect();
+  return { version: () => current, close: () => client.endAsync(true) };
+}
+
+/** State the core flow hands to later specs (the dashboards spec runs on the same stack). */
+export interface SharedState {
+  totpSecret: string;
+  deviceId: string;
+  deviceToken: string;
+}
+
+const STATE_FILE = '.stack/state.json';
+
+export function loadState(): SharedState {
+  return JSON.parse(readFileSync(STATE_FILE, 'utf8')) as SharedState;
+}
+
+export function saveState(patch: Partial<SharedState>): void {
+  mkdirSync('.stack', { recursive: true });
+  let current: Partial<SharedState> = {};
+  try {
+    current = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Partial<SharedState>;
+  } catch {
+    /* first write */
+  }
+  writeFileSync(STATE_FILE, JSON.stringify({ ...current, ...patch }));
 }

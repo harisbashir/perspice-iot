@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [server, web]
+        image: [server, web, renderer]
     steps:
       - uses: actions/checkout@v4
       - name: Check the tag matches VERSION

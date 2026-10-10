@@ -7,6 +7,7 @@ import { Logger } from 'nestjs-pino';
 import { createServer } from 'node:http';
 import { AppModule } from './app.module';
 import { HealthRegistry } from './common/health.registry';
+import { MetricsService } from './system/metrics.service';
 import { ProblemFilter } from './common/problem.filter';
 import { setupOpenApi } from './openapi';
 import { RedisIoAdapter } from './realtime/redis-io.adapter';
@@ -16,6 +17,7 @@ import { type Config, loadConfig } from './config/config';
 export const API_PREFIX_EXCLUDE = [
   { path: 'health', method: RequestMethod.GET },
   { path: 'ready', method: RequestMethod.GET },
+  { path: 'metrics', method: RequestMethod.GET },
   { path: 'internal/*path', method: RequestMethod.ALL },
 ];
 
@@ -42,12 +44,19 @@ export async function bootstrap(config: Config = loadConfig(process.env)): Promi
     return;
   }
 
-  // Worker roles have no HTTP API; expose only /health and /ready for container healthchecks.
+  // Worker roles have no HTTP API; expose only /health, /ready and /metrics on the internal port.
   const app = await NestFactory.createApplicationContext(AppModule.forRoot(config), { bufferLogs: true });
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
   const registry = app.get(HealthRegistry);
+  const metrics = app.get(MetricsService);
   createServer(async (req, res) => {
+    if (req.url === '/metrics' && config.METRICS_ENABLED) {
+      const { contentType, body } = await metrics.text();
+      res.setHeader('content-type', contentType);
+      res.end(body);
+      return;
+    }
     res.setHeader('content-type', 'application/json');
     if (req.url === '/health') {
       res.end(JSON.stringify({ status: 'ok', role, version: appVersion() }));

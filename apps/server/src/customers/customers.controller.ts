@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { TimezoneSchema } from '@perspice/shared';
 import { z } from 'zod';
 import { Audited } from '../audit/audited.decorator';
 import type { AuthUser } from '../auth/auth.types';
@@ -14,7 +15,7 @@ const CreateCustomer = z.object({
   slug: z.string().regex(SLUG_PATTERN, 'Use 3–40 lowercase letters, digits or hyphens'),
   status: z.enum(['active', 'suspended']).optional(),
 });
-const UpdateCustomer = CreateCustomer.partial();
+const UpdateCustomer = CreateCustomer.partial().extend({ timezone: TimezoneSchema.optional() });
 const GroupBody = z.object({
   name: z.string().trim().min(1).max(200),
   parentId: z.string().uuid().nullish(),

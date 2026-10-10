@@ -1,5 +1,5 @@
 import { type Browser, type BrowserContext, type Page, expect, test } from '@playwright/test';
-import { connectDevice, linkIn, totp, waitForEmail } from './fixtures';
+import { connectDevice, linkIn, saveState, totp, waitForEmail } from './fixtures';
 
 const BASE = process.env.E2E_BASE_URL ?? 'https://localhost:18443';
 const ACME = BASE.replace('://localhost', '://acme.localhost');
@@ -68,9 +68,12 @@ test('super admin activates via the emailed link, enrols TOTP and signs in', asy
   await platform.getByLabel('Code').fill(totp(totpSecret));
   await platform.getByRole('button', { name: 'Turn on' }).click();
   await expect(platform.getByText('Two-factor authentication is on.')).toBeVisible();
+  saveState({ totpSecret });
 
   await platform.getByRole('button', { name: 'Account menu' }).click();
   await platform.getByRole('menuitem', { name: 'Sign out' }).click();
+  // Let sign-out finish before signing in again (otherwise the old session can still redirect).
+  await expect(platform).toHaveURL(/\/login/);
   await signIn(platform, BASE, OWNER, PASSWORD, () => totp(totpSecret));
   await expect(platform.getByRole('heading', { name: 'Overview' })).toBeVisible();
 });
@@ -126,9 +129,12 @@ test('a Telecom RMS device for acme shows live fuel level within 2 s', async () 
   await platform.getByRole('button', { name: 'Done' }).click();
   await expect(platform.getByTestId('device-token')).toHaveCount(0);
 
+  saveState({ deviceId, deviceToken });
+
   device = await connectDevice(deviceId, deviceToken);
   await customer.goto(`${ACME}/devices/${deviceId}`);
   await expect(customer.getByText('Online', { exact: true })).toBeVisible();
+  await customer.getByRole('tab', { name: 'Overview' }).click(); // devices open on their dashboard
   await device.publish({ fuel_level: 71.25, mains_v: 231 });
   await expect(customer.getByTestId('value-fuel_level')).toHaveText('71.3 %', { timeout: 2000 });
 });

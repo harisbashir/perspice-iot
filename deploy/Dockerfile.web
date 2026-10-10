@@ -6,9 +6,11 @@ WORKDIR /src
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/widgets/package.json packages/widgets/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --filter "@perspice/web..."
 COPY packages/shared packages/shared
+COPY packages/widgets packages/widgets
 COPY apps/web apps/web
 RUN pnpm --filter @perspice/web build
 

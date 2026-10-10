@@ -1,4 +1,4 @@
-import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { type NodePgDatabase, drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { HealthRegistry } from '../common/health.registry';
@@ -10,6 +10,8 @@ export type DB = NodePgDatabase<typeof schema>;
 export const DB = Symbol('DB');
 export const PG_POOL = Symbol('PG_POOL');
 
+const logger = new Logger('Database');
+
 @Global()
 @Module({
   providers: [
@@ -18,6 +20,8 @@ export const PG_POOL = Symbol('PG_POOL');
       inject: [CONFIG, HealthRegistry],
       useFactory: (config: Config, health: HealthRegistry) => {
         const pool = new Pool({ connectionString: config.DATABASE_URL, max: 20 });
+        // Idle connections can be cut (database restart, restore swap); the pool replaces them.
+        pool.on('error', (err) => logger.warn(`Database connection dropped: ${err.message}`));
         health.register('database', async () => {
           await pool.query('SELECT 1');
         });

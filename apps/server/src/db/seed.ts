@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets, withMapWidget } from '../dashboards/defaults';
 import { EMAIL_SUBJECTS, EMAIL_TEMPLATE_KEYS } from '../email/templates';
 import { seedRoles } from '../rbac/seed-roles';
 import type { DB } from './db.module';
-import { deviceProfile, emailTemplate } from './schema';
+import { dashboardTemplate, deviceProfile, emailTemplate } from './schema';
 
 type NewProfile = typeof deviceProfile.$inferInsert;
 
@@ -45,8 +46,34 @@ export async function seed(db: DB): Promise<void> {
   await seedRoles(db);
 
   for (const p of DEFAULT_PROFILES) {
-    const existing = await db.query.deviceProfile.findFirst({ where: eq(deviceProfile.name, p.name) });
-    if (!existing) await db.insert(deviceProfile).values(p);
+    let profile = await db.query.deviceProfile.findFirst({ where: eq(deviceProfile.name, p.name) });
+    if (!profile) [profile] = await db.insert(deviceProfile).values(p).returning();
+    // Seeded profiles come with a generated dashboard (kept if an admin already chose one).
+    if (profile && !profile.defaultDashboardTemplateId) {
+      const [tpl] = await db
+        .insert(dashboardTemplate)
+        .values({ name: `${profile.name} dashboard`, kind: 'device', profileId: profile.id, definition: generateDeviceDefinition(profile) })
+        .returning();
+      await db.update(deviceProfile).set({ defaultDashboardTemplateId: tpl!.id }).where(eq(deviceProfile.id, profile.id));
+    }
+  }
+
+  const overview = await db.query.dashboardTemplate.findFirst({
+    where: and(eq(dashboardTemplate.kind, 'overview'), eq(dashboardTemplate.builtIn, true), isNull(dashboardTemplate.profileId)),
+  });
+  if (!overview) {
+    await db.insert(dashboardTemplate).values({ name: 'Overview', kind: 'overview', builtIn: true, definition: overviewDefinition() });
+  } else {
+    // v0.3.0 adds alarm widgets, v0.5.0 a map; customised copies then see "template changed" and can re-sync.
+    const withAlarms = withAlarmWidgets(overview.definition) ?? overview.definition;
+    const withMap = withMapWidget(withAlarms);
+    const upgraded = withMap ?? (withAlarms !== overview.definition ? withAlarms : null);
+    if (upgraded) {
+      await db
+        .update(dashboardTemplate)
+        .set({ definition: upgraded, version: overview.version + 1, updatedAt: new Date() })
+        .where(eq(dashboardTemplate.id, overview.id));
+    }
   }
 
   const dir = join(__dirname, '../email/templates');

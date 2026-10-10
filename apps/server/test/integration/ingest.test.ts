@@ -52,9 +52,9 @@ describe('ingest', () => {
 
   it('stores telemetry, latest values and the Redis latest cache within 2 s', async () => {
     const d = await newDevice();
-    const base = Date.now() - 3000;
+    const base = Date.now() - 3 * 61_000;
     for (let i = 0; i < 3; i++) {
-      await d.client.publishAsync(d.topic('telemetry'), JSON.stringify({ ts: base + i * 1000, values: { temp: 20 + i } }), {
+      await d.client.publishAsync(d.topic('telemetry'), JSON.stringify({ ts: base + i * 61_000, values: { temp: 20 + i } }), {
         qos: 1,
       });
     }
@@ -63,9 +63,48 @@ describe('ingest', () => {
       () => t.db.query.telemetryLatest.findFirst({ where: and(eq(telemetryLatest.deviceId, d.id), eq(telemetryLatest.key, 'temp')) }),
       (r) => r?.valueNum === 22,
     );
-    expect(latest?.ts.getTime()).toBe(base + 2000);
+    expect(latest?.ts.getTime()).toBe(base + 122_000);
     const cached = JSON.parse((await t.redis.hget(`latest:${d.id}`, 'temp'))!);
-    expect(cached).toEqual({ ts: base + 2000, v: 22 });
+    expect(cached).toEqual({ ts: base + 122_000, v: 22 });
+  });
+
+  it('keeps Redis exact but rewrites the stored latest value only once it is a minute behind', async () => {
+    const d = await newDevice();
+    const base = Date.now() - 120_000;
+    const send = (offset: number, v: number) =>
+      d.client.publishAsync(d.topic('telemetry'), JSON.stringify({ ts: base + offset, values: { temp: v } }), { qos: 1 });
+    const stored = () => t.db.query.telemetryLatest.findFirst({ where: and(eq(telemetryLatest.deviceId, d.id), eq(telemetryLatest.key, 'temp')) });
+    await send(0, 1);
+    await eventually(stored, (r) => r?.valueNum === 1);
+    await send(10_000, 2);
+    await eventually(() => countRows(d.id), (n) => n === 2);
+    await new Promise((r) => setTimeout(r, 400));
+    expect((await stored())?.valueNum).toBe(1);
+    expect(JSON.parse((await t.redis.hget(`latest:${d.id}`, 'temp'))!)).toEqual({ ts: base + 10_000, v: 2 });
+    await send(70_000, 3);
+    expect((await eventually(stored, (r) => r?.valueNum === 3))?.valueNum).toBe(3);
+  });
+
+  it('stores every value type exactly, including text that needs escaping in array literals', async () => {
+    const d = await newDevice();
+    const values = {
+      quote: 'say "hi", {ok}',
+      slash: 'C:\\path\\to',
+      unicode: 'Ström ☀ 温度',
+      empty: '',
+      nullword: 'NULL',
+      num: -12.5,
+      flag: false,
+      obj: { a: [1, 'two', { b: null }], 'k"ey': 'v\\' },
+      list: [1, 2, 3],
+    };
+    await d.client.publishAsync(d.topic('telemetry'), JSON.stringify({ ts: Date.now() - 500, values }), { qos: 1 });
+    await eventually(() => countRows(d.id), (n) => n === Object.keys(values).length);
+    const rows = await t.db.select().from(telemetry).where(eq(telemetry.deviceId, d.id));
+    const got = Object.fromEntries(rows.map((r) => [r.key, r.valueNum ?? r.valueStr ?? r.valueBool ?? r.valueJson]));
+    expect(got).toEqual(values);
+    const latest = await t.db.select().from(telemetryLatest).where(eq(telemetryLatest.deviceId, d.id));
+    expect(Object.fromEntries(latest.map((r) => [r.key, r.valueNum ?? r.valueStr ?? r.valueBool ?? r.valueJson]))).toEqual(values);
   });
 
   it('drops duplicate (device, key, ts) rows', async () => {

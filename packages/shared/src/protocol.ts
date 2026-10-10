@@ -64,9 +64,4 @@ export const CommandAck = z.object({
 });
 export type CommandAck = z.infer<typeof CommandAck>;
 
-export const OtaProgress = z.object({
-  version: z.string().min(1),
-  state: z.enum(['downloading', 'verifying', 'applied', 'failed']),
-  pct: z.number().min(0).max(100).optional(),
-});
-export type OtaProgress = z.infer<typeof OtaProgress>;
+// OTA progress (`ota/progress`): see OtaProgressSchema in fleet.ts.

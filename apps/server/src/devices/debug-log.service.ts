@@ -22,7 +22,7 @@ export class DebugLogService {
   async push(deviceId: string, entry: DebugEntry): Promise<void> {
     const stored = { ...entry, raw: entry.raw?.slice(0, MAX_RAW) };
     await this.redis
-      .multi()
+      .pipeline() // no atomicity needed: one round trip, no MULTI/EXEC
       .lpush(key(deviceId), JSON.stringify(stored))
       .ltrim(key(deviceId), 0, DEBUG_LOG_SIZE - 1)
       .expire(key(deviceId), 7 * 24 * 3600)

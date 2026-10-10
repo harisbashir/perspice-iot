@@ -1,5 +1,7 @@
 // GeneratorController — ESP32 on Wi-Fi with TLS. Drives a relay from the platform's
-// gen_start / gen_stop commands (Telecom RMS profile) and reports gen_running.
+// gen_start / gen_stop commands (Telecom RMS profile) and reports gen_running and an energy
+// counter (energy_kwh). In the profile, a runtime calculated key on gen_running counts run hours
+// for maintenance reminders, and a counter_delta key on energy_kwh gives consumption and cost.
 #include <PerspiceClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -7,15 +9,22 @@
 const char* WIFI_SSID = "your-ssid";
 const char* WIFI_PASS = "your-password";
 const int RELAY_PIN = 26;
+const float RATED_KW = 20.0;  // replace with a real meter reading where there is one
 
 WiFiClientSecure net;
 PerspiceClient perspice(net);
 bool running = false;
 unsigned long lastReport = 0;
+unsigned long lastEnergyMs = 0;
+double energyKwh = 0;  // a real meter keeps this across restarts
 
 void report() {
+  unsigned long now = millis();
+  if (running) energyKwh += RATED_KW * (now - lastEnergyMs) / 3600000.0;
+  lastEnergyMs = now;
   JsonDocument values;
   values["gen_running"] = running;
+  values["energy_kwh"] = energyKwh;
   perspice.sendTelemetry(values);
 }
 

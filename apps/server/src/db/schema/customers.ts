@@ -10,6 +10,8 @@ export const customer = pgTable('customer', {
     .default('active'),
   branding: jsonb('branding').$type<Record<string, unknown>>().notNull().default({}),
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
+  /** IANA zone for alarm schedules and reports of this customer's devices. */
+  timezone: text('timezone').notNull().default('UTC'),
   parentCustomerId: uuid('parent_customer_id').references((): AnyPgColumn => customer.id),
   ...timestamps(),
 });

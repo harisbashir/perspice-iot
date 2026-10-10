@@ -1,7 +1,7 @@
 import { Global, Inject, Injectable, Module } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { REDIS } from '../common/redis.module';
-import { DEVICE_EVENTS_STREAM, type DomainEvent } from './events';
+import { DEVICE_EVENTS_STREAM, type DomainEvent, TELEMETRY_EVENTS_STREAM } from './events';
 
 const STREAM_MAXLEN = 100_000;
 
@@ -11,7 +11,9 @@ export class EventBus {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   async publish(event: DomainEvent): Promise<void> {
-    await this.redis.xadd(DEVICE_EVENTS_STREAM, 'MAXLEN', '~', STREAM_MAXLEN, '*', 'event', JSON.stringify(event));
+    // Per-message events (telemetry, location fixes) go on the high-volume stream.
+    const stream = event.type === 'telemetry' || event.type === 'device.location' ? TELEMETRY_EVENTS_STREAM : DEVICE_EVENTS_STREAM;
+    await this.redis.xadd(stream, 'MAXLEN', '~', STREAM_MAXLEN, '*', 'event', JSON.stringify(event));
   }
 }
 

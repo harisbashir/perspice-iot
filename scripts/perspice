@@ -19,10 +19,31 @@ Usage: perspice <command>
   restart [service]       Restart all services, or one
   cli <args>              Run the server CLI (e.g. perspice cli create-admin --email … --name …)
   version                 Show the installed version
-  db-snapshot [file]      Dump the database (default: backups/snapshot-<time>.dump)
-  db-restore <file>       Restore a database dump (stops the app services meanwhile)
+  backup [file]           Full encrypted backup now (also kept on the server); copy it to file
+                          (default: backups/perspice-backup-<time>.pbk)
+  restore <file>          Restore a full backup (the platform is in maintenance meanwhile)
+  db-snapshot [file]      Dump the database only (default: backups/snapshot-<time>.dump)
+  db-restore <file>       Restore a database-only dump (stops the app services meanwhile)
   update [options]        Upgrade to a new release (see update.sh --help)
 USAGE
+}
+
+backup() {
+  local file="${1:-$PERSPICE_HOME/backups/perspice-backup-$(date -u +%Y%m%dT%H%M%SZ).pbk}"
+  mkdir -p "$(dirname "$file")"
+  if ! compose exec -T api node dist/cli.js backup --out - >"$file"; then
+    rm -f "$file"
+    die "Backup failed (see above)." 1
+  fi
+  chmod 600 "$file"
+  ok "Backup written to $file"
+}
+
+restore() {
+  local file="${1:?usage: perspice restore <file>}"
+  [[ -s "$file" ]] || die "Backup file not found or empty: $file"
+  compose exec -T api node dist/cli.js restore - <"$file" || die "Restore failed (see above)." 1
+  ok "Restored $file"
 }
 
 db_snapshot() {
@@ -44,6 +65,8 @@ case "$cmd" in
   restart) compose restart "$@" ;;
   cli) compose exec -T api node dist/cli.js "$@" ;;
   version) env_get PERSPICE_VERSION ;;
+  backup) backup "$@" ;;
+  restore) restore "$@" ;;
   db-snapshot) db_snapshot "$@" ;;
   db-restore) db_restore "$@" ;;
   update) exec "$PERSPICE_HOME/scripts/update.sh" "$@" ;;
