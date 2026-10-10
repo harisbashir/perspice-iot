@@ -43,8 +43,28 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
       aws ? (config.AWS_IOT_MQTT_URL ?? `mqtts://${config.AWS_IOT_ENDPOINT}:8883`) : config.MQTT_URL,
       aws ? { ...common, ...awsTls(config) } : { ...common, username: config.MQTT_INGEST_USERNAME, password: config.MQTT_INGEST_PASSWORD },
       (client) => this.subscribe(client),
-      (topic, payload) => void router.handle(topic, payload),
+      (topic, payload) => this.inOrder(topic, () => router.handle(topic, payload)),
     );
+  }
+
+  /** Per device, the message being handled and those queued behind it. */
+  private readonly chains = new Map<string, Promise<void>>();
+
+  /**
+   * Handles one device's messages strictly in arrival order (different devices in parallel), so
+   * a burst of buffered positions reaches trips and alarms in the order the device sent it.
+   */
+  private inOrder(topic: string, handle: () => Promise<void>): void {
+    const deviceId = /^perspice\/v1\/([^/]+)\//.exec(topic)?.[1];
+    if (!deviceId) {
+      void handle();
+      return;
+    }
+    const next = (this.chains.get(deviceId) ?? Promise.resolve()).then(handle, handle);
+    this.chains.set(deviceId, next);
+    void next.finally(() => {
+      if (this.chains.get(deviceId) === next) this.chains.delete(deviceId);
+    });
   }
 
   onModuleInit(): void {
