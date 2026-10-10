@@ -8,7 +8,7 @@ import { REDIS } from '../common/redis.module';
 import { CustomersService } from '../customers/customers.service';
 import { DB } from '../db/db.module';
 import { findOneOr404, scoped } from '../db/scoped-repo';
-import { device, deviceProfile, telemetry } from '../db/schema';
+import { assetDevice, device, deviceProfile, telemetry } from '../db/schema';
 import { ensureDeviceDashboard } from '../dashboards/assignment';
 import { EventBus } from '../events/event-bus';
 import { ScopeService } from '../rbac/scope';
@@ -213,6 +213,8 @@ export class DevicesService {
       if (patch.customerId) await this.customers.get(patch.customerId);
       set.customerId = patch.customerId;
       set.groupId = null;
+      // An asset belongs to one customer: a device that changes customer leaves its asset.
+      await this.db.delete(assetDevice).where(eq(assetDevice.deviceId, id));
     }
     if (patch.groupId !== undefined) set.groupId = await this.resolveGroup(customerId ?? null, patch.groupId);
 
