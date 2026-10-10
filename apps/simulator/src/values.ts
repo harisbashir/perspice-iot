@@ -15,6 +15,18 @@ export function boundsFor(key: string): Bounds {
   return { min: 0, max: 100, step: 2 };
 }
 
+/** Cumulative counters (energy meters, pulse counts): they only rise. */
+export const isCounter = (key: string): boolean => /(_kwh|_wh|_total)$|counter/.test(key);
+
+/** A meter reading that rises by up to `step` per message, from a random start. */
+export function counter(step = 1, rand: () => number = Math.random): () => number {
+  let value = Math.round(rand() * 10_000);
+  return () => {
+    value += rand() * step;
+    return Math.round(value * 1000) / 1000;
+  };
+}
+
 /** A bounded random walk: each call moves at most `step` and never leaves [min, max]. */
 export function randomWalk(bounds: Bounds, start?: number, rand: () => number = Math.random): () => number {
   let value = start ?? bounds.min + (bounds.max - bounds.min) * rand();
@@ -28,7 +40,7 @@ export function randomWalk(bounds: Bounds, start?: number, rand: () => number = 
 /** Generates one telemetry message's values for the profile's keys. */
 export function valueGenerator(keys: TelemetryKeyDef[], rand: () => number = Math.random): () => Record<string, unknown> {
   const gens = keys.map((k) => {
-    if (k.type === 'number') return [k.key, randomWalk(boundsFor(k.key), undefined, rand)] as const;
+    if (k.type === 'number') return [k.key, isCounter(k.key) ? counter(1, rand) : randomWalk(boundsFor(k.key), undefined, rand)] as const;
     if (k.type === 'boolean') {
       let state = rand() < 0.5;
       return [k.key, () => (rand() < 0.05 ? (state = !state) : state)] as const;

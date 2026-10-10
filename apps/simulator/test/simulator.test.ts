@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { percentile } from '../src/run.js';
-import { boundsFor, randomWalk, valueGenerator } from '../src/values.js';
+import { boundsFor, isCounter, randomWalk, valueGenerator } from '../src/values.js';
 
 describe('random walk', () => {
   it('stays within the bounds and moves at most one step', () => {
@@ -31,6 +31,24 @@ describe('random walk', () => {
     expect(typeof v.fuel_level).toBe('number');
     expect(typeof v.door_open).toBe('boolean');
     expect(v.state).toBe('ok');
+  });
+});
+
+describe('cumulative counters', () => {
+  it('recognises counter keys', () => {
+    expect(['energy_kwh', 'import_wh', 'pulses_total', 'water_counter'].every(isCounter)).toBe(true);
+    expect(['fuel_level', 'kwh_rate', 'temp'].some(isCounter)).toBe(false);
+  });
+
+  it('only ever rises, by small steps', () => {
+    const gen = valueGenerator([{ key: 'energy_kwh', label: 'Energy', type: 'number' }]);
+    let prev = gen().energy_kwh as number;
+    for (let i = 0; i < 1000; i++) {
+      const v = gen().energy_kwh as number;
+      expect(v).toBeGreaterThanOrEqual(prev);
+      expect(v - prev).toBeLessThanOrEqual(1);
+      prev = v;
+    }
   });
 });
 
