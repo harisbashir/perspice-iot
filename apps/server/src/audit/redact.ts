@@ -1,4 +1,4 @@
-const SECRET_KEY = /password|token|secret|totp/i;
+const SECRET_KEY = /password|token|secret|totp|^code$/i;
 
 /** Deep-copies a request body, replacing values whose key looks secret with "[redacted]". */
 export function redact(value: unknown): unknown {

@@ -69,7 +69,7 @@ export class BulkService {
     const ok = results.filter((r) => r.ok).length;
     await this.audit.record({
       actorType: actor.kind === 'apikey' ? 'apikey' : 'user',
-      actorId: actor.id,
+      actorId: actor.kind === 'apikey' ? actor.apiKeyId : actor.id,
       customerId: actor.customerId,
       action: `device.bulk_${action.kind}`,
       targetType: 'device',

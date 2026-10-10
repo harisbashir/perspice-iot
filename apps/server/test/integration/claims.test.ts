@@ -1,7 +1,7 @@
 import { CLAIM_ALPHABET } from '@perspice/shared';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { device, deviceClaim } from '../../src/db/schema';
+import { auditLog, device, deviceClaim } from '../../src/db/schema';
 import { tokenFor } from '../auth-helpers';
 import { createCustomer, createProfile, createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
@@ -52,6 +52,9 @@ describe('claim codes', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: created.device.id, name: 'Boiler room', customerId: a.c.id });
     expect((await t.http.get(`/api/devices/${created.device.id}`).set('Authorization', a.auth)).status).toBe(200);
+    // The code never reaches the audit log.
+    const audit = await t.db.query.auditLog.findFirst({ where: and(eq(auditLog.action, 'device.claim'), eq(auditLog.targetId, created.device.id)) });
+    expect(audit?.diff).toMatchObject({ code: '[redacted]', name: 'Boiler room' });
   });
 
   it('codes are single-use, and wrong codes look the same', async () => {
