@@ -9,6 +9,7 @@ import { NotificationSettings } from './NotificationSettings';
 import { ProfileSettings } from './ProfileSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WebhookSettings } from './WebhookSettings';
+import { MapSettings } from './MapSettings';
 
 export function SettingsPage() {
   const { hasPerm } = useAuth();
@@ -20,6 +21,7 @@ export function SettingsPage() {
     { to: 'deliveries', label: 'Delivery log', show: hasPerm('audit.read') },
     { to: 'email', label: 'Email', show: hasPerm('system.settings') },
     { to: 'security', label: 'Security', show: hasPerm('system.settings') },
+    { to: 'maps', label: 'Maps', show: hasPerm('system.settings') },
   ].filter((t) => t.show);
   return (
     <div>
@@ -49,6 +51,7 @@ export function SettingsPage() {
         {hasPerm('audit.read') && <Route path="deliveries" element={<DeliveryLogSettings />} />}
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}
         {hasPerm('system.settings') && <Route path="security" element={<SecuritySettings />} />}
+        {hasPerm('system.settings') && <Route path="maps" element={<MapSettings />} />}
         <Route path="*" element={<Navigate to="profile" replace />} />
       </Routes>
     </div>
