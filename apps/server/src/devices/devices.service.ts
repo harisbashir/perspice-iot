@@ -1,3 +1,4 @@
+import { inAssetSubtree } from '../assets/subtree';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type AwsIotBundle, type DeviceDto, type DeviceLocationDto, ErrorCode, type LatestValue } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
@@ -55,6 +56,7 @@ export interface UpdateDeviceInput extends Partial<CreateDeviceInput> {
 }
 
 export interface ListDevicesQuery {
+  assetId?: string;
   search?: string;
   profileId?: string;
   status?: DeviceDto['status'];
@@ -100,6 +102,7 @@ export class DevicesService {
       q.status ? eq(device.status, q.status) : undefined,
       q.customerId ? eq(device.customerId, q.customerId) : undefined,
       q.tag ? arrayContains(device.tags, [q.tag]) : undefined,
+      q.assetId ? inAssetSubtree(device.id, q.assetId) : undefined,
     ];
     if (q.cursor) {
       const [name, id] = decodeCursor(q.cursor);

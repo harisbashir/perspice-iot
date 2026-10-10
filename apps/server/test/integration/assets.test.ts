@@ -176,4 +176,31 @@ describe('assets', () => {
     const foreignGroup = (await t.http.post(`/api/customers/${b.c.id}/groups`).set('Authorization', platform).send({ name: 'X' })).body;
     expect((await create(a.admin, { name: 'Y', typeId: siteType.id, groupId: foreignGroup.id })).status).toBeGreaterThanOrEqual(400);
   });
+
+  it('bulk attach, and filter devices and alarms by asset (subtree)', async () => {
+    const a = await tenant();
+    const b = await tenant();
+    const site = (await create(a.admin, { name: 'Site', typeId: siteType.id })).body;
+    const room = (await create(a.admin, { name: 'Room', typeId: roomType.id, parentId: site.id })).body;
+    const theirs = (await create(b.admin, { name: 'B', typeId: siteType.id })).body;
+    const [d1, d2, d3] = await Promise.all([1, 2, 3].map(async () => (await createDevice(t.db, { profileId, customerId: a.c.id })).device));
+    const bulk = (assetId: string | null, ids: string[]) =>
+      t.http.post('/api/devices/bulk').set('Authorization', a.admin).send({ deviceIds: ids, action: { kind: 'asset', assetId } });
+    expect((await bulk(room.id, [d1!.id, d2!.id])).body.ok).toBe(2);
+    const foreign = await bulk(theirs.id, [d3!.id]);
+    expect(foreign.body).toMatchObject({ ok: 0, results: [{ ok: false, error: 'Not found' }] });
+
+    const list = async (assetId: string) => (await t.http.get(`/api/devices?assetId=${assetId}`).set('Authorization', a.viewer)).body.items.map((d: { id: string }) => d.id).sort();
+    expect(await list(site.id)).toEqual([d1!.id, d2!.id].sort()); // the site's subtree
+    expect(await list(room.id)).toEqual([d1!.id, d2!.id].sort());
+
+    await t.db.insert(alarm).values([
+      { ruleId: null, ruleName: 'A', type: 'threshold', deviceId: d1!.id, customerId: a.c.id, severity: 'minor', startedAt: new Date(), message: 'a' },
+      { ruleId: null, ruleName: 'B', type: 'threshold', deviceId: d3!.id, customerId: a.c.id, severity: 'minor', startedAt: new Date(), message: 'b' },
+    ]);
+    const alarms = await t.http.get(`/api/alarms?assetId=${site.id}`).set('Authorization', a.viewer);
+    expect(alarms.body.items.map((x: { ruleName: string }) => x.ruleName)).toEqual(['A']);
+    expect((await bulk(null, [d1!.id])).body.ok).toBe(1);
+    expect(await list(site.id)).toEqual([d2!.id]);
+  });
 });

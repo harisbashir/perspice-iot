@@ -1,10 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type BulkAction, BulkRequestSchema, type BulkResult, type Permission } from '@perspice/shared';
 import { inArray } from 'drizzle-orm';
+import { AssetsService } from '../assets/assets.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CommandsService } from '../commands/commands.service';
-import { AppError, forbidden, validation } from '../common/app-error';
+import { AppError, forbidden } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
 import { device } from '../db/schema';
@@ -40,6 +41,7 @@ export class BulkService {
     private readonly devices: DevicesService,
     private readonly commands: CommandsService,
     private readonly audit: AuditService,
+    private readonly assets: AssetsService,
   ) {}
 
   async run(actor: AuthUser, body: unknown, ip: string | null): Promise<BulkResult> {
@@ -101,7 +103,8 @@ export class BulkService {
         await this.devices.remove(actor, id);
         return;
       case 'asset':
-        throw validation([], 'Attaching to assets is not available yet');
+        await this.assets.attach(actor, id, { assetId: action.assetId });
+        return;
     }
   }
 }

@@ -210,6 +210,8 @@ export const AlarmFilterSchema = z.object({
   status: z.array(z.enum(ALARM_STATUSES)).optional(),
   severity: z.array(z.enum(ALARM_SEVERITIES)).optional(),
   deviceId: Uuid.optional(),
+  /** Alarms of devices anywhere in this asset's subtree. */
+  assetId: Uuid.optional(),
   profileId: Uuid.optional(),
   customerId: Uuid.optional(),
   from: z.number().int().optional(),

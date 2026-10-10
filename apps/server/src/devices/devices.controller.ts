@@ -30,6 +30,8 @@ const UpdateDevice = CreateDevice.partial().extend({ disabled: z.boolean().optio
 
 const ListQuery = z.object({
   search: z.string().max(200).optional(),
+  /** Devices attached anywhere in this asset's subtree. */
+  assetId: z.string().uuid().optional(),
   profileId: z.string().uuid().optional(),
   status: z.enum(['never', 'online', 'offline', 'dead']).optional(),
   customerId: z.string().uuid().optional(),
