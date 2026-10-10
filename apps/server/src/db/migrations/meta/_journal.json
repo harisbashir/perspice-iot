@@ -71,6 +71,13 @@
       "when": 1791606830448,
       "tag": "0009_firmware",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791607340799,
+      "tag": "0010_ota_jobs",
+      "breakpoints": true
     }
   ]
 }

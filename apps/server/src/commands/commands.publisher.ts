@@ -1,6 +1,6 @@
 import { IoTDataPlaneClient, PublishCommand } from '@aws-sdk/client-iot-data-plane';
 import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { type CommandMessage, deviceTopic } from '@perspice/shared';
+import { type CommandMessage, type OtaMessage, deviceTopic } from '@perspice/shared';
 import { hostname } from 'node:os';
 import { CONFIG, type Config } from '../config/config';
 import { ManagedMqtt } from '../ingest/managed-mqtt';
@@ -43,6 +43,11 @@ export class CommandsPublisher implements OnModuleInit, OnApplicationShutdown {
 
   async publishCommand(deviceId: string, msg: CommandMessage): Promise<void> {
     await this.publish(deviceTopic(deviceId, 'cmd'), JSON.stringify(msg), false);
+  }
+
+  /** A firmware update (not retained: a device that misses it gets it again on reconnect). */
+  async publishOta(deviceId: string, msg: OtaMessage): Promise<void> {
+    await this.publish(deviceTopic(deviceId, 'ota'), JSON.stringify(msg), false);
   }
 
   /** Shared attributes, retained so a device gets them as soon as it subscribes. */

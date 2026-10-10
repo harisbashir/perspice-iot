@@ -20,6 +20,7 @@ import {
   SESSION_EVENTS,
   type SessionEvents,
 } from './ports';
+import { OtaService } from '../firmware/ota.service';
 import { LocationService } from '../location/location.service';
 import { sessionKey } from '../presence/presence.service';
 import { TelemetryStore } from './telemetry-store';
@@ -55,6 +56,7 @@ export class MessageRouter {
     @Inject(SESSION_EVENTS) private readonly sessions: SessionEvents,
     @Inject(ACK_HANDLER) private readonly acks: AckHandler,
     private readonly location: LocationService,
+    private readonly ota: OtaService,
   ) {}
 
   /** Never throws: a bad message is logged against its device and the worker keeps running. */
@@ -76,8 +78,11 @@ export class MessageRouter {
         case 'cmd/ack':
           await this.handleAck(parsed.deviceId, payload);
           return;
-        case 'status':
         case 'ota/progress':
+          await this.ota.progress(parsed.deviceId, safeJson(payload));
+          await this.debug.push(parsed.deviceId, { ts: Date.now(), kind: 'attributes', summary: `ota/progress: ${payload.toString('utf8').slice(0, 200)}` });
+          return;
+        case 'status':
           await this.debug.push(parsed.deviceId, {
             ts: Date.now(),
             kind: 'attributes',
@@ -181,6 +186,7 @@ export class MessageRouter {
         ...(fw ? { firmwareVersion: fw } : {}),
       })
       .where(eq(device.id, deviceId));
+    if (fw) await this.ota.firmwareReported(deviceId, fw);
     await this.presence.touch(deviceId, Date.now());
     await this.debug.push(deviceId, {
       ts: Date.now(),
@@ -258,5 +264,13 @@ export class MessageRouter {
     });
     await this.redis.set(devMetaKey(deviceId), row ? JSON.stringify(row) : 'none', 'EX', DEVMETA_TTL_S);
     return row ?? null;
+  }
+}
+
+function safeJson(payload: Buffer): unknown {
+  try {
+    return JSON.parse(payload.toString('utf8'));
+  } catch {
+    return null;
   }
 }

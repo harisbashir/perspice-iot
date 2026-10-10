@@ -7,7 +7,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { conflict, notFound, tooLarge, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
-import { deviceProfile, firmware } from '../db/schema';
+import { deviceProfile, firmware, otaJob } from '../db/schema';
 import { STORAGE, type StorageDriver } from '../storage/storage.driver';
 
 type Row = typeof firmware.$inferSelect;
@@ -103,6 +103,9 @@ export class FirmwareService {
 
   async remove(id: string): Promise<void> {
     const row = await this.find(id);
+    if (await this.db.query.otaJob.findFirst({ where: eq(otaJob.firmwareId, row.id), columns: { id: true } })) {
+      throw conflict('This firmware has been rolled out; it is kept with its updates');
+    }
     await this.db.delete(firmware).where(eq(firmware.id, row.id));
     await this.storage.delete(row.fileKey).catch(() => undefined);
   }

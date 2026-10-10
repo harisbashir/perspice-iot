@@ -1,6 +1,7 @@
-import { bigint, index, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import type { OtaDeviceState, OtaJobStatus, OtaTarget } from '@perspice/shared';
+import { bigint, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_common';
-import { deviceProfile } from './devices';
+import { device, deviceProfile } from './devices';
 import { user } from './users';
 
 /** A firmware image for a profile's devices; the file is at `file_key` in storage. */
@@ -20,4 +21,42 @@ export const firmware = pgTable(
     ...timestamps(),
   },
   (t) => [uniqueIndex('firmware_profile_version_idx').on(t.profileId, t.version), index('firmware_profile_idx').on(t.profileId)],
+);
+
+/** A rollout of a firmware image (spec §4 `ota_job`). */
+export const otaJob = pgTable('ota_job', {
+  id: id(),
+  firmwareId: uuid('firmware_id')
+    .notNull()
+    .references(() => firmware.id, { onDelete: 'restrict' }),
+  status: text('status').$type<OtaJobStatus>().notNull().default('running'),
+  target: jsonb('target').$type<OtaTarget>().notNull(),
+  batchSize: integer('batch_size').notNull(),
+  maxFailurePct: integer('max_failure_pct').notNull(),
+  timeoutMin: integer('timeout_min').notNull(),
+  haltReason: text('halt_reason'),
+  createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  ...timestamps(),
+});
+
+/** One device's progress in a rollout. */
+export const otaJobDevice = pgTable(
+  'ota_job_device',
+  {
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => otaJob.id, { onDelete: 'cascade' }),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => device.id, { onDelete: 'cascade' }),
+    state: text('state').$type<OtaDeviceState>().notNull(),
+    pct: doublePrecision('pct'),
+    error: text('error'),
+    /** When the OTA message was last sent (timeouts count from the first send). */
+    firstSentAt: timestamp('first_sent_at', { withTimezone: true }),
+    lastSentAt: timestamp('last_sent_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.jobId, t.deviceId] }), index('ota_job_device_device_idx').on(t.deviceId)],
 );
