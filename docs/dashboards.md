@@ -44,6 +44,8 @@ A dashboard has one or more **views** (tabs), each a 12-column grid of up to 60 
   are many) or one device's route with playback; see [location.md](location.md).
 - **Energy summary** widgets show a device's consumption and cost this day, week, month or year
   (or over the time window) with the change against the previous period; see [energy.md](energy.md).
+- **Asset dashboards** are templates made for an asset type; their widgets read the asset's
+  devices. See [assets.md](assets.md).
 - Keys include the profile's **calculated keys** (formulas, counters, run time) alongside its
   telemetry keys.
 - The **time window** (relative, e.g. last 24 h, or absolute) and refresh interval are dashboard

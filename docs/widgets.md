@@ -31,11 +31,11 @@ export const myWidget: WidgetDefinition<Settings> = {
 | Mode | Sources | Result (`result.data`) |
 |---|---|---|
 | `latest` | `currentDevice`, `device` | `{ device, values: { key: { ts, v } } }` |
-| `latest` | `devicesOfProfile` | `{ devices: [{ …device, values }] }` |
+| `latest` | `devicesOfProfile`, `currentAsset` | `{ devices: [{ …device, values }] }` |
 | `history` | `currentDevice`, `device` | `{ source, series: { key: [[ts, v], …] } }` (aggregated automatically for long windows) |
 | `list` | `entityList` | `{ items, total, page, pageSize, customers? }` |
-| `stats` | `devicesOfProfile` | `{ total, online, offline, dead, never, messages24h }` |
-| `energy` | `currentDevice`, `device` | `{ key, unit, timezone, currency, period, periods: [{ period, consumption, cost }], total, previous }` for the first key; the widget's `range` setting (`today`, `week`, `month`, `year` or `window`) picks the span ([energy.md](energy.md)) |
+| `stats` | `devicesOfProfile`, `currentAsset` | `{ total, online, offline, dead, never, messages24h }` |
+| `energy` | `currentDevice`, `device`, `currentAsset` | `{ key, unit, timezone, currency, period, periods: [{ period, consumption, cost }], total, previous }` for the first key; the widget's `range` setting (`today`, `week`, `month`, `year` or `window`) picks the span ([energy.md](energy.md)) |
 | `null` | `none` | nothing (content or action-only widgets) |
 
 `result` is `undefined` while loading, `{ ok: true, data }` on success, or `{ ok: false, code,
