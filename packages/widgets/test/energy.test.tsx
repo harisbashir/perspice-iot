@@ -54,7 +54,7 @@ describe('energy summary widget', () => {
   });
 
   it('asks the dashboard for energy data of one key', () => {
-    expect(energySummary.data).toEqual({ mode: 'energy', sources: ['currentDevice', 'device'], keys: { min: 1, max: 1 } });
+    expect(energySummary.data).toEqual({ mode: 'energy', sources: ['currentDevice', 'device', 'currentAsset'], keys: { min: 1, max: 1 } });
     expect(energySummary.settingsSchema.parse({})).toEqual({ range: 'month', showChart: true });
   });
 });

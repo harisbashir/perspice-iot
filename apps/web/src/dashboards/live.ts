@@ -67,7 +67,7 @@ export function buildRequests(
       meta[w.id] = { keys: [], alarms: true };
     } else if (def.data.mode === 'stats') {
       // Whole-fleet counts can follow status events; filtered ones (by profile, tag…) are refetched.
-      const filtered = !!(ds.profileId || ds.filter?.status?.length || ds.filter?.tags?.length || ds.filter?.search);
+      const filtered = !!(ds.kind === 'currentAsset' || ds.profileId || ds.filter?.status?.length || ds.filter?.tags?.length || ds.filter?.search);
       meta[w.id] = { keys: ds.keys, stats: filtered ? 'filtered' : 'fleet' };
     } else {
       meta[w.id] = { keys: ds.keys };

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { DEVICE_LISTS } from '@/realtime/hooks';
+import { flatten, useAssetTree } from '../assets/hooks';
 
 type Kind = BulkAction['kind'];
 const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
@@ -52,6 +53,11 @@ export function BulkBar({ deviceIds, onDone }: { deviceIds: string[]; onDone: ()
           )}
         </>
       )}
+      {hasPerm('asset.write') && (
+        <Button size="sm" variant="outline" onClick={() => setKind('asset')}>
+          Asset
+        </Button>
+      )}
       {hasPerm('device.command') && (
         <Button size="sm" variant="outline" onClick={() => setKind('command')}>
           Command
@@ -74,6 +80,8 @@ function BulkDialog({ kind, deviceIds, customerId, onClose, onDone }: { kind: Ki
   const qc = useQueryClient();
   const { data: customers = [] } = useCustomers(kind === 'assign');
   const { data: groups = [] } = useGroups(kind === 'group' ? customerId : null);
+  const assets = useAssetTree();
+  const assetOptions = kind === 'asset' ? flatten(assets.data ?? []) : [];
   const [add, setAdd] = useState('');
   const [remove, setRemove] = useState('');
   const [target, setTarget] = useState('');
@@ -191,6 +199,21 @@ function BulkDialog({ kind, deviceIds, customerId, onClose, onDone }: { kind: Ki
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+            )}
+            {kind === 'asset' && (
+              <Field label="Asset" help="Devices of other customers than the asset's are reported as not found.">
+                {(id, h) => (
+                  <select id={id} aria-describedby={h} className={selectClass} value={target} onChange={(e) => setTarget(e.target.value)}>
+                    <option value="">None (detach)</option>
+                    {assetOptions.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {'\u00a0\u00a0'.repeat(a.depth)}
+                        {a.name}
                       </option>
                     ))}
                   </select>

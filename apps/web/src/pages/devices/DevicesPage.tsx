@@ -13,6 +13,7 @@ import { CreateDeviceDialog } from './CreateDeviceDialog';
 import { ImportDialog } from './ImportDialog';
 import { DevicesTable } from './DevicesTable';
 import { type DeviceFilters, useDeviceList, useProfiles } from './hooks';
+import { flatten, useAssetTree } from '../assets/hooks';
 
 export function DevicesPage() {
   const { user, hasPerm } = useAuth();
@@ -34,6 +35,8 @@ export function DevicesPage() {
     });
   const list = useDeviceList(filters);
   const { data: profiles = [] } = useProfiles();
+  const assetTree = useAssetTree();
+  const assetOptions = hasPerm('asset.read') ? flatten(assetTree.data ?? []) : [];
   useStatusFeed();
   const devices = list.data?.pages.flatMap((p) => p.items) ?? [];
   const profileName = (id: string) => profiles.find((p) => p.id === id)?.name ?? '—';
@@ -109,6 +112,22 @@ export function DevicesPage() {
             </option>
           ))}
         </select>
+        {assetOptions.length > 0 && (
+          <select
+            aria-label="Filter by asset"
+            className="h-9 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+            value={filters.assetId ?? ''}
+            onChange={(e) => setFilters((f) => ({ ...f, assetId: e.target.value || undefined }))}
+          >
+            <option value="">All assets</option>
+            {assetOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {'\u00a0\u00a0'.repeat(a.depth)}
+                {a.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       {canBulk && <BulkBar deviceIds={[...selected]} onDone={() => setSelected(new Set())} />}
       {list.isLoading ? (

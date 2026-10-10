@@ -8,6 +8,8 @@ export interface DeviceFilters {
   search?: string;
   status?: string;
   profileId?: string;
+  /** Devices anywhere in this asset's subtree. */
+  assetId?: string;
 }
 
 export const useDeviceList = (filters: DeviceFilters) =>

@@ -290,7 +290,7 @@ export const mapWidget: WidgetDefinition<Settings> = {
   icon: MapIcon,
   category: 'map',
   settingsSchema: schema,
-  data: { mode: 'locations', sources: ['currentDevice', 'device', 'devicesOfProfile', 'entityList'], keys: { min: 0, max: 5 } },
+  data: { mode: 'locations', sources: ['currentDevice', 'device', 'devicesOfProfile', 'currentAsset', 'entityList'], keys: { min: 0, max: 5 } },
   defaultSize: { w: 8, h: 8 },
   Component: ({ config, settings, result, profile, actions, timewindow }) => {
     const data = dataOf(result);

@@ -31,15 +31,17 @@ export interface DashboardGridProps {
   profile?: DeviceProfileDto | null;
   edit?: EditMode;
   widgetActions?: (w: WidgetConfig) => ReactNode;
+  /** Asset dashboards: the asset `currentAsset` sources read. */
+  assetId?: string;
 }
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Request failed');
 
 /** Renders one dashboard state with live data; in edit mode widgets can be moved, resized and selected. */
-export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, edit, widgetActions }: DashboardGridProps) {
+export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, assetId, edit, widgetActions }: DashboardGridProps) {
   const { user, hasPerm } = useAuth();
   const navigate = useNavigate();
-  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS);
+  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS, assetId);
 
   const actionsFor = useMemo(
     () =>

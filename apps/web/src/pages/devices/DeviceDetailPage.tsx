@@ -14,6 +14,7 @@ import { AttributesPanel } from './AttributesPanel';
 import { CommandsPanel } from './CommandsPanel';
 import { CredentialsPanel } from './CredentialsPanel';
 import { DebugPanel } from './DebugPanel';
+import { DeviceAssetLine } from './DeviceAssetLine';
 import { LatestValuesPanel } from './LatestValuesPanel';
 import { MaintenancePanel } from './MaintenancePanel';
 import { OtaPanel } from './OtaPanel';
@@ -52,6 +53,7 @@ export function DeviceDetailPage() {
       <div className="mb-4 flex items-center gap-3 text-sm">
         <StatusBadge status={device.status} />
         <span className="text-slate-500">Last seen {timeAgo(device.lastSeen)}</span>
+        <DeviceAssetLine deviceId={device.id} customerId={device.customerId} />
       </div>
       <Tabs value={tab ?? (view ? 'dashboard' : 'overview')} onValueChange={setTab}>
         <TabsList className="flex-wrap">

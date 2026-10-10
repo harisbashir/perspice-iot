@@ -16,13 +16,15 @@ export interface DashboardEditorProps {
   profile: DeviceProfileDto | null;
   /** A device whose data the preview shows (device dashboards). */
   previewDevice?: DeviceDto | null;
+  /** Asset templates: the asset to preview with. */
+  previewAssetId?: string;
   onSave: (def: DashboardDefinition) => Promise<void>;
   /** Extra toolbar content (preview device picker, version…). */
   toolbar?: ReactNode;
 }
 
 /** Drag-and-drop editor for a dashboard definition, with a live preview of real data. */
-export function DashboardEditor({ initial, profile, previewDevice = null, onSave, toolbar }: DashboardEditorProps) {
+export function DashboardEditor({ initial, profile, previewDevice = null, previewAssetId, onSave, toolbar }: DashboardEditorProps) {
   const [def, setDef] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [stateId, setStateId] = useState(initial.states[0]!.id);
@@ -105,6 +107,7 @@ export function DashboardEditor({ initial, profile, previewDevice = null, onSave
           timewindow={def.settings.timewindow}
           refreshS={0}
           device={previewDevice}
+          assetId={previewAssetId}
           profile={profile}
           edit={{ selectedId: selected, onSelect: setSelected, onLayoutChange: (layout) => {
             // react-grid-layout reports the initial layout too; only count real changes as edits.

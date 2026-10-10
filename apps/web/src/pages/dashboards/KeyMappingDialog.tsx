@@ -23,7 +23,7 @@ export function CloneDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  source: { name: string; definition: DashboardDefinition; profileId: string | null; kind: 'device' | 'overview' };
+  source: { name: string; definition: DashboardDefinition; profileId: string | null; kind: 'device' | 'overview' | 'asset' };
   profiles: DeviceProfileDto[];
   onClone: (body: { name: string; profileId: string | null; keyMapping: Record<string, string> }) => Promise<void>;
 }) {

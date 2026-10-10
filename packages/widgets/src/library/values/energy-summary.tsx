@@ -56,7 +56,7 @@ export const energySummary: WidgetDefinition<Settings> = {
   icon: Zap,
   category: 'value',
   settingsSchema: schema,
-  data: { mode: 'energy', sources: ['currentDevice', 'device'], keys: { min: 1, max: 1 } },
+  data: { mode: 'energy', sources: ['currentDevice', 'device', 'currentAsset'], keys: { min: 1, max: 1 } },
   defaultSize: { w: 4, h: 6 },
   Component: ({ settings, result }) => {
     const data = dataOf(result);
