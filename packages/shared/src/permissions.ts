@@ -24,6 +24,7 @@ export const PERMISSIONS = [
   'alarm.rule.write',
   'webhook.manage',
   'report.schedule',
+  'geofence.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -57,6 +57,13 @@
       "when": 1791590753146,
       "tag": "0007_trips",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791591418371,
+      "tag": "0008_geofences",
+      "breakpoints": true
     }
   ]
 }

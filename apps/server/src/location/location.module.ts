@@ -1,5 +1,7 @@
 import { type DynamicModule, Global, Inject, Injectable, Module, type OnApplicationBootstrap } from '@nestjs/common';
 import { JobRegistry } from '../scheduler/job-registry';
+import { GeofencesController } from './geofences.controller';
+import { GeofencesService } from './geofences.service';
 import { LocationController } from './location.controller';
 import { LocationService } from './location.service';
 import { TripsService } from './trips.service';
@@ -30,15 +32,16 @@ export class LocationModule {
   static forRoot(opts: { api: boolean; scheduler: boolean; rules: boolean }): DynamicModule {
     return {
       module: LocationModule,
-      controllers: opts.api ? [LocationController] : [],
+      controllers: opts.api ? [LocationController, GeofencesController] : [],
       providers: [
         LocationService,
         TripsService,
+        GeofencesService,
         LocationFlushJob,
         { provide: 'SCHEDULE_LOCATION_JOBS', useValue: opts.scheduler },
         { provide: 'RUN_TRIPS', useValue: opts.rules },
       ],
-      exports: [LocationService, TripsService],
+      exports: [LocationService, TripsService, GeofencesService],
     };
   }
 }

@@ -51,6 +51,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'alarm.rule.write',
       'webhook.manage',
       'report.schedule',
+      'geofence.manage',
     ],
   },
   customer_operator: {

@@ -1,5 +1,7 @@
-import { doublePrecision, index, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { GeofenceShape } from '@perspice/shared';
+import { doublePrecision, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_common';
+import { customer } from './customers';
 import { device } from './devices';
 
 /** Detected trips (spec §4 `trip`). `end_ts` is null while the trip is under way. */
@@ -22,4 +24,23 @@ export const trip = pgTable(
     ...timestamps(),
   },
   (t) => [index('trip_device_start_idx').on(t.deviceId, t.startTs)],
+);
+
+/** Customer geofences, or platform-wide ones (`customer_id` null) that apply to every customer. */
+export const geofence = pgTable(
+  'geofence',
+  {
+    id: id(),
+    customerId: uuid('customer_id').references(() => customer.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    shape: jsonb('shape').$type<GeofenceShape>().notNull(),
+    color: text('color').notNull().default('#2563eb'),
+    /** Bounding box, for map-area queries. */
+    minLat: doublePrecision('min_lat').notNull(),
+    minLng: doublePrecision('min_lng').notNull(),
+    maxLat: doublePrecision('max_lat').notNull(),
+    maxLng: doublePrecision('max_lng').notNull(),
+    ...timestamps(),
+  },
+  (t) => [index('geofence_customer_idx').on(t.customerId)],
 );
