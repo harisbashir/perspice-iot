@@ -20,9 +20,12 @@ setup() {
   [ "$status" -eq 0 ]
   grep -q 'pg_dump' "$STUB_LOG"
   grep -q 'run --rm migrate' "$STUB_LOG"
-  order="$(grep -o 'up -d --no-deps [a-z-]*' "$STUB_LOG" | awk '{print $4}' | paste -sd' ')"
+  order="$(grep -oE 'up -d (--force-recreate )?--no-deps [a-z-]+' "$STUB_LOG" | awk '{print $NF}' | paste -sd' ')"
   # Infrastructure first (its configuration can change between releases), then the app.
   [ "$order" = "redis postgres emqx cert-sync ingest rules scheduler renderer api caddy" ]
+  # Configuration rendered from files at start: recreated even when Compose sees no change.
+  grep -q 'up -d --force-recreate --no-deps emqx' "$STUB_LOG"
+  grep -q 'up -d --force-recreate --no-deps cert-sync' "$STUB_LOG"
   grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
   [ ! -e "$PERSPICE_HOME/docker-compose.yml.previous" ]
   grep -q '^PERSPICE_VERSION=0.2.0$' "$PERSPICE_HOME/.env"

@@ -152,7 +152,11 @@ else
   mapfile -t services < <(compose_services redis postgres emqx cert-sync ingest rules scheduler renderer api caddy)
 fi
 for svc in "${services[@]}"; do
-  run_or_print compose up -d --no-deps "$svc" || rollback
+  # The broker and cert-sync render configuration files from the release when they start, and
+  # Compose can't see those files change: recreate them every time.
+  recreate=()
+  [[ "$svc" == emqx || "$svc" == cert-sync ]] && recreate=(--force-recreate)
+  run_or_print compose up -d "${recreate[@]}" --no-deps "$svc" || rollback
   [[ "$svc" == caddy || "$svc" == cert-sync ]] && continue
   wait_healthy "$svc" 180 || rollback
   ok "$svc"
