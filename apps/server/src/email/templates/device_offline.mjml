@@ -1,0 +1,4 @@
+<mj-text font-size="18px" font-weight="700" color="#b45309">Device offline: {{deviceName}}</mj-text>
+<mj-text>{{deviceName}} ({{profileName}}) has stopped reporting. Last seen: {{lastSeen}}.</mj-text>
+<mj-button href="{{link}}">View device</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>

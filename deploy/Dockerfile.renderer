@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+# Perspice renderer: the server image plus headless Chromium, run with PERSPICE_ROLE=renderer.
+# It prints dashboards to PDF by opening the web app's print page (see docs/operations.md).
+
+FROM node:24-bookworm-slim AS build
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/server/package.json apps/server/
+RUN pnpm install --frozen-lockfile --filter "@perspice/server..."
+COPY packages/shared packages/shared
+COPY apps/server apps/server
+RUN pnpm --filter @perspice/shared build \
+ && pnpm --filter @perspice/server build \
+ && pnpm --filter @perspice/server deploy --prod /out
+
+FROM node:24-bookworm-slim
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /app
+COPY --from=build --chown=node:node /out ./
+# Chromium and the system libraries it needs, at the version playwright-core expects.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini ca-certificates fonts-noto-core fonts-noto-color-emoji \
+ && node node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /var/lib/perspice/storage \
+ && chown node:node /var/lib/perspice/storage
+ENV NODE_ENV=production PERSPICE_ROLE=renderer
+COPY VERSION ./VERSION
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "dist/main.js"]

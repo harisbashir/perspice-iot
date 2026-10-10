@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Defaults until branding loads (applyTheme overwrites these). Values are "R G B" channels. */
+:root {
+  --color-primary-50: 231 241 241;
+  --color-primary-100: 207 228 226;
+  --color-primary-200: 195 221 219;
+  --color-primary-300: 135 186 182;
+  --color-primary-400: 87 159 154;
+  --color-primary-500: 15 118 110;
+  --color-primary-600: 13 100 94;
+  --color-primary-700: 11 83 77;
+  --color-primary-800: 8 65 61;
+  --color-primary-900: 6 47 44;
+  --color-primary-950: 4 30 28;
+  --color-accent: 245 158 11;
+}

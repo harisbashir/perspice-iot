@@ -1,0 +1,5 @@
+<mj-text font-size="18px" font-weight="700" color="#b91c1c">{{ruleName}} on {{deviceName}}</mj-text>
+<mj-text>Severity: <strong>{{severity}}</strong>. {{message}}</mj-text>
+<mj-text font-size="13px" color="#6b7280">{{deviceName}} ({{profileName}}) · started {{startedAt}}</mj-text>
+<mj-button href="{{link}}">View alarm</mj-button>
+<mj-text font-size="13px" color="#6b7280">{{link}}</mj-text>

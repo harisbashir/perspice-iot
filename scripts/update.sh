@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Upgrades an installation to a new release: a full backup (v0.4.0 and later) and a database
+# snapshot first, and automatic rollback if the new version does not come up healthy.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: update.sh [--version vX.Y.Z] [--yes] [--allow-downgrade] [--dry-run]
+
+  --version          Target release (default: latest)
+  --yes              Do not ask for confirmation
+  --allow-downgrade  Permit installing an older version than the current one
+  --dry-run          Show what would happen without changing anything
+USAGE
+}
+
+TARGET="" YES=0 ALLOW_DOWNGRADE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) TARGET="$2"; shift 2 ;;
+    --yes) YES=1; shift ;;
+    --allow-downgrade) ALLOW_DOWNGRADE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; die "Unknown option: $1" 64 ;;
+  esac
+done
+
+[[ -f "$PERSPICE_HOME/.env" ]] || die "No installation found in $PERSPICE_HOME." 2
+LOG="$PERSPICE_HOME/update.log"
+CURRENT="$(env_get PERSPICE_VERSION)"
+if [[ -z "$TARGET" ]]; then
+  TARGET="$(latest_release 2>/dev/null || true)"
+  [[ -n "$TARGET" ]] || die "Could not determine the latest release (offline?). Pass --version." 64
+fi
+TARGET="${TARGET#v}"
+
+if [[ "$TARGET" == "$CURRENT" ]]; then
+  info "Already on $CURRENT."
+  exit 0
+fi
+if version_gt "$CURRENT" "$TARGET" && [[ "$ALLOW_DOWNGRADE" != "1" ]]; then
+  die "Refusing to downgrade from $CURRENT to $TARGET (use --allow-downgrade)." 3
+fi
+
+info "Updating Perspice $CURRENT → $TARGET"
+if [[ "$YES" != "1" && "$DRY_RUN" != "1" ]]; then
+  read -r -p "Continue? [y/N] " answer
+  [[ "$answer" =~ ^[Yy]$ ]] || exit 1
+fi
+[[ "$DRY_RUN" == "1" ]] || exec > >(tee -a "$LOG") 2>&1
+info "$(date -u +%FT%TZ) update $CURRENT → $TARGET"
+
+SNAPSHOT=""
+MIGRATED=0
+
+rollback() {
+  warn "Update failed; rolling back to $CURRENT."
+  env_set PERSPICE_VERSION "$CURRENT"
+  if [[ -f "$PERSPICE_HOME/docker-compose.yml.previous" ]]; then
+    mv "$PERSPICE_HOME/docker-compose.yml.previous" "$PERSPICE_HOME/docker-compose.yml"
+  fi
+  if [[ "$MIGRATED" == "1" && -n "$SNAPSHOT" ]]; then
+    info "Restoring the pre-update database snapshot $SNAPSHOT"
+    db_restore_from "$SNAPSHOT" || warn "Restoring the snapshot failed; restore it manually with: perspice db-restore $SNAPSHOT"
+  fi
+  compose up -d || true
+  die "Update to $TARGET failed and was rolled back to $CURRENT. Details: $LOG" 1
+}
+
+step "1/5 Backup and database snapshot"
+# Backups (v0.4.0) need a passphrase; older installs get one now. Services pick it up on restart.
+if [[ -z "$(env_get BACKUP_PASSPHRASE)" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print env_set BACKUP_PASSPHRASE "<generated>"
+  else
+    env_set BACKUP_PASSPHRASE "$(gen_secret 32)"
+    warn "Generated BACKUP_PASSPHRASE in $PERSPICE_HOME/.env. Keep a copy elsewhere: backups can't be read without it."
+  fi
+fi
+# A full backup (database and files, encrypted) when the running version can make one.
+if ! version_gt 0.4.0 "$CURRENT"; then
+  BACKUP="$PERSPICE_HOME/backups/pre-update-${CURRENT}-$(date -u +%Y%m%dT%H%M%SZ).pbk"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print backup "→ $BACKUP"
+  else
+    if ! compose exec -T api node dist/cli.js backup --out - >"$BACKUP" || [[ ! -s "$BACKUP" ]]; then
+      rm -f "$BACKUP"
+      die "Backup failed; nothing was changed."
+    fi
+    chmod 600 "$BACKUP"
+    find "$PERSPICE_HOME/backups" -name 'pre-update-*.pbk' ! -path "$BACKUP" -delete
+    ok "$BACKUP"
+  fi
+fi
+# The snapshot is what an automatic rollback restores (it doesn't need the new version running).
+SNAPSHOT="$PERSPICE_HOME/backups/pre-update-${CURRENT}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+if [[ "$DRY_RUN" == "1" ]]; then
+  run_or_print pg_dump "→ $SNAPSHOT"
+else
+  db_snapshot_to "$SNAPSHOT" || die "Database snapshot failed; nothing was changed."
+  # Keep only the newest pre-update snapshot.
+  find "$PERSPICE_HOME/backups" -name 'pre-update-*.dump' ! -path "$SNAPSHOT" -delete
+  ok "$SNAPSHOT"
+fi
+
+step "2/5 Pulling $TARGET"
+# New releases can add services (v0.2.0: renderer), so the compose file comes from the target.
+[[ "$DRY_RUN" == "1" ]] || cp "$PERSPICE_HOME/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml.previous"
+run_or_print fetch_deploy_files "$TARGET" || rollback
+[[ "$DRY_RUN" == "1" ]] || env_set PERSPICE_VERSION "$TARGET"
+run_or_print compose pull --quiet || rollback
+
+step "3/5 Migrating the database"
+MIGRATED=1
+run_or_print compose run --rm migrate || rollback
+
+step "4/5 Restarting services"
+for svc in ingest rules scheduler renderer api caddy; do
+  run_or_print compose up -d --no-deps "$svc" || rollback
+  [[ "$svc" == caddy ]] && continue
+  wait_healthy "$svc" 120 || rollback
+  ok "$svc"
+done
+
+step "5/5 Health check"
+run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip || rollback
+
+rm -f "$PERSPICE_HOME/docker-compose.yml.previous"
+ok "Perspice $TARGET is running."

@@ -1,0 +1,142 @@
+## Perspice IoT — EMQX 5.8 broker configuration (template).
+## EMQX's HOCON cannot read arbitrary environment variables, so entrypoint.sh renders this
+## file to /opt/emqx/etc/emqx.conf, replacing:
+##   __PERSPICE_API_URL__   base URL of the `api` service, e.g. http://api:3000
+##   __INTERNAL_SECRET__    shared secret for the /internal/emqx/* hooks
+
+node {
+  name = "emqx@127.0.0.1"
+  cookie = "perspice"
+  data_dir = "data"
+}
+
+cluster {
+  name = perspice
+  discovery_strategy = manual
+}
+
+dashboard {
+  listeners.http.bind = 18083
+}
+
+## Devices and the ingest worker authenticate through the API.
+authentication = [
+  {
+    mechanism = password_based
+    backend = http
+    enable = true
+    method = post
+    url = "__PERSPICE_API_URL__/internal/emqx/auth"
+    headers {
+      "content-type" = "application/json"
+      "x-internal-secret" = "__INTERNAL_SECRET__"
+    }
+    body {
+      clientid = "${clientid}"
+      username = "${username}"
+      password = "${password}"
+    }
+    connect_timeout = "5s"
+    request_timeout = "5s"
+    pool_size = 8
+  }
+]
+
+## Devices get their topic rules with the authentication result (no per-topic calls). The ACL
+## hook below decides the rest (the ingest connection); its results are cached for 60 s, which
+## also bounds how long a check that failed (the API busy or restarting) stays denied.
+authorization {
+  no_match = deny
+  deny_action = ignore
+  cache {
+    enable = true
+    max_size = 64
+    ttl = 60s
+  }
+  sources = [
+    {
+      type = http
+      enable = true
+      method = post
+      url = "__PERSPICE_API_URL__/internal/emqx/acl"
+      headers {
+        "content-type" = "application/json"
+        "x-internal-secret" = "__INTERNAL_SECRET__"
+      }
+      body {
+        clientid = "${clientid}"
+        username = "${username}"
+        topic = "${topic}"
+        action = "${action}"
+      }
+      connect_timeout = "5s"
+      request_timeout = "5s"
+      pool_size = 8
+    }
+  ]
+}
+
+mqtt {
+  max_packet_size = 64KB
+  max_clientid_len = 128
+  ## A device uses fewer than ten topics. EMQX's default (65535) makes MQTT 5 clients size
+  ## their alias tables for it (about 1 MB per connection in mqtt.js).
+  max_topic_alias = 16
+}
+
+## Client connect/disconnect events drive device presence (published under $SYS).
+sys_topics {
+  sys_event_messages {
+    client_connected = true
+    client_disconnected = true
+  }
+}
+
+listeners.tcp.default {
+  bind = "0.0.0.0:1883"
+  max_connections = infinity
+}
+
+## Platform services (ingest, command publisher) connect on an internal listener (not published)
+## whose zone lets their sessions queue a few minutes of traffic: if ingest falls behind for a
+## moment (a slow database, a GC pause), messages wait instead of being dropped at the default
+## 1000-message queue, and a burst can't get the connection shut down for mailbox overflow.
+zones.internal {
+  mqtt {
+    max_mqueue_len = 200000
+    max_inflight = 256
+    mqueue_store_qos0 = true
+  }
+  force_shutdown {
+    enable = true
+    max_mailbox_size = 200000
+    max_heap_size = 512MB
+  }
+}
+
+listeners.tcp.internal {
+  bind = "0.0.0.0:1884"
+  zone = internal
+  max_connections = 1000
+}
+
+listeners.ssl.default {
+  bind = "0.0.0.0:8883"
+  max_connections = infinity
+  ssl_options {
+    certfile = "__MQTT_CERTFILE__"
+    keyfile = "__MQTT_KEYFILE__"
+  }
+}
+
+listeners.ws.default.enable = false
+listeners.wss.default.enable = false
+
+## REST API key used by the API service (kick clients, list clients). Format: key:secret:role
+api_key {
+  bootstrap_file = "/opt/emqx/etc/api_key.bootstrap"
+}
+
+log.console {
+  level = warning
+}

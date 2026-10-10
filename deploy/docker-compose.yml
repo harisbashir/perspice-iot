@@ -1,0 +1,268 @@
+# Perspice IoT stack. Configuration comes from .env (see env.example).
+name: perspice
+
+x-server: &server
+  image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-server:${PERSPICE_VERSION:-latest}
+  restart: unless-stopped
+  environment: &server-env
+    NODE_ENV: production
+    PERSPICE_VERSION: ${PERSPICE_VERSION:-}
+    # Overridable for managed services (Timescale Cloud, ElastiCache); the bundled ones otherwise.
+    DATABASE_URL: ${DATABASE_URL:-postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    # The internal listener (deep session queues for platform services; see emqx.conf.tmpl).
+    MQTT_URL: mqtt://emqx:1884
+    MQTT_INGEST_USERNAME: perspice-ingest
+    MQTT_INGEST_PASSWORD: ${MQTT_INGEST_PASSWORD}
+    EMQX_API_URL: http://emqx:18083
+    EMQX_API_KEY: ${EMQX_API_KEY}
+    EMQX_API_SECRET: ${EMQX_API_SECRET}
+    INTERNAL_SECRET: ${INTERNAL_SECRET}
+    JWT_SECRET: ${JWT_SECRET}
+    MASTER_KEY: ${MASTER_KEY}
+    PUBLIC_URL: ${PUBLIC_URL}
+    BASE_DOMAIN: ${BASE_DOMAIN}
+    STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+    STORAGE_LOCAL_PATH: /var/lib/perspice/storage
+    S3_BUCKET: ${S3_BUCKET:-}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_ENDPOINT: ${S3_ENDPOINT:-}
+    S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+    S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+    MQTT_TRANSPORT: ${MQTT_TRANSPORT:-emqx}
+    AWS_REGION: ${AWS_REGION:-}
+    AWS_IOT_ENDPOINT: ${AWS_IOT_ENDPOINT:-}
+    AWS_IOT_POLICY_NAME: ${AWS_IOT_POLICY_NAME:-perspice-device}
+    AWS_IOT_CERT_PATH: /etc/perspice/aws/ingest.cert.pem
+    AWS_IOT_KEY_PATH: /etc/perspice/aws/ingest.private.key
+    AWS_IOT_CA_PATH: /etc/perspice/aws/AmazonRootCA1.pem
+    # Empty on EC2/ECS, where the instance role provides credentials.
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    BACKUP_INCLUDE_MASTER_KEY: ${BACKUP_INCLUDE_MASTER_KEY:-false}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Map tile servers browsers may load (CSP img-src); Caddy uses the same list.
+    MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
+    VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+    VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+  volumes:
+    - storage_data:/var/lib/perspice/storage
+  logging: &logging
+    driver: json-file
+    options: { max-size: 20m, max-file: '5' }
+
+services:
+  postgres:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      POSTGRES_USER: perspice
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: perspice
+      TIMESCALEDB_TELEMETRY: 'off'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U perspice -d perspice']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # Durability comes from the append-only file (fsync every second). RDB snapshots on top of it
+    # forked Redis every minute under device load; AOF rewrites wait for 256 MB of growth.
+    command: ['redis-server', '--appendonly', 'yes', '--save', '', '--auto-aof-rewrite-min-size', '256mb']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    logging: *logging
+
+  # Applies database migrations and seed data, then exits; api waits for it.
+  migrate:
+    <<: *server
+    restart: 'no'
+    command: ['sh', '-c', 'node dist/cli.js migrate && node dist/cli.js seed']
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: api
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  ingest:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: ingest
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      emqx: { condition: service_healthy }
+
+  rules:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: rules
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  scheduler:
+    <<: *server
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: scheduler
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  # Prints dashboards to PDF with headless Chromium; loads the web app through Caddy's internal
+  # listener (port 8080, not published).
+  renderer:
+    <<: *server
+    image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-renderer:${PERSPICE_VERSION:-latest}
+    environment:
+      <<: *server-env
+      PERSPICE_ROLE: renderer
+      RENDERER_APP_URL: http://caddy:8080
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      caddy: { condition: service_started }
+
+  emqx:
+    image: emqx/emqx:5.8.6
+    restart: unless-stopped
+    # Every device connection is a file descriptor; Docker's default of 1024 caps the fleet.
+    ulimits:
+      nofile: { soft: 1048576, hard: 1048576 }
+    entrypoint: ['/opt/perspice/entrypoint.sh']
+    environment:
+      PERSPICE_API_URL: http://api:3000
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      PERSPICE_EMQX_API_KEY: ${EMQX_API_KEY}
+      PERSPICE_EMQX_API_SECRET: ${EMQX_API_SECRET}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD}
+      EMQX_LISTENERS__TCP__DEFAULT__ENABLE: ${MQTT_PLAIN_ENABLED:-true}
+    ports:
+      - '1883:1883'
+      - '8883:8883'
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - ./emqx/emqx.conf.tmpl:/opt/perspice/emqx.conf.tmpl:ro
+      - ./emqx/entrypoint.sh:/opt/perspice/entrypoint.sh:ro
+      - mqtt_certs:/opt/perspice/certs:ro
+    healthcheck:
+      test: ['CMD', '/opt/emqx/bin/emqx', 'ctl', 'status']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    # EMQX opens its HTTP auth pools at boot, so the API must already be up.
+    depends_on:
+      api: { condition: service_healthy }
+      cert-sync: { condition: service_healthy }
+    logging: *logging
+
+  cert-sync:
+    build: ./cert-sync
+    image: perspice-cert-sync:local
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      EMQX_API_KEY: ${EMQX_API_KEY}
+      EMQX_API_SECRET: ${EMQX_API_SECRET}
+    volumes:
+      - caddy_data:/caddy-data:ro
+      - mqtt_certs:/certs
+    healthcheck:
+      test: ['CMD', 'test', '-s', '/certs/cert.pem']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  caddy:
+    image: ghcr.io/${PERSPICE_IMAGE_OWNER:-perspice}/perspice-web:${PERSPICE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (address for certificate expiry notices)}
+      MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: { condition: service_healthy }
+    logging: *logging
+
+  # Optional monitoring (`docker compose --profile monitoring up -d`): Prometheus scrapes every
+  # process's /metrics on the internal network; Grafana (localhost:3001) has a Perspice dashboard.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ['monitoring']
+    restart: unless-stopped
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.retention.time=30d']
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ['monitoring']
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    ports:
+      - '127.0.0.1:3001:3000'
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    logging: *logging
+
+  # Local SMTP catcher for testing email (`docker compose --profile mail-test up`).
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ['mail-test']
+    ports:
+      - '8025:8025'
+    logging: *logging
+
+volumes:
+  pg_data:
+  redis_data:
+  emqx_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
+  mqtt_certs:
+  prometheus_data:
+  grafana_data:

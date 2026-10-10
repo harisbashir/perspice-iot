@@ -1,0 +1,7 @@
+<mj-text font-size="18px" font-weight="700">{{count}} notifications</mj-text>
+<mj-text>Hi {{name}}, these arrived {{reason}}:</mj-text>
+{{#each items}}
+<mj-text padding-top="4px" padding-bottom="4px"><strong>{{this.title}}</strong><br />{{this.body}}{{#if this.url}}<br /><a href="{{this.url}}">{{this.url}}</a>{{/if}}</mj-text>
+{{/each}}
+{{#if more}}<mj-text font-size="13px" color="#6b7280">…and {{more}} more in the app.</mj-text>{{/if}}
+<mj-button href="{{link}}">Open notifications</mj-button>

@@ -1,0 +1,35 @@
+# End-to-end test overrides: alternate host ports; Mailpit's API on 18025.
+services:
+  # The suite signs the same users in many times a minute; the default limit (10) would lock them out.
+  api:
+    environment:
+      AUTH_RATE_LIMIT_PER_MIN: '120'
+  caddy:
+    ports: !override
+      - '18080:80'
+      - '18443:443'
+  emqx:
+    ports: !override
+      - '11883:1883'
+  mailpit:
+    ports: !override
+      - '18025:8025'
+  # Records webhook calls (POST anything) and lists them (GET /) for the alarms spec.
+  hooks:
+    image: node:24-alpine
+    command:
+      - node
+      - -e
+      - |
+        const got = [];
+        require('http').createServer((req, res) => {
+          let body = '';
+          req.on('data', (c) => (body += c));
+          req.on('end', () => {
+            if (req.method === 'POST') { got.push({ path: req.url, headers: req.headers, body }); res.end('ok'); return; }
+            res.setHeader('content-type', 'application/json');
+            res.end(JSON.stringify(got));
+          });
+        }).listen(8080);
+    ports:
+      - '18090:8080'

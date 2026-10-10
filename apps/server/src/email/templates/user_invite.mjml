@@ -1,0 +1,4 @@
+<mj-text>Hello{{#if name}} {{name}}{{/if}},</mj-text>
+<mj-text>You have been invited to {{productName}}{{#if inviterName}} by {{inviterName}}{{/if}}. Click the button below to set your password and activate your account.</mj-text>
+<mj-button href="{{link}}">Activate account</mj-button>
+<mj-text font-size="13px" color="#6b7280">This link expires in 72 hours. If the button does not work, open: {{link}}</mj-text>

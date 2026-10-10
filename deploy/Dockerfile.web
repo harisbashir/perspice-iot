@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+# The web SPA served by Caddy, which also terminates TLS and proxies /api to the api service.
+
+FROM node:24-bookworm-slim AS build
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/widgets/package.json packages/widgets/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile --filter "@perspice/web..."
+COPY packages/shared packages/shared
+COPY packages/widgets packages/widgets
+COPY apps/web apps/web
+RUN pnpm --filter @perspice/web build
+
+FROM caddy:2.8
+COPY --from=build /src/apps/web/dist /srv/web
+COPY deploy/caddy/Caddyfile deploy/caddy/Caddyfile.dns deploy/caddy/perspice.caddy /etc/caddy/
