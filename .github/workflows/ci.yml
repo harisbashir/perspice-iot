@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq bats shellcheck
-      - run: shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/perspice deploy/emqx/entrypoint.sh deploy/cert-sync/sync.sh deploy/test/compose-smoke.sh
+      - run: shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/perspice deploy/emqx/entrypoint.sh deploy/cert-sync/sync.sh deploy/test/*.sh e2e/*.sh
       - run: bats scripts/test
 
   smoke:
@@ -80,7 +80,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: bash e2e/run.sh alarms
+      # Runs every project in order (each depends on the one before).
+      - run: bash e2e/run.sh assets
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
