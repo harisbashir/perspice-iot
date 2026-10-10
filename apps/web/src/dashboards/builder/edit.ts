@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import type { DashboardDefinition, DashboardState, DataSource, DeviceProfileDto, WidgetConfig } from '@perspice/shared';
 import { DashboardDefinitionSchema } from '@perspice/shared';
 import type { WidgetDefinition } from '@perspice/widgets';
@@ -16,7 +17,7 @@ const uniqueId = (taken: Set<string>, base: string) => {
 
 /** A sensible starting data source for a new widget, using the profile's keys. */
 export function defaultDatasource(w: WidgetDefinition, profile: DeviceProfileDto | null): DataSource {
-  const keys = profile?.telemetrySchema ?? [];
+  const keys = profileKeys(profile);
   const numeric = keys.filter((k) => k.type === 'number').map((k) => k.key);
   const wanted = Math.max(w.data.keys?.min ?? 0, Math.min(w.data.keys?.max ?? 1, 1));
   const pickKeys = (numeric.length ? numeric : keys.map((k) => k.key)).slice(0, wanted);

@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import type { AlarmRuleDto, AlarmScope, DeviceProfileDto } from '@perspice/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -124,7 +125,7 @@ export function AlarmRulesPage() {
                 {r.name} {!r.enabled && <Badge variant="secondary">off</Badge>} {r.disablesRuleId && <Badge variant="warning">opt-out</Badge>}
               </TableCell>
               <TableCell>{scopeText(r.scope)}</TableCell>
-              <TableCell className="text-sm">{describeRule(r, (k) => profileOf(r.scope)?.telemetrySchema.find((x) => x.key === k)?.label ?? k)}</TableCell>
+              <TableCell className="text-sm">{describeRule(r, (k) => profileKeys(profileOf(r.scope)).find((x) => x.key === k)?.label ?? k)}</TableCell>
               <TableCell>
                 <SeverityBadge severity={r.severity} />
               </TableCell>

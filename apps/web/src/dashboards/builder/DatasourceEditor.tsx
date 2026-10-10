@@ -1,4 +1,4 @@
-import { ALARM_SEVERITIES, type AlarmStatus, type DataSource, type DeviceProfileDto, ENTITY_COLUMNS } from '@perspice/shared';
+import { ALARM_SEVERITIES, type AlarmStatus, type DataSource, type DeviceProfileDto, ENTITY_COLUMNS, profileKeys } from '@perspice/shared';
 import type { WidgetDefinition } from '@perspice/widgets';
 import { useId } from 'react';
 import { useProfiles } from '@/pages/devices/hooks';
@@ -60,7 +60,7 @@ export function DatasourceEditor({
 }) {
   const id = useId();
   const { data: profiles = [] } = useProfiles();
-  const keys = (profile?.telemetrySchema ?? []).map((k) => ({ key: k.key, label: k.label }));
+  const keys = profileKeys(profile).map((k) => ({ key: k.key, label: k.label }));
   const keyLimit = widget.data.keys?.max;
   const kinds = widget.data.sources;
 

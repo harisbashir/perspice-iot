@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import type { DeviceProfileDto, WidgetConfig } from '@perspice/shared';
 import { AutoForm, getWidget, settingsFor } from '@perspice/widgets';
 import { Trash2 } from 'lucide-react';
@@ -45,7 +46,7 @@ export function WidgetSettingsPanel({
             key={widget.id}
             schema={def.settingsSchema as never}
             value={settingsFor(def, widget.settings)}
-            keys={(profile?.telemetrySchema ?? []).map((k) => k.key)}
+            keys={profileKeys(profile).map((k) => k.key)}
             onChange={(settings) => onChange({ settings })}
           />
         </>

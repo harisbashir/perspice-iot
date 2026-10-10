@@ -1,5 +1,4 @@
-import {
-  ALARM_RULE_TYPES,
+import { ALARM_RULE_TYPES,
   ALARM_SEVERITIES,
   type AlarmRuleDto,
   type AlarmRuleInput,
@@ -9,6 +8,7 @@ import {
   type BuiltInRoleKey,
   type DeviceProfileDto,
   type GeofenceDto,
+  profileKeys,
 } from '@perspice/shared';
 import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
@@ -99,7 +99,7 @@ export function RuleForm({
   );
   const set = (patch: Partial<Draft>) => setD({ ...d, ...patch });
   const setCond = (patch: Record<string, unknown>) => setD({ ...d, condition: { ...d.condition, ...patch } });
-  const keys = profile?.telemetrySchema ?? [];
+  const keys = profileKeys(profile);
   const label = (k: string) => keys.find((x) => x.key === k)?.label ?? k;
   const parsed = AlarmRuleInputSchema.safeParse(d);
   const roles = platform ? [...CUSTOMER_ROLES, ...PLATFORM_ROLES] : CUSTOMER_ROLES;

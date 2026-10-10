@@ -382,3 +382,12 @@ export function checkCalculated(defs: readonly CalculatedKeyInput[], telemetry: 
   });
   return issues;
 }
+
+/** A profile's keys for pickers and labels: its telemetry keys, then its calculated keys. */
+export function profileKeys(profile: { telemetrySchema: TelemetryKeyDef[]; calculated?: readonly CalculatedKeyInput[] } | null | undefined): TelemetryKeyDef[] {
+  if (!profile) return [];
+  const calculated = (profile.calculated ?? []).map(
+    (c): TelemetryKeyDef => ({ key: c.key, label: c.label, type: 'number', ...(c.unit ? { unit: c.unit } : {}), ...(c.decimals !== undefined ? { decimals: c.decimals } : {}) }),
+  );
+  return [...profile.telemetrySchema, ...calculated];
+}

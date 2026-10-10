@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import { Suspense, lazy, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
@@ -83,11 +84,11 @@ export function DeviceDetailPage() {
           </TabsContent>
         )}
         <TabsContent value="overview">
-          <LatestValuesPanel device={device} schema={profile?.telemetrySchema ?? []} />
+          <LatestValuesPanel device={device} schema={profileKeys(profile)} />
         </TabsContent>
         <TabsContent value="history">
           <Suspense fallback={<Skeleton className="h-80" />}>
-            <HistoryChart deviceId={device.id} keys={profile?.telemetrySchema ?? []} />
+            <HistoryChart deviceId={device.id} keys={profileKeys(profile)} />
           </Suspense>
         </TabsContent>
         {profile && profile.locationMode !== 'none' && (

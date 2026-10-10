@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import type { AlarmRuleDto, DeviceProfileDto } from '@perspice/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
@@ -15,7 +16,7 @@ export function DeviceAlarmsTab({ deviceId, profile }: { deviceId: string; profi
     queryKey: ['alarm-rules', 'effective', deviceId],
     queryFn: () => api<AlarmRuleDto[]>(`/devices/${deviceId}/alarm-rules/effective`),
   });
-  const label = (k: string) => profile?.telemetrySchema.find((x) => x.key === k)?.label ?? k;
+  const label = (k: string) => profileKeys(profile).find((x) => x.key === k)?.label ?? k;
   return (
     <div className="space-y-6">
       <AlarmsTable base={{ deviceId }} showDevice={false} />

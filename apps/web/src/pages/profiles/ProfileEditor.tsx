@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useProfile } from '../devices/hooks';
+import { CalculatedKeysEditor } from './CalculatedKeysEditor';
 import { CommandsEditor } from './CommandsEditor';
 import { TelemetryKeysEditor } from './TelemetryKeysEditor';
 
@@ -188,6 +189,19 @@ export function ProfileEditor() {
           </CardHeader>
           <CardContent>
             <TelemetryKeysEditor value={draft.telemetrySchema} onChange={(v) => set('telemetrySchema', v)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Calculated keys</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CalculatedKeysEditor
+              value={draft.calculated}
+              onChange={(v) => set('calculated', v as Draft['calculated'])}
+              telemetry={draft.telemetrySchema}
+              profileId={isNew ? undefined : id}
+            />
           </CardContent>
         </Card>
         <Card>
