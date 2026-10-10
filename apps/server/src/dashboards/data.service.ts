@@ -18,10 +18,11 @@ import {
   type StatsData,
   type Timewindow,
   type WidgetDataResult,
+  type Permission,
 } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth/auth.types';
-import { AppError, validation } from '../common/app-error';
+import { AppError, forbidden, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
 import { customer, device, deviceProfile, telemetryLatest } from '../db/schema';
@@ -49,6 +50,26 @@ const summary = (d: DeviceRow, lastSeen: number | null): DeviceSummary => ({
 
 const pick = <T>(values: Record<string, T> | undefined, keys: string[]): Record<string, T> =>
   Object.fromEntries(Object.entries(values ?? {}).filter(([k]) => keys.includes(k)));
+
+/**
+ * Each widget needs the permissions its data would need through the API (scope alone isn't enough
+ * for custom roles): device sources need device.read (asset sources also asset.read), values of any
+ * kind telemetry.read, alarm sources alarm.read. Device counts need only device.read.
+ */
+function requirePermissions(actor: AuthUser, r: DataRequest): void {
+  const ds = r.datasource;
+  const need: Permission[] = [];
+  if (ds.kind === 'alarms') need.push('alarm.read');
+  else if (ds.kind !== 'none') {
+    need.push('device.read');
+    if (ds.kind === 'currentAsset') need.push('asset.read');
+    const keys = ds.kind === 'entityList' ? ds.columns.filter((c) => !(ENTITY_COLUMNS as readonly string[]).includes(c)) : ds.keys;
+    const showsValues = r.mode === 'history' || r.mode === 'energy' || r.mode === 'latest' || r.mode === 'locations' || (r.mode === 'list' && keys.length > 0);
+    if (showsValues) need.push('telemetry.read');
+  }
+  const missing = need.filter((p) => !actor.permissions.includes(p));
+  if (missing.length) throw forbidden(`Missing permission: ${missing.join(', ')}`);
+}
 
 export function windowOf(tw: Timewindow | undefined, now = Date.now()): { from: number; to: number } {
   if (!tw) return { from: now - DAY_MS, to: now };
@@ -88,6 +109,7 @@ export class DataService {
 
   private async resolve(actor: AuthUser, scope: Scope, deviceId: string | undefined, r: DataRequest, assetId?: string): Promise<unknown> {
     const ds = r.datasource;
+    requirePermissions(actor, r);
     switch (ds.kind) {
       case 'none':
         return null;
