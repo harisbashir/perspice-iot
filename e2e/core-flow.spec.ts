@@ -72,6 +72,8 @@ test('super admin activates via the emailed link, enrols TOTP and signs in', asy
 
   await platform.getByRole('button', { name: 'Account menu' }).click();
   await platform.getByRole('menuitem', { name: 'Sign out' }).click();
+  // Let sign-out finish before signing in again (otherwise the old session can still redirect).
+  await expect(platform).toHaveURL(/\/login/);
   await signIn(platform, BASE, OWNER, PASSWORD, () => totp(totpSecret));
   await expect(platform.getByRole('heading', { name: 'Overview' })).toBeVisible();
 });
