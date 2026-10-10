@@ -16,7 +16,7 @@ import { forbidden, validation } from '../common/app-error';
 import { windowOf } from '../dashboards/data.service';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
-import { alarm, customer, device, deviceProfile, telemetry, user } from '../db/schema';
+import { alarm, customer, device, deviceProfile, telemetry, trip, user } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 import { ScopeService } from '../rbac/scope';
 import type { Cell, Column } from './writers';
@@ -71,7 +71,33 @@ export class ExportSources {
         return this.widget(actor, req.params);
       case 'alarms':
         return this.alarmList(actor, req.params);
+      case 'trips':
+        return this.trips(actor, req.params);
     }
+  }
+
+  /** A device's trips overlapping the period, oldest first. */
+  async trips(actor: AuthUser, p: { deviceId: string; from: number; to: number }): Promise<ExportSource> {
+    const d = await this.devices.find(actor, p.deviceId); // 404 outside the caller's scope
+    const where = and(eq(trip.deviceId, d.id), lte(trip.startTs, new Date(p.to)), or(sql`${trip.endTs} IS NULL`, gte(trip.endTs, new Date(p.from))));
+    const db = this.db;
+    const num = (header: string): Column => ({ header, kind: 'number' });
+    const round = (v: number | null, digits: number) => (v === null ? null : Math.round(v * 10 ** digits) / 10 ** digits);
+    return {
+      title: `${d.name} trips`,
+      columns: [time('Start (UTC)'), time('End (UTC)'), num('Duration (min)'), num('Distance (km)'), num('Max speed (km/h)'), num('Average speed (km/h)'), num('Start latitude'), num('Start longitude'), num('End latitude'), num('End longitude')],
+      async count() {
+        const [row] = await db.select({ n: count() }).from(trip).where(where);
+        return row?.n ?? 0;
+      },
+      async *rows() {
+        const rows = await db.select().from(trip).where(where).orderBy(asc(trip.startTs)).limit(100_000);
+        for (const r of rows) {
+          const minutes = r.endTs ? (r.endTs.getTime() - r.startTs.getTime()) / 60_000 : null;
+          yield [r.startTs, r.endTs, round(minutes, 1), round(r.distanceM / 1000, 2), round(r.maxSpeedKmh, 1), round(r.avgSpeedKmh, 1), r.startLat, r.startLng, r.endLat, r.endLng];
+        }
+      },
+    };
   }
 
   /** Wide format: one row per timestamp, one column per key. */

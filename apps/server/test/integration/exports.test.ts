@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { exportJob } from '../../src/db/schema';
+import { exportJob, trip } from '../../src/db/schema';
 import { ExportCleanupJob } from '../../src/exports/export-cleanup.job';
 import { tokenFor } from '../auth-helpers';
 import { createCustomer, createDevice, createProfile, createUser } from '../factories';
@@ -64,6 +64,25 @@ describe('exports', () => {
     expect(lines[0]).toBe('Time (UTC),Fuel (%),batt_v');
     expect(lines[1]).toBe('2026-01-01 00:00:00,0,50');
     expect(lines).toHaveLength(4);
+  });
+
+  it('exports a device’s trips as CSV', async () => {
+    const profile = await createProfile(t.db, { locationMode: 'reported' });
+    const { device } = await createDevice(t.db, { profileId: profile.id, name: 'Van 3' });
+    await t.db.insert(trip).values([
+      { deviceId: device.id, startTs: new Date(T0), endTs: new Date(T0 + 30 * 60_000), startLat: 51.5, startLng: -0.12, endLat: 51.6, endLng: -0.1, distanceM: 12_345, maxSpeedKmh: 72.4, avgSpeedKmh: 24.7 },
+      { deviceId: device.id, startTs: new Date(T0 - 10 * 86_400_000), endTs: new Date(T0 - 10 * 86_400_000 + 60_000), startLat: 1, startLng: 1, endLat: 1, endLng: 1, distanceM: 1 },
+    ]);
+    const res = await t.http
+      .post('/api/exports')
+      .set('Authorization', auth)
+      .send({ kind: 'trips', format: 'csv', params: { deviceId: device.id, from: T0 - 86_400_000, to: T0 + 86_400_000 } })
+      .buffer(true)
+      .parse(binary);
+    expect(res.status).toBe(200);
+    const lines = (res.body as Buffer).toString('utf8').trim().split('\n');
+    expect(lines[0]).toBe('Start (UTC),End (UTC),Duration (min),Distance (km),Max speed (km/h),Average speed (km/h),Start latitude,Start longitude,End latitude,End longitude');
+    expect(lines.slice(1)).toEqual(['2026-01-01 00:00:00,2026-01-01 00:30:00,30,12.35,72.4,24.7,51.5,-0.12,51.6,-0.1']);
   });
 
   it('exports XLSX that parses back', async () => {

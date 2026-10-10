@@ -1,6 +1,6 @@
 import { DashboardDefinitionSchema, type DeviceProfileDto } from '@perspice/shared';
 import { describe, expect, it } from 'vitest';
-import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets } from '../../src/dashboards/defaults';
+import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets, withMapWidget } from '../../src/dashboards/defaults';
 
 const profile: Pick<DeviceProfileDto, 'telemetrySchema' | 'commands'> = {
   telemetrySchema: [
@@ -75,5 +75,23 @@ describe('overview alarm upgrade', () => {
     expect(ids).toContain('alarms-recent');
     expect(Math.min(...up.states[0]!.layout.filter((l) => l.i !== 'devices').map((l) => l.y))).toBe(12);
     expect(withAlarmWidgets(up)).toBeNull();
+  });
+});
+
+describe('overview map upgrade', () => {
+  it('the overview has a map of all devices', () => {
+    const map = overviewDefinition().states[0]!.widgets.find((w) => w.id === 'devices-map');
+    expect(map).toMatchObject({ type: 'map', datasource: { kind: 'devicesOfProfile', profileId: null } });
+  });
+
+  it('appends the map below an older overview once, keeping its widgets', () => {
+    const old = {
+      ...overviewDefinition(),
+      states: [{ id: 'main', name: 'Overview', widgets: overviewDefinition().states[0]!.widgets.filter((w) => w.id === 'devices'), layout: [{ i: 'devices', x: 0, y: 0, w: 12, h: 12 }] }],
+    };
+    const up = withMapWidget(old)!;
+    expect(up.states[0]!.widgets.map((w) => w.id)).toEqual(['devices', 'devices-map']);
+    expect(up.states[0]!.layout.find((l) => l.i === 'devices-map')).toMatchObject({ x: 0, y: 12, w: 12 });
+    expect(withMapWidget(up)).toBeNull();
   });
 });

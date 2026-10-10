@@ -20,6 +20,10 @@ import { useDevice, useProfile } from './hooks';
 import { ReportButton } from '@/exports/ReportButton';
 import { DeviceAlarmsTab } from '@/alarms/DeviceAlarmsTab';
 
+// Leaflet loads only when a map tab is opened.
+const LocationPanel = lazy(() => import('./LocationPanel').then((m) => ({ default: m.LocationPanel })));
+const TripsPanel = lazy(() => import('./TripsPanel').then((m) => ({ default: m.TripsPanel })));
+
 // ECharts is large; load it only when the History tab is opened.
 const HistoryChart = lazy(() => import('./HistoryChart').then((m) => ({ default: m.HistoryChart })));
 
@@ -52,6 +56,8 @@ export function DeviceDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {hasPerm('alarm.read') && <TabsTrigger value="alarms">Alarms</TabsTrigger>}
           <TabsTrigger value="history">History</TabsTrigger>
+          {profile && profile.locationMode !== 'none' && <TabsTrigger value="location">Location</TabsTrigger>}
+          {profile?.trips.enabled && hasPerm('telemetry.read') && <TabsTrigger value="trips">Trips</TabsTrigger>}
           <TabsTrigger value="commands">Commands</TabsTrigger>
           <TabsTrigger value="attributes">Attributes</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
@@ -82,6 +88,20 @@ export function DeviceDetailPage() {
             <HistoryChart deviceId={device.id} keys={profile?.telemetrySchema ?? []} />
           </Suspense>
         </TabsContent>
+        {profile && profile.locationMode !== 'none' && (
+          <TabsContent value="location">
+            <Suspense fallback={<Skeleton className="h-80" />}>
+              <LocationPanel device={device} profile={profile} />
+            </Suspense>
+          </TabsContent>
+        )}
+        {profile?.trips.enabled && (
+          <TabsContent value="trips">
+            <Suspense fallback={<Skeleton className="h-80" />}>
+              <TripsPanel deviceId={device.id} />
+            </Suspense>
+          </TabsContent>
+        )}
         <TabsContent value="commands">
           <CommandsPanel deviceId={device.id} deviceName={device.name} commands={profile?.commands ?? []} />
         </TabsContent>

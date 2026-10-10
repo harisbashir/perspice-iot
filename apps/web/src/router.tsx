@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { type RouteObject, createBrowserRouter } from 'react-router';
 import { ActivatePage } from './auth/ActivatePage';
 import { ForgotPage } from './auth/ForgotPage';
@@ -25,6 +26,9 @@ import { CustomersPage } from './pages/customers/CustomersPage';
 import { RolesPage } from './pages/roles/RolesPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { UsersPage } from './pages/users/UsersPage';
+
+// Leaflet loads with the page.
+const GeofencesPage = lazy(() => import('./pages/geofences/GeofencesPage').then((m) => ({ default: m.GeofencesPage })));
 
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
@@ -54,6 +58,7 @@ export const routes: RouteObject[] = [
       { path: 'roles', element: <RequirePermission perm="user.read"><RolesPage /></RequirePermission> },
       { path: 'alarms', element: <RequirePermission perm="alarm.read"><AlarmsPage /></RequirePermission> },
       { path: 'alarms/:id', element: <RequirePermission perm="alarm.read"><AlarmDetailPage /></RequirePermission> },
+      { path: 'geofences', element: <RequirePermission perm="device.read"><Suspense fallback={null}><GeofencesPage /></Suspense></RequirePermission> },
       { path: 'alarm-rules', element: <RequirePermission perm="alarm.read"><AlarmRulesPage /></RequirePermission> },
       { path: 'system', element: <RequirePermission perm="system.settings"><SystemPage /></RequirePermission> },
       { path: 'reports', element: <RequirePermission perm="report.schedule"><ReportSchedulesPage /></RequirePermission> },
