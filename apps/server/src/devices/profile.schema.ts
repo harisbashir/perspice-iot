@@ -1,4 +1,4 @@
-import { BUILT_IN_ROLE_KEYS, KEY_PATTERN, LocationKeysSchema } from '@perspice/shared';
+import { BUILT_IN_ROLE_KEYS, KEY_PATTERN, LocationKeysSchema, TripSettingsSchema } from '@perspice/shared';
 import { z } from 'zod';
 
 const TelemetryKeyDef = z.object({
@@ -37,6 +37,7 @@ export const ProfileFields = z.object({
   statusNotify: StatusNotify,
   locationMode: z.enum(['none', 'fixed', 'reported']),
   locationKeys: LocationKeysSchema,
+  trips: TripSettingsSchema,
 });
 
 export const CreateProfile = ProfileFields.partial().required({ name: true });

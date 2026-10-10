@@ -11,7 +11,8 @@ export class EventBus {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   async publish(event: DomainEvent): Promise<void> {
-    const stream = event.type === 'telemetry' ? TELEMETRY_EVENTS_STREAM : DEVICE_EVENTS_STREAM;
+    // Per-message events (telemetry, location fixes) go on the high-volume stream.
+    const stream = event.type === 'telemetry' || event.type === 'device.location' ? TELEMETRY_EVENTS_STREAM : DEVICE_EVENTS_STREAM;
     await this.redis.xadd(stream, 'MAXLEN', '~', STREAM_MAXLEN, '*', 'event', JSON.stringify(event));
   }
 }

@@ -71,7 +71,7 @@ export class AppModule {
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
-        LocationModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
+        LocationModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler'), rules: runsRole(role, 'rules') }),
         DashboardsModule,
         AlarmsModule.forRoot({ api: runsRole(role, 'api'), rules: runsRole(role, 'rules'), scheduler: runsRole(role, 'scheduler') }),
         ExportsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),

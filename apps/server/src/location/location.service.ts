@@ -4,6 +4,8 @@ import {
   type Fix,
   type LocationKeys,
   LocationKeysSchema,
+  type TripSettings,
+  TripSettingsSchema,
   extractFix,
   isValidFix,
 } from '@perspice/shared';
@@ -43,11 +45,19 @@ type LocationRedis = Redis & {
   perspiceDeleteIfUnchanged(pending: string, ...pairs: string[]): Promise<number>;
 };
 
-export type ReportOutcome = { kind: 'none' } | { kind: 'stored'; fix: DeviceLocationDto } | { kind: 'stale' } | { kind: 'rejected'; reason: string };
+export interface ReportOutcome {
+  /** A fix newer than the current one, now stored. */
+  fix?: DeviceLocationDto;
+  /** Why a fix in the message was refused. */
+  rejected?: string;
+  /** The message's ignition value, when the profile's trips use an ignition key. */
+  ignition?: { ts: number; value: boolean };
+}
 
-interface ProfileLocation {
+export interface ProfileLocation {
   mode: 'none' | 'fixed' | 'reported';
   keys: LocationKeys;
+  trips: TripSettings;
   at: number;
 }
 
@@ -82,11 +92,12 @@ export class LocationService {
     if (cached && Date.now() - cached.at < PROFILE_TTL_MS) return cached;
     const row = await this.db.query.deviceProfile.findFirst({
       where: eq(deviceProfile.id, profileId),
-      columns: { locationMode: true, locationKeys: true },
+      columns: { locationMode: true, locationKeys: true, tripSettings: true },
     });
     const entry: ProfileLocation = {
       mode: row?.locationMode ?? 'none',
       keys: LocationKeysSchema.parse(row?.locationKeys ?? {}),
+      trips: TripSettingsSchema.parse(row?.tripSettings ?? {}),
       at: Date.now(),
     };
     this.profiles.set(profileId, entry);
@@ -96,7 +107,7 @@ export class LocationService {
   /** Takes the newest valid fix from a message's rows (ingest hot path: Redis only). */
   async report(deviceId: string, profileId: string, rows: TelemetryRow[]): Promise<ReportOutcome> {
     const profile = await this.profileLocation(profileId);
-    if (profile.mode !== 'reported') return { kind: 'none' };
+    if (profile.mode !== 'reported') return {};
     const byTs = new Map<number, Record<string, unknown>>();
     for (const r of rows) {
       const values = byTs.get(r.ts) ?? {};
@@ -104,8 +115,13 @@ export class LocationService {
       byTs.set(r.ts, values);
     }
     let newest: { ts: number; fix: Fix } | null = null;
-    let rejected: string | null = null;
+    let rejected: string | undefined;
+    let ignition: ReportOutcome['ignition'];
+    const ignitionKey = profile.trips.enabled ? profile.trips.ignitionKey : undefined;
     for (const [ts, values] of byTs) {
+      if (ignitionKey && typeof values[ignitionKey] === 'boolean' && (!ignition || ts > ignition.ts)) {
+        ignition = { ts, value: values[ignitionKey] as boolean };
+      }
       if (!(profile.keys.lat in values) && !(profile.keys.lng in values)) continue;
       const fix = extractFix(values, profile.keys);
       if (!fix) {
@@ -116,11 +132,12 @@ export class LocationService {
       }
       if (!newest || ts > newest.ts) newest = { ts, fix };
     }
-    if (!newest) return rejected ? { kind: 'rejected', reason: rejected } : { kind: 'none' };
+    const out: ReportOutcome = { ...(rejected ? { rejected } : {}), ...(ignition ? { ignition } : {}) };
+    if (!newest) return out;
     const loc: DeviceLocationDto = { ...newest.fix, ts: newest.ts, source: 'reported' };
     const json = JSON.stringify(loc);
     const set = await this.redis.perspiceSetLocation(locationKey(deviceId), PENDING_LOCATIONS, String(newest.ts), json, deviceId);
-    return set ? { kind: 'stored', fix: loc } : { kind: 'stale' };
+    return set ? { ...out, fix: loc } : out;
   }
 
   async current(deviceId: string): Promise<DeviceLocationDto | null> {

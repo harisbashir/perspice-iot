@@ -1,4 +1,4 @@
-import type { DeviceLocationDto, LocationKeys } from './location.js';
+import type { DeviceLocationDto, LocationKeys, TripSettings } from './location.js';
 import type { Permission } from './permissions.js';
 import type { BuiltInRoleKey, RoleScope } from './roles.js';
 
@@ -68,6 +68,7 @@ export interface DeviceProfileDto {
   statusNotify: StatusNotifyConfig;
   locationMode: 'none' | 'fixed' | 'reported';
   locationKeys: LocationKeys;
+  trips: TripSettings;
   defaultDashboardTemplateId: string | null;
   createdAt: string;
   updatedAt: string;

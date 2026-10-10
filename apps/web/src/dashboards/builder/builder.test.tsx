@@ -25,6 +25,7 @@ const profile = {
   statusNotify: { enabled: false, roleKeys: [], channels: [] },
   locationMode: 'none',
   locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
+  trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
   defaultDashboardTemplateId: 't1',
   createdAt: '',
   updatedAt: '',

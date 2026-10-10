@@ -28,6 +28,7 @@ const EMPTY: Draft = {
   statusNotify: { enabled: false, roleKeys: ['customer_admin'], channels: ['email', 'inapp'] },
   locationMode: 'none',
   locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
+  trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
 };
 
 const NOTIFY_ROLES: [BuiltInRoleKey, string][] = [

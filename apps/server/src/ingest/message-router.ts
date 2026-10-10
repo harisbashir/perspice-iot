@@ -126,9 +126,20 @@ export class MessageRouter {
         summary: `${result.rows.length} value(s): ${keys.slice(0, 10).join(', ')}`,
         raw: payload.subarray(0, 2048).toString('utf8'),
       }),
-      located.kind === 'stored' ? this.redis.publish(`ws:location:${deviceId}`, JSON.stringify({ deviceId, location: located.fix })) : undefined,
-      located.kind === 'rejected'
-        ? this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: located.reason, raw: payload.subarray(0, 2048).toString('utf8') })
+      located.fix ? this.redis.publish(`ws:location:${deviceId}`, JSON.stringify({ deviceId, location: located.fix })) : undefined,
+      located.fix || located.ignition
+        ? this.events.publish({
+            type: 'device.location',
+            deviceId,
+            customerId: meta.customerId,
+            profileId: meta.profileId,
+            ts: Math.max(located.fix?.ts ?? 0, located.ignition?.ts ?? 0),
+            ...(located.fix ? { fix: located.fix } : {}),
+            ...(located.ignition ? { ignition: located.ignition.value } : {}),
+          })
+        : undefined,
+      located.rejected
+        ? this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: located.rejected, raw: payload.subarray(0, 2048).toString('utf8') })
         : undefined,
       result.adjusted
         ? this.debug.push(deviceId, {

@@ -10,3 +10,4 @@ export * from './settings';
 export * from './dashboards';
 export * from './alarms';
 export * from './delivery';
+export * from './location';

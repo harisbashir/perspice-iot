@@ -1,5 +1,5 @@
 import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import type { CommandDef, DeviceLocationDto, DeviceStatus, LocationKeys, StatusNotifyConfig, TelemetryKeyDef } from '@perspice/shared';
+import type { CommandDef, DeviceLocationDto, DeviceStatus, LocationKeys, StatusNotifyConfig, TelemetryKeyDef, TripSettings } from '@perspice/shared';
 import { id, timestamps } from './_common';
 import { dashboardTemplate } from './dashboards';
 import { customer, customerGroup } from './customers';
@@ -22,6 +22,8 @@ export const deviceProfile = pgTable('device_profile', {
     .default('none'),
   /** Telemetry keys of a reported location (missing entries take the defaults). */
   locationKeys: jsonb('location_keys').$type<Partial<LocationKeys>>().notNull().default({}),
+  /** Trip detection (missing entries take the defaults; off unless enabled). */
+  tripSettings: jsonb('trip_settings').$type<Partial<TripSettings>>().notNull().default({}),
   retentionDays: integer('retention_days').notNull().default(365),
   statusNotify: jsonb('status_notify')
     .$type<StatusNotifyConfig>()

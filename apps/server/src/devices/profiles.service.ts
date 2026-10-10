@@ -1,6 +1,6 @@
 import { CONFIG, type Config } from '../config/config';
 import { Inject, Injectable } from '@nestjs/common';
-import { type DeviceProfileDto, LocationKeysSchema } from '@perspice/shared';
+import { type DeviceProfileDto, LocationKeysSchema, TripSettingsSchema } from '@perspice/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
@@ -28,6 +28,7 @@ export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   statusNotify: p.statusNotify,
   locationMode: p.locationMode,
   locationKeys: LocationKeysSchema.parse(p.locationKeys),
+  trips: TripSettingsSchema.parse(p.tripSettings),
   defaultDashboardTemplateId: p.defaultDashboardTemplateId,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
@@ -82,7 +83,8 @@ export class ProfilesService {
     const dead = input.deadTimeoutS ?? 86400;
     if (dead <= offline) throw validation([timeoutIssue]);
     await this.checkTransport(input.transport);
-    const [row] = await this.db.insert(deviceProfile).values(input).returning();
+    const { trips, ...fields } = input;
+    const [row] = await this.db.insert(deviceProfile).values({ ...fields, ...(trips ? { tripSettings: trips } : {}) }).returning();
     return toProfileDto(row!);
   }
 
@@ -92,7 +94,12 @@ export class ProfilesService {
       throw validation([timeoutIssue]);
     }
     await this.checkTransport(patch.transport, existing);
-    const [row] = await this.db.update(deviceProfile).set(patch).where(eq(deviceProfile.id, id)).returning();
+    const { trips, ...fields } = patch;
+    const [row] = await this.db
+      .update(deviceProfile)
+      .set({ ...fields, ...(trips ? { tripSettings: trips } : {}) })
+      .where(eq(deviceProfile.id, id))
+      .returning();
     return toProfileDto(row!);
   }
 
