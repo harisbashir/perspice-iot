@@ -49,6 +49,8 @@ const ConfigSchema = z.object({
   AWS_IOT_CA_PATH: z.string().optional(),
   /** Overrides the ingest connection URL (default mqtts://<endpoint>:8883), e.g. for a VPC endpoint or tests. */
   AWS_IOT_MQTT_URL: z.string().optional(),
+  /** CSP image sources for map tiles (Caddy uses the same list); tile URLs must match one. */
+  MAP_TILE_HOSTS: z.string().default('https://tile.openstreetmap.org https://*.tile.openstreetmap.org'),
   METRICS_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   STORAGE_LOCAL_PATH: z.string().default('/var/lib/perspice/storage'),
   /** Requests per minute per IP on /auth/login and /auth/forgot. */

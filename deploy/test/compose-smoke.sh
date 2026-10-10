@@ -61,6 +61,8 @@ for _ in $(seq 1 90); do
   sleep 2
 done
 curl -fsSk "$BASE/health" || fail "health endpoint not reachable within 180 s"
+csp="$(curl -fsSkI "$BASE/" | tr -d '\r' | sed -n 's/^content-security-policy: //Ip')"
+[[ "$csp" == *"img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;"* ]] || fail "CSP lacks the map tile hosts: $csp"
 
 log "Creating the super admin"
 out="$("${COMPOSE[@]}" exec -T api node dist/cli.js create-admin --email smoke@perspice.test --name Smoke)" || fail "create-admin"

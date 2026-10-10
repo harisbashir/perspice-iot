@@ -113,3 +113,43 @@ export interface TripDto {
   maxSpeedKmh: number | null;
   avgSpeedKmh: number | null;
 }
+
+/** Map tiles for map widgets (system setting `map.tiles`). Browsers fetch them directly. */
+export const MapTilesSchema = z.object({
+  urlTemplate: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith('https://'), 'Tiles must be served over https')
+    .refine((u) => ['{z}', '{x}', '{y}'].every((p) => u.includes(p)), 'The URL needs {z}, {x} and {y} placeholders'),
+  attribution: z.string().max(300).default(''),
+  maxZoom: z.number().int().min(1).max(22).default(19),
+});
+export type MapTiles = z.infer<typeof MapTilesSchema>;
+
+export const DEFAULT_MAP_TILES: MapTiles = {
+  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '© OpenStreetMap contributors',
+  maxZoom: 19,
+};
+
+/**
+ * Whether a tile URL's host is in a CSP source list (`https://host` or `https://*.domain`,
+ * space-separated). `{s}` subdomain placeholders are checked as `a`.
+ */
+export function tileHostAllowed(urlTemplate: string, sources: string): boolean {
+  let host: string;
+  try {
+    host = new URL(urlTemplate.replace('{s}', 'a').replace(/\{[a-z]+\}/g, '0')).host;
+  } catch {
+    return false;
+  }
+  return sources
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((src) => {
+      const m = /^https:\/\/(\*\.)?([^/]+)$/.exec(src);
+      if (!m) return false;
+      return m[1] ? host.endsWith(`.${m[2]}`) : host === m[2];
+    });
+}

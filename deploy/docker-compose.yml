@@ -43,6 +43,8 @@ x-server: &server
     BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
     BACKUP_INCLUDE_MASTER_KEY: ${BACKUP_INCLUDE_MASTER_KEY:-false}
     LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Map tile servers browsers may load (CSP img-src); Caddy uses the same list.
+    MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
     VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -205,6 +207,7 @@ services:
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (address for certificate expiry notices)}
+      MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
     ports:
       - '80:80'
       - '443:443'

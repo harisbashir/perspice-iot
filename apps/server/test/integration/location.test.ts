@@ -1,10 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { device } from '../../src/db/schema';
+import { DEFAULT_MAP_TILES } from '@perspice/shared';
 import { LocationService } from '../../src/location/location.service';
+import { SettingsService } from '../../src/settings/settings.service';
 import { tokenFor } from '../auth-helpers';
 import { createCustomer, createDevice, createProfile, createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
+import { connectSocket, nextEvent } from '../socket-helpers';
 
 async function eventually<T>(fn: () => Promise<T>, ok: (v: T) => boolean, ms = 3000): Promise<T> {
   const end = Date.now() + ms;
@@ -20,12 +23,16 @@ describe('device locations', () => {
   let admin: string;
   let otherCustomer: string;
   let acmeId: string;
+  let acmeAdmin: string;
 
   beforeAll(async () => {
     t = await createTestApp();
     const p = await createUser(t.db, { roleKey: 'platform_admin' });
     admin = `Bearer ${await tokenFor(t, p.email, p.password)}`;
-    acmeId = (await createCustomer(t.db)).id;
+    const acme = await createCustomer(t.db);
+    acmeId = acme.id;
+    const a = await createUser(t.db, { roleKey: 'customer_admin', customerId: acme.id });
+    acmeAdmin = await tokenFor(t, a.email, a.password, `${acme.slug}.localhost`);
     const beta = await createCustomer(t.db);
     const b = await createUser(t.db, { roleKey: 'customer_admin', customerId: beta.id });
     otherCustomer = `Bearer ${await tokenFor(t, b.email, b.password, `${beta.slug}.localhost`)}`;
@@ -156,5 +163,55 @@ describe('device locations', () => {
       .send({ name: 'Van', locationMode: 'reported', locationKeys: { lat: 'latitude', lng: 'longitude' } });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ locationMode: 'reported', locationKeys: { lat: 'latitude', lng: 'longitude', speed: 'speed', accuracy: 'acc' } });
+  });
+
+  it('streams new fixes to sockets subscribed to the device, and only to them', async () => {
+    const d = await tracker();
+    const other = await tracker();
+    const base = await t.baseUrl();
+    const socket = await connectSocket(base, acmeAdmin);
+    try {
+      expect(await socket.emitWithAck('subscribe:device', { deviceId: d.id })).toEqual({ ok: true });
+      const got = nextEvent<{ deviceId: string; location: { lat: number } }>(socket, 'location', 3000);
+      let foreign = false;
+      socket.on('location', (e: { deviceId: string }) => {
+        if (e.deviceId === other.id) foreign = true;
+      });
+      await other.send({ values: { lat: 2.5, lng: 2.5 } });
+      await d.send({ values: { lat: 3.5, lng: 3.5 } });
+      expect(await got).toMatchObject({ deviceId: d.id, location: { lat: 3.5, lng: 3.5, source: 'reported' } });
+      await new Promise((r) => setTimeout(r, 200));
+      expect(foreign).toBe(false);
+    } finally {
+      socket.close();
+    }
+  });
+
+  describe('map tiles setting', () => {
+    it('defaults to OpenStreetMap and is readable by any signed-in user', async () => {
+      const res = await t.http.get('/api/settings/map').set('Authorization', `Bearer ${acmeAdmin}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19 });
+      expect(res.body.attribution).toContain('OpenStreetMap');
+    });
+
+    it('accepts tile servers the content security policy allows, and only from system admins', async () => {
+      await t.app.get(SettingsService).set('auth.enforceTotpForSuperAdmin', false);
+      const su = await createUser(t.db, { roleKey: 'super_admin' });
+      const superAuth = `Bearer ${await tokenFor(t, su.email, su.password)}`;
+      expect((await t.http.put('/api/settings/map').set('Authorization', admin).send(DEFAULT_MAP_TILES)).status).toBe(403);
+      const ok = { urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM', maxZoom: 18 };
+      expect((await t.http.put('/api/settings/map').set('Authorization', `Bearer ${acmeAdmin}`).send(ok)).status).toBe(403);
+      const put = await t.http.put('/api/settings/map').set('Authorization', superAuth).send(ok);
+      expect(put.status).toBe(200);
+      expect((await t.http.get('/api/settings/map').set('Authorization', admin)).body).toMatchObject(ok);
+      const blocked = await t.http.put('/api/settings/map').set('Authorization', superAuth).send({ ...ok, urlTemplate: 'https://tiles.example.com/{z}/{x}/{y}.png' });
+      expect(blocked.status).toBe(400);
+      expect(JSON.stringify(blocked.body)).toContain('MAP_TILE_HOSTS');
+      const noPlaceholders = await t.http.put('/api/settings/map').set('Authorization', superAuth).send({ ...ok, urlTemplate: 'https://tile.openstreetmap.org/tile.png' });
+      expect(noPlaceholders.status).toBe(400);
+      const plain = await t.http.put('/api/settings/map').set('Authorization', superAuth).send({ ...ok, urlTemplate: 'http://tile.openstreetmap.org/{z}/{x}/{y}.png' });
+      expect(plain.status).toBe(400);
+    });
   });
 });

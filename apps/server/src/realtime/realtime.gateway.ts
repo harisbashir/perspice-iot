@@ -25,11 +25,12 @@ import { MetricsService } from '../system/metrics.service';
 
 type AuthedSocket = Socket & { data: { user: AuthUser } };
 
-const CHANNEL = /^ws:(telemetry|status|command|notify|alarm):(.+)$/;
+const CHANNEL = /^ws:(telemetry|location|status|command|notify|alarm):(.+)$/;
 
 /** Redis channel kind → socket.io room prefix and event name. */
 const ROUTES: Record<string, { room: string; event: string }> = {
   telemetry: { room: 'device', event: 'telemetry' },
+  location: { room: 'device', event: 'location' },
   command: { room: 'device', event: 'command' },
   status: { room: 'status', event: 'status' },
   alarm: { room: 'alarm', event: 'alarm' },

@@ -111,3 +111,14 @@ describe('trip settings', () => {
     expect(TripSettingsSchema.safeParse({ stopAfterS: 10 }).success).toBe(false);
   });
 });
+
+describe('map tiles', () => {
+  it('checks tile hosts against the CSP source list', async () => {
+    const { tileHostAllowed } = await import('../src/index.js');
+    const sources = 'https://tile.openstreetmap.org https://*.tile.openstreetmap.org';
+    expect(tileHostAllowed('https://tile.openstreetmap.org/{z}/{x}/{y}.png', sources)).toBe(true);
+    expect(tileHostAllowed('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sources)).toBe(true);
+    expect(tileHostAllowed('https://evil.example/{z}/{x}/{y}.png', sources)).toBe(false);
+    expect(tileHostAllowed('https://tile.openstreetmap.org.evil.example/{z}/{x}/{y}.png', sources)).toBe(false);
+  });
+});
