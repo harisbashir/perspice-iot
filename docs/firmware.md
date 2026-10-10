@@ -17,6 +17,7 @@ cfg.host = "mqtt.iot.example.com";
 cfg.port = 8883;            // with WiFiClientSecure; 1883 for plain MQTT
 cfg.deviceId = "…";         // device page → Credentials
 cfg.token = "pdt_…";
+cfg.firmwareVersion = "1.0.0";  // reported as fw; needed for OTA updates
 perspice.begin(cfg);
 perspice.onCommand("gen_start", genStart);
 
@@ -34,6 +35,9 @@ void loop() {
   oldest-first in batches of up to 10. Define `PERSPICE_BUFFER_FLASH` on ESP32 to keep the buffer
   in LittleFS across `sleepCycle()` deep sleeps.
 - Unknown commands are answered with `failed` and `{"error":"unknown_command"}`.
+- On ESP32, firmware updates from the platform are applied from `loop()` (`otaEnabled`, on by
+  default): HTTPS download into the inactive partition, SHA-256 check, progress reports, restart.
+  `otaInProgress()` is true meanwhile. See [fleet.md](fleet.md).
 
 ## Examples
 

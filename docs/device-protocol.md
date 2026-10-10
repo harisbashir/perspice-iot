@@ -19,6 +19,8 @@ Devices connect over MQTT (recommended) or HTTP. Each device has an **id** (UUID
 | `perspice/v1/<id>/cmd` | platform → device | `{"cid":"<uuid>","name":"gen_start","params":{}}` |
 | `perspice/v1/<id>/cmd/ack` | device → platform | `{"cid":"<uuid>","status":"success"\|"failed","result":{}}` |
 | `perspice/v1/<id>/config` | platform → device | shared attributes (retained) |
+| `perspice/v1/<id>/ota` | platform → device | `{"jobId":"<uuid>","version":"1.2.0","url":"https://…","sha256":"…","size":524288}` |
+| `perspice/v1/<id>/ota/progress` | device → platform | `{"version":"1.2.0","state":"downloading"\|"verifying"\|"applied"\|"failed","pct":40,"error":"…"}` |
 
 ### Telemetry
 
@@ -45,6 +47,11 @@ whether the UI asks for confirmation). Reply on `cmd/ack` with the same `cid` wi
 command's time-to-live (default 30 s), or it is marked `timeout`. Only the target device's ack
 is accepted. Commands sent with *hold until online* are delivered when the device reconnects.
 
+### Firmware updates
+
+Report the running version as the `fw` attribute after every start. An update is complete when
+the new version is reported; check the image's SHA-256 before using it. See [fleet.md](fleet.md).
+
 ## HTTP
 
 Header `X-Device-Token: <token>`; 60 requests per minute per device; bodies up to 64 KB.
@@ -56,6 +63,8 @@ Header `X-Device-Token: <token>`; 60 requests per minute per device; bodies up t
 | `GET /api/v1/device/config` | shared attributes |
 | `GET /api/v1/device/commands?wait=0..30` | long-poll the next command; `204` when none |
 | `POST /api/v1/device/commands/<cid>/ack` | `{"status":"success","result":{}}` → `202` |
+| `GET /api/v1/device/ota` | the pending firmware update (as on MQTT); `204` when none |
+| `POST /api/v1/device/ota/progress` | same body as MQTT `ota/progress` → `202` |
 
 ## Presence
 
