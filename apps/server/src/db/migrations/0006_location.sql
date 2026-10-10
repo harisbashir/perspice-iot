@@ -1,0 +1,1 @@
+ALTER TABLE "device_profile" ADD COLUMN "location_keys" jsonb DEFAULT '{}'::jsonb NOT NULL;

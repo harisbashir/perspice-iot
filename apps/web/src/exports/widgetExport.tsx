@@ -5,7 +5,7 @@ import { ExportMenu } from './ExportMenu';
 /** The export menu for one widget frame, or null when the widget has no tabular data. */
 export function widgetExportAction(w: WidgetConfig, timewindow: Timewindow, device: DeviceDto | null) {
   const mode = getWidget(w.type)?.data.mode;
-  if (!mode || mode === 'stats' || w.datasource.kind === 'none') return null;
+  if (!mode || mode === 'stats' || mode === 'locations' || mode === 'energy' || w.datasource.kind === 'none') return null;
   if (w.datasource.kind === 'currentDevice' && !device) return null;
   return (
     <ExportMenu

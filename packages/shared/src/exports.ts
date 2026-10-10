@@ -50,12 +50,18 @@ export const WidgetExportParamsSchema = z.object({
   deviceId: z.string().uuid().optional(),
 });
 
+/** A device's trips that overlap a period. */
+export const TripsExportParamsSchema = z
+  .object({ deviceId: z.string().uuid(), from: ms, to: ms })
+  .refine((p) => p.from < p.to, { message: '"from" must be before "to"', path: ['to'] });
+
 export const ExportRequestSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('telemetry'), format: z.enum(EXPORT_FORMATS), params: TelemetryExportParamsSchema }),
   z.object({ kind: z.literal('devices'), format: z.enum(EXPORT_FORMATS), params: DevicesExportParamsSchema }),
   z.object({ kind: z.literal('audit'), format: z.enum(EXPORT_FORMATS), params: AuditExportParamsSchema }),
   z.object({ kind: z.literal('widget'), format: z.enum(EXPORT_FORMATS), params: WidgetExportParamsSchema }),
   z.object({ kind: z.literal('alarms'), format: z.enum(EXPORT_FORMATS), params: AlarmFilterSchema }),
+  z.object({ kind: z.literal('trips'), format: z.enum(EXPORT_FORMATS), params: TripsExportParamsSchema }),
 ]);
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 export type TelemetryExportParams = z.infer<typeof TelemetryExportParamsSchema>;

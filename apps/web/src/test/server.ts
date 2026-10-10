@@ -18,6 +18,12 @@ export const defaultHandlers = [
   http.get('*/api/alarms', () => HttpResponse.json({ items: [], nextCursor: null })),
   http.get('*/api/alarm-rules', () => HttpResponse.json([])),
   http.get('*/api/dashboards/device/:id', () => HttpResponse.json({ dashboard: null })),
+  http.get('*/api/firmware', () => HttpResponse.json([])),
+  http.get('*/api/ota-jobs', () => HttpResponse.json([])),
+  http.get('*/api/devices/:id/ota', () => HttpResponse.json([])),
+  http.get('*/api/devices/:id/asset', () => HttpResponse.json({ asset: null })),
+  http.get('*/api/assets/tree', () => HttpResponse.json([])),
+  http.get('*/api/asset-types', () => HttpResponse.json([])),
 ];
 
 /** Shared MSW server; tests register handlers with `server.use(...)`. */

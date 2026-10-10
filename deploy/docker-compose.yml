@@ -7,9 +7,11 @@ x-server: &server
   environment: &server-env
     NODE_ENV: production
     PERSPICE_VERSION: ${PERSPICE_VERSION:-}
-    DATABASE_URL: postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice
-    REDIS_URL: redis://redis:6379
-    MQTT_URL: mqtt://emqx:1883
+    # Overridable for managed services (Timescale Cloud, ElastiCache); the bundled ones otherwise.
+    DATABASE_URL: ${DATABASE_URL:-postgres://perspice:${POSTGRES_PASSWORD}@postgres:5432/perspice}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    # The internal listener (deep session queues for platform services; see emqx.conf.tmpl).
+    MQTT_URL: mqtt://emqx:1884
     MQTT_INGEST_USERNAME: perspice-ingest
     MQTT_INGEST_PASSWORD: ${MQTT_INGEST_PASSWORD}
     EMQX_API_URL: http://emqx:18083
@@ -20,9 +22,29 @@ x-server: &server
     MASTER_KEY: ${MASTER_KEY}
     PUBLIC_URL: ${PUBLIC_URL}
     BASE_DOMAIN: ${BASE_DOMAIN}
-    STORAGE_DRIVER: local
+    STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
     STORAGE_LOCAL_PATH: /var/lib/perspice/storage
+    S3_BUCKET: ${S3_BUCKET:-}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_ENDPOINT: ${S3_ENDPOINT:-}
+    S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+    S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+    MQTT_TRANSPORT: ${MQTT_TRANSPORT:-emqx}
+    AWS_REGION: ${AWS_REGION:-}
+    AWS_IOT_ENDPOINT: ${AWS_IOT_ENDPOINT:-}
+    AWS_IOT_POLICY_NAME: ${AWS_IOT_POLICY_NAME:-perspice-device}
+    AWS_IOT_CERT_PATH: /etc/perspice/aws/ingest.cert.pem
+    AWS_IOT_KEY_PATH: /etc/perspice/aws/ingest.private.key
+    AWS_IOT_CA_PATH: /etc/perspice/aws/AmazonRootCA1.pem
+    # Empty on EC2/ECS, where the instance role provides credentials.
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    BACKUP_INCLUDE_MASTER_KEY: ${BACKUP_INCLUDE_MASTER_KEY:-false}
     LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Map tile servers browsers may load (CSP img-src); Caddy uses the same list.
+    MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
     VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -54,7 +76,9 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    # Durability comes from the append-only file (fsync every second). RDB snapshots on top of it
+    # forked Redis every minute under device load; AOF rewrites wait for 256 MB of growth.
+    command: ['redis-server', '--appendonly', 'yes', '--save', '', '--auto-aof-rewrite-min-size', '256mb']
     volumes:
       - redis_data:/data
     healthcheck:
@@ -183,6 +207,7 @@ services:
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (address for certificate expiry notices)}
+      MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
     ports:
       - '80:80'
       - '443:443'
@@ -192,6 +217,35 @@ services:
       - caddy_config:/config
     depends_on:
       api: { condition: service_healthy }
+    logging: *logging
+
+  # Optional monitoring (`docker compose --profile monitoring up -d`): Prometheus scrapes every
+  # process's /metrics on the internal network; Grafana (localhost:3001) has a Perspice dashboard.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ['monitoring']
+    restart: unless-stopped
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.retention.time=30d']
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ['monitoring']
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    ports:
+      - '127.0.0.1:3001:3000'
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
     logging: *logging
 
   # Local SMTP catcher for testing email (`docker compose --profile mail-test up`).
@@ -210,3 +264,5 @@ volumes:
   caddy_data:
   caddy_config:
   mqtt_certs:
+  prometheus_data:
+  grafana_data:

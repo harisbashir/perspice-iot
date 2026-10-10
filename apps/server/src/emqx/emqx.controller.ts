@@ -4,7 +4,7 @@ import { Public } from '../auth/decorators';
 import { InternalSecretGuard, safeEqual } from '../common/internal-secret.guard';
 import { CONFIG, type Config } from '../config/config';
 import { CredentialsService } from '../devices/credentials.service';
-import { deviceMayAccess, ingestMayAccess } from './acl';
+import { deviceAclRules, deviceMayAccess, ingestMayAccess } from './acl';
 
 const AuthBody = z.object({
   clientid: z.string().default(''),
@@ -41,9 +41,11 @@ export class EmqxController {
       return expected && safeEqual(password, expected) ? allow : deny;
     }
     if (!username || username !== clientid) return deny;
-    return (await this.credentials.verifyToken(clientid, password)) ? allow : deny;
+    if (!(await this.credentials.verifyToken(clientid, password))) return deny;
+    return { ...allow, acl: deviceAclRules(clientid) };
   }
 
+  /** Still used by the ingest connection, and by devices on brokers that ignore `acl` above. */
   @Post('acl')
   @HttpCode(200)
   acl(@Body() raw: unknown) {

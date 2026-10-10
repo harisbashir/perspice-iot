@@ -9,6 +9,8 @@ import { NotificationSettings } from './NotificationSettings';
 import { ProfileSettings } from './ProfileSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WebhookSettings } from './WebhookSettings';
+import { MapSettings } from './MapSettings';
+import { TariffSettings } from './TariffSettings';
 
 export function SettingsPage() {
   const { hasPerm } = useAuth();
@@ -17,9 +19,11 @@ export function SettingsPage() {
     { to: 'notifications', label: 'Notifications', show: true },
     { to: 'branding', label: 'Branding', show: hasPerm('branding.edit') },
     { to: 'webhooks', label: 'Webhooks', show: hasPerm('webhook.manage') },
+    { to: 'tariff', label: 'Energy tariff', show: hasPerm('tariff.manage') },
     { to: 'deliveries', label: 'Delivery log', show: hasPerm('audit.read') },
     { to: 'email', label: 'Email', show: hasPerm('system.settings') },
     { to: 'security', label: 'Security', show: hasPerm('system.settings') },
+    { to: 'maps', label: 'Maps', show: hasPerm('system.settings') },
   ].filter((t) => t.show);
   return (
     <div>
@@ -46,9 +50,11 @@ export function SettingsPage() {
         <Route path="notifications" element={<NotificationSettings />} />
         {hasPerm('branding.edit') && <Route path="branding" element={<BrandingSettings />} />}
         {hasPerm('webhook.manage') && <Route path="webhooks" element={<WebhookSettings />} />}
+        {hasPerm('tariff.manage') && <Route path="tariff" element={<TariffSettings />} />}
         {hasPerm('audit.read') && <Route path="deliveries" element={<DeliveryLogSettings />} />}
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}
         {hasPerm('system.settings') && <Route path="security" element={<SecuritySettings />} />}
+        {hasPerm('system.settings') && <Route path="maps" element={<MapSettings />} />}
         <Route path="*" element={<Navigate to="profile" replace />} />
       </Routes>
     </div>

@@ -36,7 +36,7 @@ export const barChart: WidgetDefinition<Settings> = {
   icon: BarChart3,
   category: 'chart',
   settingsSchema: schema,
-  data: { mode: 'latest', sources: ['currentDevice', 'device', 'devicesOfProfile'], keys: { min: 1, max: 20 } },
+  data: { mode: 'latest', sources: ['currentDevice', 'device', 'devicesOfProfile', 'currentAsset'], keys: { min: 1, max: 20 } },
   defaultSize: { w: 6, h: 6 },
   Component: ({ settings, result, profile, config }) => {
     const data = dataOf(result);

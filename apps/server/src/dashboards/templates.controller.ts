@@ -10,8 +10,9 @@ import { TemplatesService, toTemplateDto } from './templates.service';
 const Name = z.string().trim().min(1).max(200);
 const CreateBody = z.object({
   name: Name,
-  kind: z.enum(['device', 'overview']),
+  kind: z.enum(['device', 'overview', 'asset']),
   profileId: z.string().uuid().nullish(),
+  assetTypeId: z.string().uuid().nullish(),
   definition: DashboardDefinitionSchema,
 });
 const UpdateBody = z.object({ name: Name.optional(), definition: DashboardDefinitionSchema.optional() });
@@ -20,8 +21,8 @@ const CloneBody = z.object({
   profileId: z.string().uuid().nullish(),
   keyMapping: z.record(z.string().max(64)).optional(),
 });
-const ImportBody = z.object({ envelope: z.unknown(), profileId: z.string().uuid().nullish() });
-const ListQuery = z.object({ kind: z.enum(['device', 'overview']).optional(), profileId: z.string().uuid().optional() });
+const ImportBody = z.object({ envelope: z.unknown(), profileId: z.string().uuid().nullish(), assetTypeId: z.string().uuid().nullish() });
+const ListQuery = z.object({ kind: z.enum(['device', 'overview', 'asset']).optional(), profileId: z.string().uuid().optional(), assetTypeId: z.string().uuid().optional() });
 
 @Controller()
 export class TemplatesController {
@@ -44,7 +45,7 @@ export class TemplatesController {
   @Audited('dashboard_template.import', 'dashboard_template')
   import(@CurrentUser() actor: AuthUser, @Body() raw: unknown) {
     const body = ImportBody.parse(raw);
-    return this.templates.import(actor, body.envelope, body.profileId ?? null);
+    return this.templates.import(actor, body.envelope, body.profileId ?? null, body.assetTypeId ?? null);
   }
 
   @Get('dashboard-templates/:id')

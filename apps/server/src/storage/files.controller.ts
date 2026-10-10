@@ -32,8 +32,8 @@ export class FilesController {
     res.setHeader('content-length', String(obj.size));
     res.setHeader('cache-control', 'private, max-age=300');
     res.setHeader('x-content-type-options', 'nosniff');
-    // Exports are downloads, named after the last key segment.
-    if (key.startsWith('exports/')) res.setHeader('content-disposition', `attachment; filename="${key.split('/').pop()}"`);
+    // Exports and backups are downloads, named after the last key segment.
+    if (key.startsWith('exports/') || key.startsWith('backups/')) res.setHeader('content-disposition', `attachment; filename="${key.split('/').pop()}"`);
     await pipeline(obj.body, res);
   }
 }

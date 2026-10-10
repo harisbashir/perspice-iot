@@ -14,6 +14,7 @@ const ListQuery = z.object({
   status: csv(z.enum(ALARM_STATUSES)),
   severity: csv(z.enum(ALARM_SEVERITIES)),
   deviceId: z.string().uuid().optional(),
+  assetId: z.string().uuid().optional(),
   profileId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
   from: z.coerce.number().int().optional(),

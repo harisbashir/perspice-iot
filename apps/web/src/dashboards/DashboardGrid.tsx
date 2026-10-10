@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { WidgetFrame } from './WidgetFrame';
 import { useDashboardData } from './useDashboardData';
+import { loadGeofences, loadMapTiles, loadRoute, loadTrips } from './map-services';
 
 registerBuiltInWidgets();
 
@@ -30,15 +31,17 @@ export interface DashboardGridProps {
   profile?: DeviceProfileDto | null;
   edit?: EditMode;
   widgetActions?: (w: WidgetConfig) => ReactNode;
+  /** Asset dashboards: the asset `currentAsset` sources read. */
+  assetId?: string;
 }
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Request failed');
 
 /** Renders one dashboard state with live data; in edit mode widgets can be moved, resized and selected. */
-export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, edit, widgetActions }: DashboardGridProps) {
+export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, assetId, edit, widgetActions }: DashboardGridProps) {
   const { user, hasPerm } = useAuth();
   const navigate = useNavigate();
-  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS);
+  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS, assetId);
 
   const actionsFor = useMemo(
     () =>
@@ -73,6 +76,10 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
             }
           },
           setQuery: (patch) => setQuery(w.id, patch),
+          mapTiles: loadMapTiles,
+          geofences: loadGeofences,
+          route: loadRoute,
+          trips: loadTrips,
         };
       },
     [device?.id, navigate, setQuery],

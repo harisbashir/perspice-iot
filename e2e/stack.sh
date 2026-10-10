@@ -32,6 +32,7 @@ EMQX_API_KEY=perspice
 EMQX_API_SECRET=$(secret 24)
 EMQX_DASHBOARD_PASSWORD=$(secret 24)
 MQTT_PLAIN_ENABLED=true
+BACKUP_PASSPHRASE=$(secret 32)
 ENV
   "${COMPOSE[@]}" up -d --quiet-pull >/dev/null 2>&1
   for _ in $(seq 1 90); do

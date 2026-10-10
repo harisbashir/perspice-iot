@@ -9,6 +9,8 @@ export interface DashboardViewProps {
   /** Set for device dashboards; resolves `currentDevice` sources and receives commands. */
   device?: DeviceDto | null;
   profile?: DeviceProfileDto | null;
+  /** Set for asset dashboards; resolves `currentAsset` sources. */
+  assetId?: string;
   /** Extra controls in the toolbar (customise, report…); a function gets the current view and time window. */
   toolbar?: ReactNode | ((ctx: { timewindow: Timewindow; stateId: string }) => ReactNode);
   /** Controls per widget frame; defaults to the export menu. */
@@ -38,6 +40,7 @@ export function DashboardView({
   definition,
   device = null,
   profile = null,
+  assetId,
   toolbar,
   widgetActions = (w, tw) => widgetExportAction(w, tw, device),
 }: DashboardViewProps) {
@@ -61,6 +64,7 @@ export function DashboardView({
         refreshS={definition.settings.refreshS}
         device={device}
         profile={profile}
+        assetId={assetId}
         widgetActions={(w) => widgetActions(w, timewindow)}
       />
     </div>

@@ -1,7 +1,8 @@
+import { profileKeys } from '@perspice/shared';
 import type { DeviceProfileDto, TelemetryKeyDef } from '@perspice/shared';
 
 export const keyDef = (profile: DeviceProfileDto | null, key: string): TelemetryKeyDef | undefined =>
-  profile?.telemetrySchema.find((k) => k.key === key);
+  profileKeys(profile).find((k) => k.key === key);
 
 /** "Fuel level (%)" from the profile, else the raw key. */
 export function keyLabel(profile: DeviceProfileDto | null, key: string): string {

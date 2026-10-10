@@ -15,8 +15,12 @@ RUN pnpm --filter @perspice/shared build \
  && pnpm --filter @perspice/server deploy --prod /out
 
 FROM node:24-bookworm-slim
+# pg_dump/pg_restore for backups and restores. They must be at least the server's major version
+# (16); Debian bookworm ships 15, so they come from the PostgreSQL project's repository.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tini ca-certificates \
+ && apt-get install -y --no-install-recommends tini ca-certificates postgresql-common \
+ && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+ && apt-get install -y --no-install-recommends postgresql-client-16 \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/lib/perspice/storage \
  && chown node:node /var/lib/perspice/storage

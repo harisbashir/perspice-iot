@@ -1,15 +1,24 @@
+import { IoTDataPlaneClient, PublishCommand } from '@aws-sdk/client-iot-data-plane';
 import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import { type CommandMessage, deviceTopic } from '@perspice/shared';
+import { type CommandMessage, type OtaMessage, deviceTopic } from '@perspice/shared';
 import { hostname } from 'node:os';
 import { CONFIG, type Config } from '../config/config';
 import { ManagedMqtt } from '../ingest/managed-mqtt';
 
-/** Publishes commands and config to devices, using the ingest credentials (ACL allows downstream topics). */
+/**
+ * Publishes commands and config to devices: on EMQX with the ingest credentials (the ACL allows
+ * downstream topics), on AWS IoT Core through the data-plane API.
+ */
 @Injectable()
 export class CommandsPublisher implements OnModuleInit, OnApplicationShutdown {
-  private readonly mqtt: ManagedMqtt;
+  private readonly mqtt?: ManagedMqtt;
+  private readonly dataPlane?: IoTDataPlaneClient;
 
   constructor(@Inject(CONFIG) config: Config) {
+    if (config.MQTT_TRANSPORT === 'aws-iot') {
+      this.dataPlane = new IoTDataPlaneClient({ region: config.AWS_REGION, endpoint: `https://${config.AWS_IOT_ENDPOINT}` });
+      return;
+    }
     this.mqtt = new ManagedMqtt(
       config.MQTT_URL,
       {
@@ -24,15 +33,21 @@ export class CommandsPublisher implements OnModuleInit, OnApplicationShutdown {
   }
 
   onModuleInit(): void {
-    this.mqtt.start();
+    this.mqtt?.start();
   }
 
   async onApplicationShutdown(): Promise<void> {
-    await this.mqtt.stop();
+    await this.mqtt?.stop();
+    this.dataPlane?.destroy();
   }
 
   async publishCommand(deviceId: string, msg: CommandMessage): Promise<void> {
     await this.publish(deviceTopic(deviceId, 'cmd'), JSON.stringify(msg), false);
+  }
+
+  /** A firmware update (not retained: a device that misses it gets it again on reconnect). */
+  async publishOta(deviceId: string, msg: OtaMessage): Promise<void> {
+    await this.publish(deviceTopic(deviceId, 'ota'), JSON.stringify(msg), false);
   }
 
   /** Shared attributes, retained so a device gets them as soon as it subscribes. */
@@ -41,7 +56,11 @@ export class CommandsPublisher implements OnModuleInit, OnApplicationShutdown {
   }
 
   private async publish(topic: string, payload: string, retain: boolean): Promise<void> {
-    const client = this.mqtt.client;
+    if (this.dataPlane) {
+      await this.dataPlane.send(new PublishCommand({ topic, qos: 1, retain, payload: Buffer.from(payload) }));
+      return;
+    }
+    const client = this.mqtt!.client;
     if (!client?.connected) throw new Error('MQTT publisher not connected');
     await client.publishAsync(topic, payload, { qos: 1, retain });
   }

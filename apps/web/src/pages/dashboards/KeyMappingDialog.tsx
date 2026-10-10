@@ -1,4 +1,4 @@
-import { type DashboardDefinition, type DeviceProfileDto, templateKeys } from '@perspice/shared';
+import { type DashboardDefinition, type DeviceProfileDto, templateKeys, profileKeys } from '@perspice/shared';
 import { type FormEvent, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,7 +9,7 @@ const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparen
 
 /** Keys the template uses that the target profile doesn't declare. */
 export function unmatchedKeys(def: DashboardDefinition, target: DeviceProfileDto | null): string[] {
-  const known = new Set(target?.telemetrySchema.map((k) => k.key) ?? []);
+  const known = new Set(profileKeys(target).map((k) => k.key));
   return templateKeys(def).filter((k) => !known.has(k));
 }
 
@@ -23,7 +23,7 @@ export function CloneDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  source: { name: string; definition: DashboardDefinition; profileId: string | null; kind: 'device' | 'overview' };
+  source: { name: string; definition: DashboardDefinition; profileId: string | null; kind: 'device' | 'overview' | 'asset' };
   profiles: DeviceProfileDto[];
   onClone: (body: { name: string; profileId: string | null; keyMapping: Record<string, string> }) => Promise<void>;
 }) {
@@ -69,7 +69,7 @@ export function CloneDialog({
                   {(id) => (
                     <select id={id} className={selectClass} value={mapping[k] ?? ''} onChange={(e) => setMapping((m) => ({ ...m, [k]: e.target.value }))}>
                       <option value="">Keep “{k}”</option>
-                      {target?.telemetrySchema.map((t) => (
+                      {profileKeys(target).map((t) => (
                         <option key={t.key} value={t.key}>
                           {t.label} ({t.key})
                         </option>

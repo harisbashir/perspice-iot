@@ -1,3 +1,4 @@
+import { CalculatedService } from './calculated';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AttributesPayload, CommandAck, KEY_PATTERN, parseTopic } from '@perspice/shared';
 import { eq, sql } from 'drizzle-orm';
@@ -20,11 +21,17 @@ import {
   SESSION_EVENTS,
   type SessionEvents,
 } from './ports';
+import { OtaService } from '../firmware/ota.service';
+import { LocationService } from '../location/location.service';
+import { sessionKey } from '../presence/presence.service';
 import { TelemetryStore } from './telemetry-store';
 
-const DEVMETA_TTL_S = 60;
+// Device updates and deletes invalidate it (devices.service), so a long TTL stays correct.
+const DEVMETA_TTL_S = 600;
 const MAX_ATTRIBUTES_BYTES = 16 * 1024;
 const SYS_CLIENT_EVENT = /^\$SYS\/brokers\/[^/]+\/clients\/([^/]+)\/(connected|disconnected)$/;
+/** AWS IoT Core lifecycle events (the client id is the thing name, i.e. the device id). */
+const AWS_PRESENCE_EVENT = /^\$aws\/events\/presence\/(connected|disconnected)\/([^/]+)$/;
 
 export interface DeviceMeta {
   customerId: string | null;
@@ -49,12 +56,16 @@ export class MessageRouter {
     @Inject(PRESENCE_TOUCH) private readonly presence: PresenceTouch,
     @Inject(SESSION_EVENTS) private readonly sessions: SessionEvents,
     @Inject(ACK_HANDLER) private readonly acks: AckHandler,
+    private readonly location: LocationService,
+    private readonly ota: OtaService,
+    private readonly calculated: CalculatedService,
   ) {}
 
   /** Never throws: a bad message is logged against its device and the worker keeps running. */
   async handle(topic: string, payload: Buffer): Promise<void> {
     try {
       if (topic.startsWith('$SYS/')) return await this.handleClientEvent(topic, payload);
+      if (topic.startsWith('$aws/')) return await this.handleAwsPresence(topic, payload);
       const parsed = parseTopic(topic);
       if (!parsed) return;
       const meta = await this.deviceMeta(parsed.deviceId);
@@ -69,8 +80,11 @@ export class MessageRouter {
         case 'cmd/ack':
           await this.handleAck(parsed.deviceId, payload);
           return;
-        case 'status':
         case 'ota/progress':
+          await this.ota.progress(parsed.deviceId, safeJson(payload));
+          await this.debug.push(parsed.deviceId, { ts: Date.now(), kind: 'attributes', summary: `ota/progress: ${payload.toString('utf8').slice(0, 200)}` });
+          return;
+        case 'status':
           await this.debug.push(parsed.deviceId, {
             ts: Date.now(),
             kind: 'attributes',
@@ -98,8 +112,12 @@ export class MessageRouter {
       return result;
     }
     this.metrics.inc('ingest_messages_total', 1, { result: 'accepted' });
+    const calc = await this.calculated.apply(deviceId, meta.profileId, result.rows);
+    result.rows = calc.rows;
+    for (const issue of calc.issues) await this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: issue });
     this.store.writer.enqueue(result.rows.map((r) => ({ ...r, deviceId })));
     const changed = await this.latest.update(deviceId, result.rows);
+    const located = await this.location.report(deviceId, meta.profileId, result.rows);
     await this.presence.touch(deviceId, now);
 
     const keys = [...new Set(result.rows.map((r) => r.key))];
@@ -118,6 +136,21 @@ export class MessageRouter {
         summary: `${result.rows.length} value(s): ${keys.slice(0, 10).join(', ')}`,
         raw: payload.subarray(0, 2048).toString('utf8'),
       }),
+      located.fix ? this.redis.publish(`ws:location:${deviceId}`, JSON.stringify({ deviceId, location: located.fix })) : undefined,
+      located.fix || located.ignition
+        ? this.events.publish({
+            type: 'device.location',
+            deviceId,
+            customerId: meta.customerId,
+            profileId: meta.profileId,
+            ts: Math.max(located.fix?.ts ?? 0, located.ignition?.ts ?? 0),
+            ...(located.fix ? { fix: located.fix } : {}),
+            ...(located.ignition ? { ignition: located.ignition.value } : {}),
+          })
+        : undefined,
+      located.rejected
+        ? this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: located.rejected, raw: payload.subarray(0, 2048).toString('utf8') })
+        : undefined,
       result.adjusted
         ? this.debug.push(deviceId, {
             ts: now,
@@ -158,6 +191,7 @@ export class MessageRouter {
         ...(fw ? { firmwareVersion: fw } : {}),
       })
       .where(eq(device.id, deviceId));
+    if (fw) await this.ota.firmwareReported(deviceId, fw);
     await this.presence.touch(deviceId, Date.now());
     await this.debug.push(deviceId, {
       ts: Date.now(),
@@ -201,7 +235,30 @@ export class MessageRouter {
     }
   }
 
-  /** Device → `{customerId, profileId}`, cached 60 s; null for unknown/deleted devices. */
+  private async handleAwsPresence(topic: string, payload: Buffer): Promise<void> {
+    const match = AWS_PRESENCE_EVENT.exec(topic);
+    if (!match) return;
+    const [, kind, clientId] = match as unknown as [string, 'connected' | 'disconnected', string];
+    if (!isUuid(clientId) || !(await this.deviceMeta(clientId))) return;
+    const event = JSON.parse(payload.toString('utf8')) as { timestamp?: number; sessionIdentifier?: string; disconnectReason?: string; ipAddress?: string };
+    // AWS sends one event per connection; its timestamp orders connect/disconnect like EMQX's connected_at.
+    const at = Number(event.timestamp ?? Date.now());
+    if (kind === 'connected') {
+      await this.sessions.onConnected(clientId, at);
+      await this.debug.push(clientId, { ts: Date.now(), kind: 'connect', summary: `AWS IoT connected from ${event.ipAddress ?? '?'}` });
+    } else {
+      // The disconnect carries its own time, which is later than the connect it ends.
+      const connectedAt = Number((await this.sessionStart(clientId)) ?? at);
+      await this.sessions.onDisconnected(clientId, connectedAt, event.disconnectReason ?? 'unknown');
+      await this.debug.push(clientId, { ts: Date.now(), kind: 'disconnect', summary: `AWS IoT disconnected: ${event.disconnectReason ?? 'unknown'}` });
+    }
+  }
+
+  private sessionStart(deviceId: string): Promise<string | null> {
+    return this.redis.get(sessionKey(deviceId));
+  }
+
+  /** Device → `{customerId, profileId}`, cached 10 min; null for unknown/deleted devices. */
   async deviceMeta(deviceId: string): Promise<DeviceMeta | null> {
     if (!isUuid(deviceId)) return null;
     const cached = await this.redis.get(devMetaKey(deviceId));
@@ -212,5 +269,13 @@ export class MessageRouter {
     });
     await this.redis.set(devMetaKey(deviceId), row ? JSON.stringify(row) : 'none', 'EX', DEVMETA_TTL_S);
     return row ?? null;
+  }
+}
+
+function safeJson(payload: Buffer): unknown {
+  try {
+    return JSON.parse(payload.toString('utf8'));
+  } catch {
+    return null;
   }
 }

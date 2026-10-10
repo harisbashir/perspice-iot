@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Test shim: runs pg_dump from the TimescaleDB image (the host may not have PostgreSQL 16 tools).
+exec docker run --rm -i --network host timescale/timescaledb:2.17.2-pg16 pg_dump "$@"

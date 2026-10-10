@@ -1,5 +1,6 @@
+import { CONFIG, type Config } from '../config/config';
 import { Inject, Injectable } from '@nestjs/common';
-import type { DeviceProfileDto } from '@perspice/shared';
+import { type CalculatedKey, type DeviceProfileDto, LocationKeysSchema, type TelemetryKeyDef, TripSettingsSchema, checkCalculated } from '@perspice/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
@@ -13,6 +14,12 @@ import { timeoutIssue } from './profile.schema';
 
 type ProfileRow = typeof deviceProfile.$inferSelect;
 
+/** Calculated keys must fit the profile's telemetry keys (spec §11). */
+function checkCalculatedKeys(defs: CalculatedKey[], telemetrySchema: TelemetryKeyDef[]): void {
+  const issues = checkCalculated(defs, telemetrySchema);
+  if (issues.length) throw validation(issues.map((i) => ({ path: ['calculated', i.index, i.field], message: i.message })));
+}
+
 export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   id: p.id,
   name: p.name,
@@ -25,6 +32,10 @@ export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   transport: p.transport,
   retentionDays: p.retentionDays,
   statusNotify: p.statusNotify,
+  locationMode: p.locationMode,
+  locationKeys: LocationKeysSchema.parse(p.locationKeys),
+  trips: TripSettingsSchema.parse(p.tripSettings),
+  calculated: p.calculated,
   defaultDashboardTemplateId: p.defaultDashboardTemplateId,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
@@ -36,7 +47,20 @@ export class ProfilesService {
   constructor(
     @Inject(DB) private readonly db: DB,
     private readonly scopes: ScopeService,
+    @Inject(CONFIG) private readonly config: Config,
   ) {}
+
+  /** aws-iot profiles need the platform on AWS IoT Core; certificates can't follow a transport switch. */
+  private async checkTransport(transport: string | undefined, existing?: ProfileRow): Promise<void> {
+    if (!transport || transport === existing?.transport) return;
+    if (transport === 'aws-iot' && this.config.MQTT_TRANSPORT !== 'aws-iot') {
+      throw validation([{ path: ['transport'], message: 'AWS IoT Core is not configured on this server (MQTT_TRANSPORT=aws-iot)' }]);
+    }
+    if (existing && (transport === 'aws-iot' || existing.transport === 'aws-iot')) {
+      const used = await this.db.query.device.findFirst({ where: eq(device.profileId, existing.id), columns: { id: true } });
+      if (used) throw conflict('Devices of this profile have credentials for their current transport; create a new profile instead');
+    }
+  }
 
   async list(actor: AuthUser): Promise<DeviceProfileDto[]> {
     const scope = await this.scopes.forUser(actor);
@@ -65,7 +89,10 @@ export class ProfilesService {
     const offline = input.offlineTimeoutS ?? 300;
     const dead = input.deadTimeoutS ?? 86400;
     if (dead <= offline) throw validation([timeoutIssue]);
-    const [row] = await this.db.insert(deviceProfile).values(input).returning();
+    await this.checkTransport(input.transport);
+    checkCalculatedKeys(input.calculated ?? [], input.telemetrySchema ?? []);
+    const { trips, ...fields } = input;
+    const [row] = await this.db.insert(deviceProfile).values({ ...fields, ...(trips ? { tripSettings: trips } : {}) }).returning();
     return toProfileDto(row!);
   }
 
@@ -74,7 +101,14 @@ export class ProfilesService {
     if ((patch.deadTimeoutS ?? existing.deadTimeoutS) <= (patch.offlineTimeoutS ?? existing.offlineTimeoutS)) {
       throw validation([timeoutIssue]);
     }
-    const [row] = await this.db.update(deviceProfile).set(patch).where(eq(deviceProfile.id, id)).returning();
+    await this.checkTransport(patch.transport, existing);
+    checkCalculatedKeys(patch.calculated ?? existing.calculated, patch.telemetrySchema ?? existing.telemetrySchema);
+    const { trips, ...fields } = patch;
+    const [row] = await this.db
+      .update(deviceProfile)
+      .set({ ...fields, ...(trips ? { tripSettings: trips } : {}) })
+      .where(eq(deviceProfile.id, id))
+      .returning();
     return toProfileDto(row!);
   }
 

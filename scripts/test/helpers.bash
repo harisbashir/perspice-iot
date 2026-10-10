@@ -31,6 +31,7 @@ case "$*" in
   *"ps -q"*) echo "cid-1" ;;
   *inspect*) echo "healthy" ;;
   *pg_dump*) echo "PGDMP fake dump" ;;
+  *"backup --out -"*) echo "PSPBK1 fake backup" ;;
   "compose version"*) echo "Docker Compose version v2" ;;
 esac
 exit 0

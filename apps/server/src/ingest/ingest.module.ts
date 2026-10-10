@@ -1,4 +1,5 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
+import { CalculatedService } from './calculated';
 import { DeviceTokenGuard } from './device-token.guard';
 import { HttpDeviceController } from './http-device.controller';
 import { IngestMetrics } from './ingest.metrics';
@@ -22,6 +23,7 @@ export class IngestModule {
         DeviceTokenGuard,
         IngestMetrics,
         LatestCache,
+        CalculatedService,
         TelemetryStore,
         MessageRouter,
         { provide: PRESENCE_TOUCH, useExisting: PresenceService },

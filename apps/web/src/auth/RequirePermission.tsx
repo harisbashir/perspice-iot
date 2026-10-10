@@ -5,10 +5,11 @@ import { useAuth } from './AuthProvider';
 
 /** Redirects to /login when signed out; renders a 403 message without the permission. */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, signedOut } = useAuth();
   const location = useLocation();
   if (loading) return <div className="p-8 text-sm text-slate-500">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  // After an expired session, signing in returns to this page; after signing out, to the overview.
+  if (!user) return <Navigate to="/login" replace state={signedOut ? null : { from: location.pathname }} />;
   return <>{children}</>;
 }
 

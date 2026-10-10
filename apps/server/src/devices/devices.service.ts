@@ -1,20 +1,23 @@
+import { inAssetSubtree } from '../assets/subtree';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { DeviceDto, LatestValue } from '@perspice/shared';
+import { type AwsIotBundle, type DeviceDto, type DeviceLocationDto, ErrorCode, type LatestValue } from '@perspice/shared';
 import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { AuthUser } from '../auth/auth.types';
-import { forbidden, notFound, validation } from '../common/app-error';
+import { AppError, forbidden, notFound, validation } from '../common/app-error';
 import { REDIS } from '../common/redis.module';
 import { CustomersService } from '../customers/customers.service';
 import { DB } from '../db/db.module';
 import { findOneOr404, scoped } from '../db/scoped-repo';
-import { device, deviceProfile, telemetry } from '../db/schema';
+import { assetDevice, device, deviceProfile, telemetry } from '../db/schema';
 import { ensureDeviceDashboard } from '../dashboards/assignment';
 import { EventBus } from '../events/event-bus';
 import { ScopeService } from '../rbac/scope';
 import { CredentialsService } from './credentials.service';
 import { DebugLogService } from './debug-log.service';
 import { ProfilesService } from './profiles.service';
+import { AwsIotProvisioning } from '../aws/iot-provisioning';
+import { locationKey } from '../location/location.service';
 
 type DeviceRow = typeof device.$inferSelect;
 type ProfileRow = typeof deviceProfile.$inferSelect;
@@ -53,6 +56,7 @@ export interface UpdateDeviceInput extends Partial<CreateDeviceInput> {
 }
 
 export interface ListDevicesQuery {
+  assetId?: string;
   search?: string;
   profileId?: string;
   status?: DeviceDto['status'];
@@ -87,6 +91,7 @@ export class DevicesService {
     private readonly credentials: CredentialsService,
     private readonly debug: DebugLogService,
     private readonly events: EventBus,
+    private readonly aws: AwsIotProvisioning,
   ) {}
 
   async list(actor: AuthUser, q: ListDevicesQuery): Promise<{ items: DeviceDto[]; nextCursor: string | null }> {
@@ -97,6 +102,7 @@ export class DevicesService {
       q.status ? eq(device.status, q.status) : undefined,
       q.customerId ? eq(device.customerId, q.customerId) : undefined,
       q.tag ? arrayContains(device.tags, [q.tag]) : undefined,
+      q.assetId ? inAssetSubtree(device.id, q.assetId) : undefined,
     ];
     if (q.cursor) {
       const [name, id] = decodeCursor(q.cursor);
@@ -140,7 +146,7 @@ export class DevicesService {
     return dto!;
   }
 
-  async create(actor: AuthUser, input: CreateDeviceInput): Promise<{ device: DeviceDto; token: string }> {
+  async create(actor: AuthUser, input: CreateDeviceInput): Promise<{ device: DeviceDto; token: string; awsIot?: AwsIotBundle }> {
     const scope = await this.scopes.forUser(actor);
     const profile = await this.profiles.get(actor, input.profileId);
     let customerId = input.customerId ?? null;
@@ -168,8 +174,20 @@ export class DevicesService {
       })
       .returning();
     await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
+    let awsIot: AwsIotBundle | undefined;
+    if (profile.transport === 'aws-iot') {
+      // The thing and certificate are created now; the key is only in this response (Review Focus 4).
+      try {
+        const { certificateArn, bundle } = await this.aws.provision(row!.id);
+        await this.db.update(device).set({ awsCertificateArn: certificateArn }).where(eq(device.id, row!.id));
+        awsIot = bundle;
+      } catch (err) {
+        await this.db.delete(device).where(eq(device.id, row!.id));
+        throw new AppError(ErrorCode.INTERNAL, `AWS IoT Core refused the device: ${(err as Error).message}`, 502);
+      }
+    }
     const [dto] = await this.toDtos([row!]);
-    return { device: dto!, token };
+    return { device: dto!, token, ...(awsIot ? { awsIot } : {}) };
   }
 
   async update(actor: AuthUser, id: string, patch: UpdateDeviceInput): Promise<DeviceDto> {
@@ -198,6 +216,8 @@ export class DevicesService {
       if (patch.customerId) await this.customers.get(patch.customerId);
       set.customerId = patch.customerId;
       set.groupId = null;
+      // An asset belongs to one customer: a device that changes customer leaves its asset.
+      await this.db.delete(assetDevice).where(eq(assetDevice.deviceId, id));
     }
     if (patch.groupId !== undefined) set.groupId = await this.resolveGroup(customerId ?? null, patch.groupId);
 
@@ -212,6 +232,19 @@ export class DevicesService {
     return dto!;
   }
 
+  /** Gives an unassigned device to a customer (claiming; the caller has checked the code). */
+  async assignClaimed(id: string, customerId: string, groupId: string | null, name?: string): Promise<DeviceDto> {
+    const set: Partial<typeof device.$inferInsert> = { customerId, groupId: await this.resolveGroup(customerId, groupId) };
+    if (name) set.name = name;
+    const [row] = await this.db.update(device).set(set).where(eq(device.id, id)).returning();
+    if (!row) throw notFound();
+    await ensureDeviceDashboard(this.db, row.profileId, row.customerId);
+    await this.redis.del(devMetaKey(id), `timeouts:${id}`);
+    await this.credentials.invalidate(id);
+    const [dto] = await this.toDtos([row]);
+    return dto!;
+  }
+
   async remove(actor: AuthUser, id: string): Promise<void> {
     const existing = await this.find(actor, id);
     await this.db.delete(device).where(eq(device.id, id));
@@ -222,6 +255,7 @@ export class DevicesService {
       .zrem(PRESENCE_LAST_SEEN, id)
       .exec();
     await this.debug.clear(id);
+    if (existing.awsCertificateArn) await this.aws.deprovision(id, existing.awsCertificateArn);
     await this.emit('device.deleted', existing);
     // History can be large; remove it in the background rather than holding the request.
     void this.db
@@ -230,13 +264,19 @@ export class DevicesService {
       .catch((err: Error) => this.logger.warn(`Telemetry cleanup for ${id} failed: ${err.message}`));
   }
 
-  async regenerateCredentials(actor: AuthUser, id: string): Promise<{ token: string }> {
+  async regenerateCredentials(actor: AuthUser, id: string): Promise<{ token: string; awsIot?: AwsIotBundle }> {
     const existing = await this.find(actor, id);
     const { token, hash } = this.credentials.newToken();
+    let awsIot: AwsIotBundle | undefined;
+    if (existing.awsCertificateArn) {
+      const rotated = await this.aws.rotate(id, existing.awsCertificateArn);
+      await this.db.update(device).set({ awsCertificateArn: rotated.certificateArn }).where(eq(device.id, id));
+      awsIot = rotated.bundle;
+    }
     await this.db.update(device).set({ credentialsHash: hash }).where(eq(device.id, id));
     await this.credentials.invalidate(id, existing.credentialsHash);
     await this.emit('device.credentials_changed', existing);
-    return { token };
+    return { token, ...(awsIot ? { awsIot } : {}) };
   }
 
   async setAttributes(actor: AuthUser, id: string, kind: 'server' | 'shared', values: Record<string, unknown>) {
@@ -289,8 +329,10 @@ export class DevicesService {
     const pipe = this.redis.pipeline();
     for (const r of rows) pipe.hgetall(LATEST_KEY(r.id));
     pipe.zmscore(PRESENCE_LAST_SEEN, ...rows.map((r) => r.id));
+    pipe.mget(...rows.map((r) => locationKey(r.id)));
     const results = (await pipe.exec()) ?? [];
     const scores = (results[rows.length]?.[1] ?? []) as (string | null)[];
+    const locations = (results[rows.length + 1]?.[1] ?? []) as (string | null)[];
     return rows.map((r, i) => {
       const hash = (results[i]?.[1] ?? {}) as Record<string, string>;
       const latest: Record<string, LatestValue> = {};
@@ -310,6 +352,7 @@ export class DevicesService {
         deadTimeoutS: r.deadTimeoutS,
         attributes: r.attributes,
         latest,
+        location: locations[i] ? (JSON.parse(locations[i]!) as DeviceLocationDto) : r.location,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
       };

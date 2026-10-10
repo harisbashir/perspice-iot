@@ -7,8 +7,12 @@ export enum ErrorCode {
   FORBIDDEN = 'FORBIDDEN',
   NOT_FOUND = 'NOT_FOUND',
   CONFLICT = 'CONFLICT',
+  /** An upload over the size limit. */
+  TOO_LARGE = 'TOO_LARGE',
   RATE_LIMITED = 'RATE_LIMITED',
   TOKEN_INVALID = 'TOKEN_INVALID',
+  /** The platform is being restored from a backup. */
+  MAINTENANCE = 'MAINTENANCE',
   INTERNAL = 'INTERNAL',
 }
 

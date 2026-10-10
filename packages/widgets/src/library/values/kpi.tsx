@@ -25,7 +25,7 @@ export const kpiWidget: WidgetDefinition<Settings> = {
   icon: Gauge,
   category: 'value',
   settingsSchema: schema,
-  data: { mode: 'stats', sources: ['devicesOfProfile'] },
+  data: { mode: 'stats', sources: ['devicesOfProfile', 'currentAsset'] },
   defaultSize: { w: 2, h: 3 },
   Component: ({ settings, result }) => {
     const data = dataOf(result);

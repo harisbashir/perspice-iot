@@ -1,6 +1,7 @@
 #include "PerspiceClient.h"
 
 #if defined(ESP32)
+#include <esp_ota_ops.h>
 #include <esp_sleep.h>
 #include <sys/time.h>
 #include <time.h>
@@ -81,6 +82,20 @@ bool PerspiceClient::connect() {
   mqtt_.subscribe(t, 1);
   topic(t, sizeof(t), "config");
   mqtt_.subscribe(t, 1);
+#if defined(ESP32)
+  if (config_.otaEnabled) {
+    topic(t, sizeof(t), "ota");
+    mqtt_.subscribe(t, 1);
+  }
+  // Connected with this image: keep it (with rollback enabled, an image that never gets here is
+  // replaced by the previous one at the next restart).
+  esp_ota_mark_app_valid_cancel_rollback();
+#endif
+  if (config_.firmwareVersion) {
+    JsonDocument fw;
+    fw.set(config_.firmwareVersion);
+    setAttribute("fw", fw.as<JsonVariantConst>());
+  }
   return true;
 }
 
@@ -100,6 +115,9 @@ void PerspiceClient::loop() {
   }
   mqtt_.loop();
   flushBuffer();
+#if defined(ESP32)
+  if (otaPending_) runOta();
+#endif
 }
 
 bool PerspiceClient::isConnected() { return mqtt_.connected(); }
@@ -196,6 +214,12 @@ void PerspiceClient::handleMessage(char* topicName, uint8_t* payload, unsigned i
     if (configHandler_) configHandler_(doc.as<JsonVariantConst>());
     return;
   }
+#if defined(ESP32)
+  if (topicLen >= 4 && strcmp(topicName + topicLen - 4, "/ota") == 0) {
+    if (config_.otaEnabled) receiveOta(doc);
+    return;
+  }
+#endif
   if (topicLen < 4 || strcmp(topicName + topicLen - 4, "/cmd") != 0) return;
 
   const char* cid = doc["cid"] | "";

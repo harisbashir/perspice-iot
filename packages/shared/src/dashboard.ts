@@ -1,3 +1,5 @@
+import { ENERGY_RANGES } from './energy.js';
+import type { DeviceLocationDto } from './location.js';
 import { ALARM_SEVERITIES, ALARM_STATUSES } from './alarm-constants.js';
 import type { AlarmDto, AlarmSummary } from './alarms.js';
 import { z } from 'zod';
@@ -8,6 +10,8 @@ export const MAX_STATES = 20;
 export const MAX_WIDGETS_PER_STATE = 60;
 /** Most devices one dashboard may show at once (list sources, live subscriptions). */
 export const MAX_DASHBOARD_DEVICES = 500;
+/** Map widgets show at most this many devices. */
+export const MAX_MAP_DEVICES = 5000;
 
 const Key = z.string().regex(KEY_PATTERN);
 const Keys = z.array(Key).max(50);
@@ -38,6 +42,14 @@ export const DataSourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('currentDevice'), keys: Keys }),
   z.object({ kind: z.literal('device'), deviceId: z.string().uuid(), keys: Keys }),
   z.object({ kind: z.literal('devicesOfProfile'), profileId: z.string().uuid().nullable(), filter: DeviceFilter, keys: Keys }),
+  /** On an asset dashboard: the asset's devices (attached directly, or anywhere in its subtree). */
+  z.object({
+    kind: z.literal('currentAsset'),
+    depth: z.enum(['children', 'subtree']).default('subtree'),
+    profileId: z.string().uuid().nullable().default(null),
+    filter: DeviceFilter,
+    keys: Keys,
+  }),
   /** Alarms in the viewer's scope (on a device dashboard: optionally only that device's). */
   z.object({
     kind: z.literal('alarms'),
@@ -47,6 +59,8 @@ export const DataSourceSchema = z.discriminatedUnion('kind', [
         severity: z.array(z.enum(ALARM_SEVERITIES)).max(4).optional(),
         profileId: z.string().uuid().nullish(),
         currentDeviceOnly: z.boolean().optional(),
+        /** On an asset dashboard: only alarms of the asset's devices (subtree). */
+        currentAssetOnly: z.boolean().optional(),
       })
       .default({}),
     pageSize: z.number().int().min(1).max(100).default(10),
@@ -119,7 +133,7 @@ export const ENTITY_COLUMNS = ['status', 'name', 'profile', 'customer', 'lastSee
 
 // ── Widget data API (POST /api/dashboards/data) ───────────────────────────────────────────
 
-export const DATA_MODES = ['latest', 'history', 'list', 'stats'] as const;
+export const DATA_MODES = ['latest', 'history', 'list', 'stats', 'locations', 'energy'] as const;
 export type DataMode = (typeof DATA_MODES)[number];
 export const MAX_DATA_REQUESTS = 60;
 
@@ -129,6 +143,8 @@ export const DataRequestSchema = z.object({
   mode: z.enum(DATA_MODES),
   timewindow: TimewindowSchema.optional(),
   agg: z.enum(['auto', 'raw', 'avg', 'min', 'max']).default('auto'),
+  /** `energy` mode: the timewindow, or this local day/week/month/year so far. */
+  energyRange: z.enum(ENERGY_RANGES).default('window'),
   page: z.number().int().min(0).max(10_000).default(0),
   sort: z
     .object({ by: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/), dir: z.enum(['asc', 'desc']).default('asc') })
@@ -141,6 +157,8 @@ export type DataRequest = z.infer<typeof DataRequestSchema>;
 export const DataQuerySchema = z.object({
   /** The device a device dashboard was opened for (resolves `currentDevice`). */
   deviceId: z.string().uuid().optional(),
+  /** The asset an asset dashboard was opened for (resolves `currentAsset`). */
+  assetId: z.string().uuid().optional(),
   requests: z.array(DataRequestSchema).max(MAX_DATA_REQUESTS),
 });
 export type DataQuery = z.infer<typeof DataQuerySchema>;
@@ -190,6 +208,13 @@ export interface StatsData {
   dead: number;
   never: number;
   messages24h: number;
+}
+
+/** mode `locations`: the source's devices that have a location (at most 5,000), for maps. */
+export interface LocationsData {
+  devices: (DeviceSummary & { location: DeviceLocationDto; values: Record<string, LatestValueDto> })[];
+  /** More located devices matched than were returned. */
+  truncated: boolean;
 }
 
 /** mode `list` on `alarms`: the newest matching alarms. */

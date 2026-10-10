@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { safeEqual } from '../common/internal-secret.guard';
 import type { Readable } from 'node:stream';
@@ -17,6 +17,13 @@ export function assertValidKey(key: string): void {
 
 function sign(secret: string, key: string, exp: string): string {
   return createHmac('sha256', secret).update(`${key}\n${exp}`).digest('base64url');
+}
+
+/** An API link (`/api/files/…`) to `key`, valid for `ttlSeconds`, served by FilesController. */
+export function signedFileUrl(secret: string, key: string, ttlSeconds: number): string {
+  assertValidKey(key);
+  const exp = String(Math.floor(Date.now() / 1000) + ttlSeconds);
+  return `/api/files/${key}?exp=${exp}&sig=${sign(secret, key, exp)}`;
 }
 
 export function verifySignedUrl(secret: string, key: string, exp: string, sig: string, now = Date.now()): boolean {
@@ -86,9 +93,15 @@ export class LocalStorageDriver implements StorageDriver {
   }
 
   async getSignedUrl(key: string, ttlSeconds: number): Promise<string> {
-    assertValidKey(key);
-    const exp = String(Math.floor(Date.now() / 1000) + ttlSeconds);
-    return `/api/files/${key}?exp=${exp}&sig=${sign(this.signingSecret, key, exp)}`;
+    return signedFileUrl(this.signingSecret, key, ttlSeconds);
+  }
+
+  async move(from: string, to: string): Promise<void> {
+    const src = this.path(from);
+    const dst = this.path(to);
+    await mkdir(dirname(dst), { recursive: true });
+    await rename(src, dst);
+    await rename(`${src}.meta`, `${dst}.meta`).catch(() => undefined);
   }
 
   async list(prefix: string): Promise<string[]> {

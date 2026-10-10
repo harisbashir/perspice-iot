@@ -77,15 +77,19 @@ describe('digests', () => {
   it('holds email during quiet hours in the user’s timezone and releases a digest when they end', async () => {
     const { c, u, r } = await recipient('Asia/Karachi'); // UTC+5, no DST
     const prefs = t.app.get(PreferencesService);
-    const now = Date.UTC(2026, 9, 9, 18, 30); // 23:30 in Karachi
+    // Tomorrow's dates: held messages are stamped with the real clock, so the job's times must
+    // come after it (fixed dates turned into the past and broke this test).
+    const t0 = new Date(Date.now() + 86_400_000);
+    const day = (d: number, h: number, m: number) => Date.UTC(t0.getUTCFullYear(), t0.getUTCMonth(), t0.getUTCDate() + d, h, m);
+    const now = day(0, 18, 30); // 23:30 in Karachi
     await prefs.update(u.id, { preferences: { quietHours: { from: '23:00', to: '07:00' } } });
     const d = t.app.get(Dispatcher);
     for (let i = 0; i < 3; i++) await d.dispatch([r], msg(i, c.id), ['email'], now + i);
     expect(await count(u.id, 'email', 'held')).toBe(3);
 
     const job = t.app.get(DigestJob);
-    expect(await job.run(Date.UTC(2026, 9, 10, 1, 0))).toBe(0); // 06:00 in Karachi: still quiet
-    expect(await job.run(Date.UTC(2026, 9, 10, 2, 5))).toBe(1); // 07:05: released
+    expect(await job.run(day(1, 1, 0))).toBe(0); // 06:00 in Karachi: still quiet
+    expect(await job.run(day(1, 2, 5))).toBe(1); // 07:05: released
     const mail = await eventually(() => listMail(u.email), (m) => m.length === 1);
     expect(mail[0]!.Subject).toContain('3 notifications');
   });

@@ -33,9 +33,9 @@ export type NotifyChannel = (typeof NOTIFY_CHANNELS)[number];
 
 // ── Alarm rules ──────────────────────────────────────────────────────────────────────────────
 
-export const ALARM_RULE_TYPES = ['threshold', 'range', 'duration', 'rate_of_change', 'state_match', 'status', 'no_data_key'] as const;
-/** Reserved for later sub-projects (location, generator maintenance). */
-export const RESERVED_ALARM_RULE_TYPES = ['geofence', 'maintenance_due'] as const;
+export const ALARM_RULE_TYPES = ['threshold', 'range', 'duration', 'rate_of_change', 'state_match', 'status', 'no_data_key', 'geofence', 'maintenance_due'] as const;
+/** Types not available yet (none at the moment). */
+export const RESERVED_ALARM_RULE_TYPES = [] as const;
 export type AlarmRuleType = (typeof ALARM_RULE_TYPES)[number];
 
 const Op = z.enum(['>', '>=', '<', '<=']);
@@ -122,8 +122,32 @@ const RULE_VARIANTS = [
   }),
   z.object({
     ...common,
+    type: z.literal('geofence'),
+    /** `outside`: raise when the device leaves the geofence; `inside`: when it enters. */
+    condition: z.object({ geofenceId: Uuid, trigger: z.enum(['outside', 'inside']).default('outside') }),
+    /** Clear only once back by this many metres (against GPS jitter at the boundary). */
+    clear: z.object({ marginM: z.number().min(0).max(5000).default(20) }).default({}),
+  }),
+  z.object({
+    ...common,
     type: z.literal('no_data_key'),
     condition: z.object({ key: Key, forS: z.number().int().min(60).max(30 * 86_400) }),
+    clear: NoClear,
+  }),
+  z.object({
+    ...common,
+    type: z.literal('maintenance_due'),
+    /** Service intervals by run hours (from a runtime key) and/or days; cleared by logging a service. */
+    condition: z
+      .object({
+        runtimeKey: Key.optional(),
+        everyHours: z.number().positive().max(1_000_000).optional(),
+        everyDays: z.number().int().min(1).max(3650).optional(),
+        /** Remind once this share of an interval is reached (100 = when due). */
+        remindAtPct: z.number().int().min(50).max(100).default(100),
+      })
+      .refine((c) => c.everyHours !== undefined || c.everyDays !== undefined, { message: 'Give a service interval in run hours or days', path: ['everyHours'] })
+      .refine((c) => c.everyHours === undefined || !!c.runtimeKey, { message: 'Run hours need the run time key', path: ['runtimeKey'] }),
     clear: NoClear,
   }),
 ] as const;
@@ -186,6 +210,8 @@ export const AlarmFilterSchema = z.object({
   status: z.array(z.enum(ALARM_STATUSES)).optional(),
   severity: z.array(z.enum(ALARM_SEVERITIES)).optional(),
   deviceId: Uuid.optional(),
+  /** Alarms of devices anywhere in this asset's subtree. */
+  assetId: Uuid.optional(),
   profileId: Uuid.optional(),
   customerId: Uuid.optional(),
   from: z.number().int().optional(),
@@ -283,4 +309,29 @@ export interface ReportScheduleDto extends ReportScheduleInput {
   ownerId: string;
   nextRunAt: number | null;
   lastRun: { at: number; status: 'ok' | 'skipped' | 'failed'; message: string | null; jobId: string | null } | null;
+}
+
+// ── Maintenance ──────────────────────────────────────────────────────────────────────────────
+
+/** A logged service of a device; `runHours` are the totals of its runtime keys at the time. */
+export interface DeviceServiceDto {
+  id: string;
+  deviceId: string;
+  servicedAt: number;
+  note: string;
+  runHours: Record<string, number>;
+  createdBy: string | null;
+}
+
+export const DeviceServiceInputSchema = z.object({
+  note: z.string().trim().max(500).default(''),
+  /** When it was done (default now); not in the future. */
+  servicedAt: z.number().int().optional(),
+});
+
+export interface RunHoursDto {
+  key: string;
+  total: number;
+  sinceService: number;
+  lastService: DeviceServiceDto | null;
 }

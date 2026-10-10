@@ -31,16 +31,17 @@ export const myWidget: WidgetDefinition<Settings> = {
 | Mode | Sources | Result (`result.data`) |
 |---|---|---|
 | `latest` | `currentDevice`, `device` | `{ device, values: { key: { ts, v } } }` |
-| `latest` | `devicesOfProfile` | `{ devices: [{ …device, values }] }` |
+| `latest` | `devicesOfProfile`, `currentAsset` | `{ devices: [{ …device, values }] }` |
 | `history` | `currentDevice`, `device` | `{ source, series: { key: [[ts, v], …] } }` (aggregated automatically for long windows) |
 | `list` | `entityList` | `{ items, total, page, pageSize, customers? }` |
-| `stats` | `devicesOfProfile` | `{ total, online, offline, dead, never, messages24h }` |
+| `stats` | `devicesOfProfile`, `currentAsset` | `{ total, online, offline, dead, never, messages24h }` |
+| `energy` | `currentDevice`, `device`, `currentAsset` | `{ key, unit, timezone, currency, period, periods: [{ period, consumption, cost }], total, previous }` for the first key; the widget's `range` setting (`today`, `week`, `month`, `year` or `window`) picks the span ([energy.md](energy.md)) |
 | `null` | `none` | nothing (content or action-only widgets) |
 
 `result` is `undefined` while loading, `{ ok: true, data }` on success, or `{ ok: false, code,
 message }` when this widget's source failed (other widgets still render). Wrap your output in
 `<WidgetStatus result={result}>` to get the standard loading, error and empty states. The type
-guards `isLatest`, `isFleet`, `isHistory`, `isList` and `isStats` narrow `data`.
+guards `isLatest`, `isFleet`, `isHistory`, `isList`, `isStats` and `isEnergy` narrow `data`.
 
 Live telemetry and status changes are merged into `result` by the dashboard, so widgets never
 open their own subscriptions.

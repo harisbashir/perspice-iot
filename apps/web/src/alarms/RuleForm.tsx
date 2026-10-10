@@ -1,5 +1,4 @@
-import {
-  ALARM_RULE_TYPES,
+import { ALARM_RULE_TYPES,
   ALARM_SEVERITIES,
   type AlarmRuleDto,
   type AlarmRuleInput,
@@ -8,7 +7,10 @@ import {
   type AlarmScope,
   type BuiltInRoleKey,
   type DeviceProfileDto,
+  type GeofenceDto,
+  profileKeys,
 } from '@perspice/shared';
+import { useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { api } from '@/api/client';
 import { useAuth } from '@/auth/AuthProvider';
@@ -27,6 +29,8 @@ export const TYPE_LABEL: Record<AlarmRuleType, string> = {
   state_match: 'Value equals a state',
   status: 'Device offline or dead',
   no_data_key: 'Value stops reporting',
+  geofence: 'Device leaves (or enters) a geofence',
+  maintenance_due: 'Service due (run hours or days)',
 };
 
 const DEFAULT_CONDITION: Record<AlarmRuleType, { condition: Record<string, unknown>; clear: Record<string, unknown> }> = {
@@ -37,6 +41,8 @@ const DEFAULT_CONDITION: Record<AlarmRuleType, { condition: Record<string, unkno
   state_match: { condition: { key: '', values: [true] }, clear: {} },
   status: { condition: { statuses: ['offline', 'dead'] }, clear: {} },
   no_data_key: { condition: { key: '', forS: 3600 }, clear: {} },
+  geofence: { condition: { geofenceId: '', trigger: 'outside' }, clear: { marginM: 20 } },
+  maintenance_due: { condition: { everyDays: 180, remindAtPct: 100 }, clear: {} },
 };
 
 const CUSTOMER_ROLES: BuiltInRoleKey[] = ['customer_admin', 'customer_operator', 'customer_viewer'];
@@ -95,12 +101,13 @@ export function RuleForm({
   );
   const set = (patch: Partial<Draft>) => setD({ ...d, ...patch });
   const setCond = (patch: Record<string, unknown>) => setD({ ...d, condition: { ...d.condition, ...patch } });
-  const keys = profile?.telemetrySchema ?? [];
+  const keys = profileKeys(profile);
   const label = (k: string) => keys.find((x) => x.key === k)?.label ?? k;
   const parsed = AlarmRuleInputSchema.safeParse(d);
   const roles = platform ? [...CUSTOMER_ROLES, ...PLATFORM_ROLES] : CUSTOMER_ROLES;
   const c = d.condition;
   const num = (v: string) => (v === '' ? 0 : Number(v));
+  const geofences = useQuery({ queryKey: ['geofences'], queryFn: () => api<GeofenceDto[]>('/geofences'), enabled: d.type === 'geofence' });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -180,7 +187,7 @@ export function RuleForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {d.type !== 'status' && keyField}
+        {d.type !== 'status' && d.type !== 'geofence' && d.type !== 'maintenance_due' && keyField}
         {(d.type === 'threshold' || d.type === 'duration') && (
           <>
             {opField}
@@ -222,6 +229,34 @@ export function RuleForm({
           </Field>
         )}
         {d.type === 'no_data_key' && <Field label="For (seconds)">{(id) => <Input id={id} type="number" min={60} value={String(c.forS)} onChange={(e) => setCond({ forS: num(e.target.value) })} />}</Field>}
+        {d.type === 'geofence' && (
+          <>
+            <Field label="Geofence" help={geofences.data?.length === 0 ? 'Create a geofence first (Geofences in the menu).' : undefined}>
+              {(id) => (
+                <select id={id} className={selectClass} value={String(c.geofenceId)} onChange={(e) => setCond({ geofenceId: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {(geofences.data ?? []).map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                      {g.customerId === null ? ' (platform-wide)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Alarm when the device">
+              {(id) => (
+                <select id={id} className={selectClass} value={String(c.trigger)} onChange={(e) => setCond({ trigger: e.target.value })}>
+                  <option value="outside">leaves the geofence</option>
+                  <option value="inside">enters the geofence</option>
+                </select>
+              )}
+            </Field>
+            <Field label="Clear margin (m)" help="How far back the device must be before the alarm clears (GPS jitter at the edge).">
+              {(id) => <Input id={id} type="number" min={0} value={String(d.clear.marginM ?? 20)} onChange={(e) => set({ clear: { marginM: num(e.target.value) } })} />}
+            </Field>
+          </>
+        )}
         {d.type === 'status' && (
           <fieldset className="col-span-2 flex gap-4 text-sm">
             <legend className="mb-1 text-sm font-medium">Alarm when the device is</legend>
@@ -236,6 +271,35 @@ export function RuleForm({
               </label>
             ))}
           </fieldset>
+        )}
+        {d.type === 'maintenance_due' && (
+          <>
+            <Field label="Run time key" help="A runtime calculated key (seconds running); needed for run-hour intervals.">
+              {(id, h) => (
+                <select id={id} aria-describedby={h} className={selectClass} value={String(c.runtimeKey ?? '')} onChange={(e) => setCond({ runtimeKey: e.target.value || undefined })}>
+                  <option value="">None (days only)</option>
+                  {keys.map((k) => (
+                    <option key={k.key} value={k.key}>
+                      {k.label} ({k.key})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Every (run hours)">
+              {(id) => (
+                <Input id={id} type="number" min={1} value={c.everyHours === undefined ? '' : String(c.everyHours)} onChange={(e) => setCond({ everyHours: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              )}
+            </Field>
+            <Field label="Every (days)">
+              {(id) => (
+                <Input id={id} type="number" min={1} value={c.everyDays === undefined ? '' : String(c.everyDays)} onChange={(e) => setCond({ everyDays: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              )}
+            </Field>
+            <Field label="Remind at (% of the interval)" help="100 = when due; e.g. 90 reminds a little before.">
+              {(id, h) => <Input id={id} aria-describedby={h} type="number" min={50} max={100} value={String(c.remindAtPct ?? 100)} onChange={(e) => setCond({ remindAtPct: num(e.target.value) })} />}
+            </Field>
+          </>
         )}
         {(d.type === 'threshold' || d.type === 'range' || d.type === 'duration' || d.type === 'rate_of_change') && marginField}
       </div>

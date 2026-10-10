@@ -11,6 +11,8 @@ interface AuthContextValue {
   logout(): Promise<void>;
   hasPerm(p: Permission): boolean;
   setUser(u: MeResponse): void;
+  /** The user signed out on purpose (rather than the session expiring). */
+  signedOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -24,6 +26,7 @@ export function useAuth(): AuthContextValue {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signedOut, setSignedOut] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => session.subscribe((s) => setUser(s?.user ?? null)), []);
@@ -38,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string, totp?: string) => {
     const s = await api<Session>('/auth/login', { body: { email, password, ...(totp ? { totp } : {}) } });
+    setSignedOut(false);
     session.set(s);
     return s.user;
   }, []);
@@ -46,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await api('/auth/logout', { method: 'POST' });
     } finally {
+      setSignedOut(true);
       session.set(null);
       queryClient.clear();
     }
@@ -59,8 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       hasPerm: (p) => !!user?.permissions.includes(p),
       setUser,
+      signedOut,
     }),
-    [user, loading, login, logout],
+    [user, loading, login, logout, signedOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

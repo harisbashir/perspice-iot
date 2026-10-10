@@ -118,3 +118,43 @@ describe('schedules', () => {
     expect(run(rule, [tel(T0, { fuel: 25 })], { active: true }).out).toEqual(['clear']);
   });
 });
+
+describe('geofence', () => {
+  const G = '22222222-2222-4222-8222-222222222222';
+  const depot = { name: 'Depot', shape: { type: 'circle' as const, center: { lat: 51.5, lng: -0.12 }, radiusM: 500 } };
+  /** `m` metres north of the depot's centre. */
+  const at = (ts: number, m: number): EvalInput => ({
+    kind: 'location',
+    ts,
+    fix: { lat: 51.5 + m / 111_195, lng: -0.12 },
+    geofences: { [G]: depot },
+  });
+  const rule = (trigger: 'outside' | 'inside', marginM = 20): EvalRule => ({
+    type: 'geofence',
+    condition: { geofenceId: G, trigger },
+    clear: { marginM },
+    schedule: null,
+  });
+
+  it('raises on leaving and clears only once back inside by the margin', () => {
+    // 400 m in, 510 m out, jitter 495 m (5 m inside), 470 m (30 m inside).
+    const { out } = run(rule('outside'), [at(T0, 400), at(T0 + 1, 510), at(T0 + 2, 495), at(T0 + 3, 505), at(T0 + 4, 470)]);
+    expect(out).toEqual([null, 'raise', null, null, 'clear']);
+  });
+
+  it('says which geofence and where', () => {
+    const r = evaluate(rule('outside'), { active: false }, at(T0, 900), 'UTC');
+    expect(r).toMatchObject({ transition: 'raise', message: 'Left Depot', value: { key: 'location' } });
+    expect(evaluate(rule('inside'), { active: false }, at(T0, 10), 'UTC').message).toBe('Entered Depot');
+  });
+
+  it('raises on entering with trigger inside', () => {
+    const { out } = run(rule('inside'), [at(T0, 900), at(T0 + 1, 450), at(T0 + 2, 510), at(T0 + 3, 600)]);
+    expect(out).toEqual([null, 'raise', null, 'clear']);
+  });
+
+  it('ignores telemetry, and locations without the geofence', () => {
+    expect(run(rule('outside'), [tel(T0, { lat: 0 })]).out).toEqual([null]);
+    expect(evaluate(rule('outside'), { active: false }, { ...(at(T0, 900) as Extract<EvalInput, { kind: 'location' }>), geofences: {} }, 'UTC').transition).toBeNull();
+  });
+});

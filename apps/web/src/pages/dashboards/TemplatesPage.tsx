@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { useProfiles } from '../devices/hooks';
+import { useAssetTypes } from '../assets/hooks';
 import { CloneDialog } from './KeyMappingDialog';
 import type { TemplateDto } from './types';
 
@@ -51,6 +52,8 @@ export function TemplatesPage() {
   const navigate = useNavigate();
   const { data: templates = [] } = useQuery({ queryKey: ['dashboard-templates'], queryFn: () => api<TemplateDto[]>('/dashboard-templates') });
   const { data: profiles = [] } = useProfiles();
+  const { data: assetTypes = [] } = useAssetTypes();
+  const [assetTypeId, setAssetTypeId] = useState('');
   const [dialog, setDialog] = useState<'new' | 'generate' | 'import' | null>(null);
   const [cloning, setCloning] = useState<TemplateDto | null>(null);
   const [name, setName] = useState('');
@@ -79,7 +82,9 @@ export function TemplatesPage() {
     e.preventDefault();
     let created: TemplateDto | undefined;
     const ok = await run(async () => {
-      created = await api<TemplateDto>('/dashboard-templates', { body: { name, kind: 'device', profileId, definition: EMPTY } });
+      created = await api<TemplateDto>('/dashboard-templates', {
+        body: assetTypeId ? { name, kind: 'asset', assetTypeId, definition: EMPTY } : { name, kind: 'device', profileId, definition: EMPTY },
+      });
     });
     if (ok && created) navigate(`/dashboards/${created.id}/edit`);
   }
@@ -148,7 +153,7 @@ export function TemplatesPage() {
                 {t.builtIn && <Badge variant="secondary">built-in</Badge>} {isDefault(t) && <Badge>profile default</Badge>}
               </TableCell>
               <TableCell>{t.kind}</TableCell>
-              <TableCell>{t.kind === 'device' ? profileName(t.profileId) : 'All devices'}</TableCell>
+              <TableCell>{t.kind === 'device' ? profileName(t.profileId) : t.kind === 'asset' ? `${assetTypes.find((a) => a.id === t.assetTypeId)?.name ?? '—'} assets` : 'All devices'}</TableCell>
               <TableCell>v{t.version}</TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -208,9 +213,46 @@ export function TemplatesPage() {
             {dialog === 'import' && (
               <Field label="File">{(id) => <input id={id} ref={fileRef} type="file" accept="application/json,.json" required className="text-sm" />}</Field>
             )}
-            <Field label="Profile" help={dialog === 'import' ? 'For device dashboards; ignored for overview dashboards.' : undefined}>
-              {(id) => <ProfileSelect id={id} value={profileId} onChange={setProfileId} profiles={profiles} />}
-            </Field>
+            {dialog === 'new' && assetTypes.length > 0 ? (
+              <Field label="Dashboard for" help="A device profile's devices, or an asset type's assets.">
+                {(id, h) => (
+                  <select
+                    id={id}
+                    aria-describedby={h}
+                    required
+                    className={selectClass}
+                    value={assetTypeId ? `a:${assetTypeId}` : profileId ? `p:${profileId}` : ''}
+                    onChange={(e) => {
+                      const [k, v] = e.target.value.split(':') as [string, string];
+                      setProfileId(k === 'p' ? v : '');
+                      setAssetTypeId(k === 'a' ? v : '');
+                    }}
+                  >
+                    <option value="" disabled>
+                      Choose…
+                    </option>
+                    <optgroup label="Device profiles">
+                      {profiles.map((p) => (
+                        <option key={p.id} value={`p:${p.id}`}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Asset types">
+                      {assetTypes.map((a) => (
+                        <option key={a.id} value={`a:${a.id}`}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                )}
+              </Field>
+            ) : (
+              <Field label="Profile" help={dialog === 'import' ? 'For device dashboards; ignored for overview dashboards.' : undefined}>
+                {(id) => <ProfileSelect id={id} value={profileId} onChange={setProfileId} profiles={profiles} />}
+              </Field>
+            )}
             <ErrorText error={error} />
             <DialogFooter>
               <Button type="submit">{dialog === 'new' ? 'Create' : dialog === 'generate' ? 'Generate' : 'Import'}</Button>

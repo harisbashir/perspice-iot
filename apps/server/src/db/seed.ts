@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { and, eq, isNull } from 'drizzle-orm';
-import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets } from '../dashboards/defaults';
+import { generateDeviceDefinition, overviewDefinition, withAlarmWidgets, withMapWidget } from '../dashboards/defaults';
 import { EMAIL_SUBJECTS, EMAIL_TEMPLATE_KEYS } from '../email/templates';
 import { seedRoles } from '../rbac/seed-roles';
 import type { DB } from './db.module';
@@ -64,8 +64,10 @@ export async function seed(db: DB): Promise<void> {
   if (!overview) {
     await db.insert(dashboardTemplate).values({ name: 'Overview', kind: 'overview', builtIn: true, definition: overviewDefinition() });
   } else {
-    // v0.3.0 adds alarm widgets; customised copies then see "template changed" and can re-sync.
-    const upgraded = withAlarmWidgets(overview.definition);
+    // v0.3.0 adds alarm widgets, v0.5.0 a map; customised copies then see "template changed" and can re-sync.
+    const withAlarms = withAlarmWidgets(overview.definition) ?? overview.definition;
+    const withMap = withMapWidget(withAlarms);
+    const upgraded = withMap ?? (withAlarms !== overview.definition ? withAlarms : null);
     if (upgraded) {
       await db
         .update(dashboardTemplate)

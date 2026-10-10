@@ -1,0 +1,39 @@
+# Load test (docs/load-test.md): the stack as on a 4 vCPU / 8 GB server. Every service shares
+# the same four cores (cpuset 0-3), as processes on such a server do, and memory is capped per
+# service at 7.75 GB in all. (Fixed per-service CPU shares were tried first: they throttle a
+# service's bursts while others idle, which a real server doesn't, and the results depended on
+# how the 4 CPUs were split.) The simulator runs on the other cores.
+x-cores: &cores '0-3'
+
+services:
+  postgres:
+    cpuset: *cores
+    mem_limit: 2560m
+  emqx:
+    cpuset: *cores
+    mem_limit: 1536m
+  ingest:
+    cpuset: *cores
+    mem_limit: 1g
+  api:
+    cpuset: *cores
+    mem_limit: 1g
+  rules:
+    cpuset: *cores
+    mem_limit: 512m
+  redis:
+    cpuset: *cores
+    mem_limit: 512m
+  scheduler:
+    cpuset: *cores
+    mem_limit: 512m
+  caddy:
+    cpuset: *cores
+    mem_limit: 256m
+  migrate:
+    cpuset: *cores
+  cert-sync:
+    cpuset: *cores
+  # Not part of the device path; left out so the budget above is the whole stack.
+  renderer:
+    profiles: ['reports']

@@ -17,6 +17,12 @@ export class DashboardsController {
     return (await this.instances.forDevice(actor, deviceId)) ?? { dashboard: null };
   }
 
+  @Get('dashboards/asset/:assetId')
+  @Require('asset.read')
+  async asset(@CurrentUser() actor: AuthUser, @Param('assetId') assetId: string) {
+    return (await this.instances.forAsset(actor, assetId)) ?? { dashboard: null };
+  }
+
   @Get('dashboards/overview')
   async overview(@CurrentUser() actor: AuthUser) {
     return (await this.instances.overview(actor)) ?? { dashboard: null };

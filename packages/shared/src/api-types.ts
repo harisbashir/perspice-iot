@@ -1,3 +1,5 @@
+import type { CalculatedKey } from './expr.js';
+import type { DeviceLocationDto, LocationKeys, TripSettings } from './location.js';
 import type { Permission } from './permissions.js';
 import type { BuiltInRoleKey, RoleScope } from './roles.js';
 
@@ -62,9 +64,14 @@ export interface DeviceProfileDto {
   offlineTimeoutS: number;
   deadTimeoutS: number;
   sleepy: boolean;
-  transport: 'mqtt' | 'http';
+  transport: 'mqtt' | 'http' | 'aws-iot';
   retentionDays: number;
   statusNotify: StatusNotifyConfig;
+  locationMode: 'none' | 'fixed' | 'reported';
+  locationKeys: LocationKeys;
+  trips: TripSettings;
+  /** Derived keys computed as data arrives. */
+  calculated: CalculatedKey[];
   defaultDashboardTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +100,8 @@ export interface DeviceDto {
     shared: Record<string, unknown>;
   };
   latest?: Record<string, LatestValue>;
+  /** Current location (fixed, or the newest reported fix), when the device has one. */
+  location: DeviceLocationDto | null;
   createdAt: string;
   updatedAt: string;
 }

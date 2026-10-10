@@ -12,9 +12,10 @@ import { DevicesService } from '../devices/devices.service';
 import { ProfilesService } from '../devices/profiles.service';
 import { type Scope, ScopeService } from '../rbac/scope';
 import { type RuleRow, appliesTo, effectiveRules, toRuleDto } from './effective';
+import { GeofencesService } from '../location/geofences.service';
+import { RULES_VERSION_KEY } from './rules-version';
 
-/** Bumped on every rule write; the rules engine reloads its cache when it changes. */
-export const RULES_VERSION_KEY = 'alarm-rules:version';
+export { RULES_VERSION_KEY };
 
 export interface RuleFilter {
   profileId?: string;
@@ -35,6 +36,7 @@ export class AlarmRulesService {
     private readonly scopes: ScopeService,
     private readonly devices: DevicesService,
     private readonly profiles: ProfilesService,
+    private readonly geofences: GeofencesService,
   ) {}
 
   async list(actor: AuthUser, f: RuleFilter): Promise<AlarmRuleDto[]> {
@@ -165,6 +167,7 @@ export class AlarmRulesService {
     const scope = await this.scopes.forUser(actor);
     const tenant = await this.tenantOf(actor, scope, input);
     await this.checkRecipients(actor, input, tenant);
+    if (input.type === 'geofence') await this.checkGeofence(actor, input.condition.geofenceId, tenant);
     if (input.disablesRuleId) await this.checkOptOut(actor, input, selfId);
   }
 
@@ -186,6 +189,19 @@ export class AlarmRulesService {
     }
     if (s.profileId) await this.profiles.get(actor, s.profileId); // 404 when not visible
     return s.customerId;
+  }
+
+  /** The geofence must be visible to the actor (else 404) and apply to the rule's devices. */
+  private async checkGeofence(actor: AuthUser, geofenceId: string, tenant: string | null): Promise<void> {
+    const g = await this.geofences.find(actor, geofenceId);
+    if (g.customerId !== null && g.customerId !== tenant) {
+      throw validation([
+        {
+          path: ['condition', 'geofenceId'],
+          message: tenant === null ? 'Rules for every customer need a platform-wide geofence' : "This geofence belongs to another customer than the rule's devices",
+        },
+      ]);
+    }
   }
 
   private async checkRecipients(actor: AuthUser, input: AlarmRuleInput, tenant: string | null): Promise<void> {

@@ -89,13 +89,20 @@ function addAlarmBlock(p: Packer): void {
   p.newRow();
 }
 
-/** The built-in fleet overview used on both portals (spec §7.5, without maps). */
+/** A map of every located device (added to the overview in v0.5.0). */
+function addMapBlock(p: Packer): void {
+  p.add({ id: 'devices-map', type: 'map', title: 'Map', datasource: { kind: 'devicesOfProfile', profileId: null, filter: {}, keys: [] }, settings: {} }, 12, 8);
+  p.newRow();
+}
+
+/** The built-in fleet overview used on both portals (spec §7.5). */
 export function overviewDefinition(): DashboardDefinition {
   const p = new Packer();
   const fleet = { kind: 'devicesOfProfile' as const, profileId: null, keys: [] };
   for (const [metric, label] of KPIS) p.add({ id: `kpi-${metric}`, type: 'kpi', title: label, datasource: fleet, settings: { metric } }, 2, 3);
   p.newRow();
   addAlarmBlock(p);
+  addMapBlock(p);
   p.add(
     {
       id: 'devices',
@@ -118,10 +125,20 @@ export function overviewDefinition(): DashboardDefinition {
  * its first view's widgets, keeping any changes made to it. Null when it already has them.
  */
 export function withAlarmWidgets(def: DashboardDefinition): DashboardDefinition | null {
+  return appendBlock(def, 'alarms-recent', addAlarmBlock);
+}
+
+/** Upgrades an overview created before maps existed (v0.5.0); null when it already has one. */
+export function withMapWidget(def: DashboardDefinition): DashboardDefinition | null {
+  return appendBlock(def, 'devices-map', addMapBlock);
+}
+
+/** Adds a block below the first view's widgets, unless a widget with `marker` id is there. */
+function appendBlock(def: DashboardDefinition, marker: string, add: (p: Packer) => void): DashboardDefinition | null {
   const [first, ...rest] = def.states;
-  if (!first || first.widgets.some((w) => w.id === 'alarms-recent')) return null;
+  if (!first || first.widgets.some((w) => w.id === marker)) return null;
   const p = new Packer();
-  addAlarmBlock(p);
+  add(p);
   const bottom = first.layout.reduce((m, l) => Math.max(m, l.y + l.h), 0);
   return {
     ...def,

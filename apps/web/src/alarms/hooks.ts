@@ -12,6 +12,7 @@ const toQuery = (f: AlarmFilter) => ({
   status: f.status?.join(','),
   severity: f.severity?.join(','),
   deviceId: f.deviceId,
+  assetId: f.assetId,
   profileId: f.profileId,
   customerId: f.customerId,
 });

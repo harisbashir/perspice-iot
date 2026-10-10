@@ -27,6 +27,10 @@ export const profile: DeviceProfileDto = {
   transport: 'mqtt',
   retentionDays: 365,
   statusNotify: { enabled: false, roleKeys: [], channels: [] },
+  locationMode: 'none',
+  locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
+  trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
+  calculated: [],
   defaultDashboardTemplateId: null,
   createdAt: '',
   updatedAt: '',
@@ -66,6 +70,10 @@ export function propsFor<S extends Record<string, unknown>>(
       ackAlarm: vi.fn().mockResolvedValue(undefined),
       openAlarm: vi.fn(),
       setQuery: vi.fn(),
+      mapTiles: vi.fn().mockResolvedValue({ urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM', maxZoom: 19 }),
+      geofences: vi.fn().mockResolvedValue([]),
+      route: vi.fn().mockResolvedValue({ points: [], downsampled: false }),
+      trips: vi.fn().mockResolvedValue([]),
     },
   };
 }

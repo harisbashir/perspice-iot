@@ -1,4 +1,4 @@
-import type { AlarmRuleInput, AlarmSchedule, DeviceStatus } from '@perspice/shared';
+import { type AlarmRuleInput, type AlarmSchedule, type DeviceStatus, type GeofenceShape, type LatLng, distanceToBoundaryM, isInside } from '@perspice/shared';
 
 type DistributivePick<T, K extends keyof T> = T extends unknown ? Pick<T, K> : never;
 
@@ -23,7 +23,9 @@ export type EvalInput =
   | { kind: 'telemetry'; ts: number; values: Record<string, unknown> }
   | { kind: 'status'; ts: number; status: DeviceStatus }
   /** Time passing without data (scheduler): fires `duration` and `no_data_key`. */
-  | { kind: 'tick'; ts: number };
+  | { kind: 'tick'; ts: number }
+  /** A new location fix, with the geofences the device's rules refer to. */
+  | { kind: 'location'; ts: number; fix: LatLng; geofences: Record<string, { name: string; shape: GeofenceShape }> };
 
 export interface EvalResult {
   state: RuleState;
@@ -109,6 +111,19 @@ function step(rule: EvalRule, s: RuleState, input: EvalInput): EvalResult {
     const hit = rule.condition.statuses.includes(input.status as 'offline' | 'dead');
     if (hit && !s.active) return { state: s, transition: 'raise', value: { key: 'status', v: input.status }, message: `Device is ${input.status}` };
     if (!hit && s.active) return { state: s, transition: 'clear', value: { key: 'status', v: input.status } };
+    return none();
+  }
+
+  if (rule.type === 'geofence') {
+    if (input.kind !== 'location') return none();
+    const g = input.geofences[rule.condition.geofenceId];
+    if (!g) return none();
+    const inside = isInside(input.fix, g.shape);
+    const hit = rule.condition.trigger === 'outside' ? !inside : inside;
+    const value = { key: 'location', v: { lat: input.fix.lat, lng: input.fix.lng } };
+    if (!s.active && hit) return { state: s, transition: 'raise', value, message: `${inside ? 'Entered' : 'Left'} ${g.name}` };
+    // Back on the safe side by at least the margin: GPS jitter at the edge doesn't clear it.
+    if (s.active && !hit && distanceToBoundaryM(input.fix, g.shape) >= rule.clear.marginM) return { state: s, transition: 'clear', value };
     return none();
   }
 

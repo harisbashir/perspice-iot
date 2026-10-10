@@ -17,6 +17,7 @@ export const notFound = (message = 'Not found') => new AppError(ErrorCode.NOT_FO
 export const forbidden = (message = 'Forbidden') => new AppError(ErrorCode.FORBIDDEN, message, 403);
 
 export const conflict = (message: string) => new AppError(ErrorCode.CONFLICT, message, 409);
+export const tooLarge = (message: string) => new AppError(ErrorCode.TOO_LARGE, message, 413);
 
 export const validation = (details: unknown, message = 'Validation failed') =>
   new AppError(ErrorCode.VALIDATION, message, 400, details);

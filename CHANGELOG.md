@@ -7,6 +7,163 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
+Asset hierarchy (sub-project 5d).
+
+### Added
+
+- **Asset types** (platform): name, icon, attributes (text, number, date) and a default asset
+  dashboard.
+- **Assets**: a tree per customer (sites containing equipment, up to 8 levels), scoped by customer
+  and group like devices, with attributes from the type, an optional location, breadcrumbs, moves
+  checked against loops and depth, and roll-ups per subtree (devices by status, open alarms by worst
+  severity). Assets page with the tree; asset page with Dashboard, Devices, Sub-assets, Alarms and
+  Details.
+- **Devices on assets**: at most one asset per device, of the same customer; attach from the asset,
+  the device page or in bulk; device and alarm lists filter by asset (subtree).
+- **Asset dashboards**: templates for an asset type, served per customer like device dashboards; the
+  data source "the dashboard's asset" (its devices, directly or in the whole subtree) for KPIs, maps,
+  bar and pie charts, device lists and summed energy; alarm widgets limited to the asset.
+- Docs: [assets.md](docs/assets.md).
+
+## [0.7.0] - 2026-10-10
+
+Calculated telemetry, energy and generators (sub-project 5c).
+
+### Added
+
+- **Calculated keys** per device profile, computed for every message before it is stored (so
+  they chart, aggregate, alarm and export like any other key): **formulas** in a small, safe
+  expression language (arithmetic, comparisons, logic, conditionals, `abs min max round floor ceil
+  sqrt pow log exp clamp`; no code execution; size limits), **counter use** since the last reading
+  (meter resets handled, implausible jumps dropped), **run time** of a running state, and **level
+  drops** (fuel used, refuels ignored). Checked as you type in the profile editor, with a preview
+  on one of the profile's devices. Calculated keys appear in every key picker.
+- **Energy**: consumption and cost per hour, day, week (from Monday) or month in the customer's
+  timezone (`GET /devices/:id/energy`), and the **Energy summary** widget (this day, week, month or
+  year so far, or the time window; cost; change against the same point of the previous period;
+  bars).
+- **Tariffs** per customer with a platform default: currency, price per unit and time-of-use
+  periods by weekday and hour (Settings → Energy tariff, permission `tariff.manage`).
+- **Run hours** and a **service log** per device (Maintenance tab; permission `device.service` for
+  customer admins and operators).
+- Alarm rule type **Service due** (`maintenance_due`): an interval in run hours and/or days, with
+  an optional earlier reminder; checked a minute after run time reports and hourly; cleared by
+  logging a service.
+- Simulator: keys ending in `_kwh`, `_wh` or `_total` rise like meters. The `GeneratorController`
+  example reports an energy counter.
+- Load test option `LOAD_CALCULATED` (on by default): two formulas and a counter delta per
+  message.
+- Docs: [energy.md](docs/energy.md).
+
+## [0.6.0] - 2026-10-10
+
+Fleet operations (sub-project 5b).
+
+### Added
+
+- **Firmware images** per device profile (Firmware page, permission `firmware.manage`): upload
+  up to 16 MB with the version the firmware reports as `fw`; size and SHA-256 recorded.
+- **OTA updates** with staged rollout: deploy a version to a profile's devices (optionally one
+  customer's, with tags). The scheduler sends to online devices in batches, fails devices past the
+  timeout, halts when more than the threshold of finished devices failed, and resends to devices
+  that reconnect. A device is updated once it reports the new version. Update page with progress,
+  halt reason, per-device states and cancel; Firmware tab on devices. Devices receive
+  `perspice/v1/<id>/ota` (24-hour download link, SHA-256, size) and report
+  `ota/progress`; HTTP devices use `/api/v1/device/ota`.
+- **Firmware library OTA** on ESP32: HTTPS download into the inactive partition, SHA-256 checked
+  before the image is committed, progress reports, restart; `firmwareVersion` reported as `fw` on
+  every connect; the image is marked valid once it connects (rollback-safe). `OtaUpdate` example.
+- **Claim codes**: unassigned devices created with a 12-character code (stored hashed); customer
+  admins (`device.claim`) add a device by entering it. Single-use, same answer for every failure,
+  10 attempts a minute.
+- **CSV import** of up to 5,000 devices (profile, customer, group, tags, fixed location, claim
+  code): checked row by row first, created in one transaction, credentials CSV offered once.
+- **Bulk actions** on up to 500 selected devices: tags, group, assign to a customer, command,
+  delete; per-device results and one audit entry.
+- Simulator: `--fw <version>` and `--ota`.
+- Docs: [fleet.md](docs/fleet.md).
+
+### Fixed
+
+- Claim codes in request bodies are redacted from the audit log.
+
+## [0.5.0] - 2026-10-10
+
+Location and fleet (sub-project 5a, the first part of the domain features).
+
+### Added
+
+- **Device locations**: fixed (set on the device's Location tab by clicking the map or typing
+  coordinates) or reported by the device as telemetry (`lat`, `lng`, optional `speed`, `heading`,
+  `acc`, `alt`; key names per profile). The newest fix by timestamp wins; invalid fixes (out of
+  range, 0,0) go to the debug log. Live location updates over websockets.
+- **Map widget**: devices coloured by status, clustered above 100, popups with chosen values and a
+  link, geofence overlay, live movement; **route playback** for one device with a time slider,
+  play/pause and its trips. The built-in overview gains a map. Tile server in Settings → Maps
+  (default OpenStreetMap; the CSP follows `MAP_TILE_HOSTS`).
+- **Trips**: detected per profile (start by movement or speed, end after standing; or by an
+  ignition key), with figures computed from every stored fix and GPS jumps left out; trips tab with
+  distance per day in the customer's timezone, export to XLSX/CSV/PDF.
+- **Geofences**: circles and polygons per customer or platform-wide, drawn on a map; permission
+  `geofence.manage`.
+- **Geofence alarm rule**: device leaves (or enters) a geofence, with a clear margin against GPS
+  jitter. A geofence in use by rules can't be deleted.
+- `GpsTracker` firmware example (ESP32 + serial GPS); simulator `--mobile-share` for driving
+  devices; the load test can include mobile devices (`LOAD_MOBILE_SHARE`).
+- Docs: `location.md`.
+
+### Fixed
+
+- Ingest handles each device's MQTT messages in order, so a burst of buffered messages (e.g. a
+  tracker back in coverage) keeps its order.
+- Signing in after signing out goes to the overview instead of the page signed out from.
+
+## [0.4.0] - 2026-10-09
+
+Operations (sub-project 4).
+
+### Added
+
+- **Backups**: encrypted (AES-256-GCM, key from `BACKUP_PASSPHRASE`) archives of the database
+  and stored files with a checksummed manifest; on demand or daily at a set time and timezone;
+  written under a temporary name, verified and only then replacing the single kept backup; a
+  failed backup keeps the previous one and alerts platform admins. `perspice backup [file]`.
+- **Restore** from the System page or `perspice restore <file>`: the archive is checked
+  (passphrase, checksums, version, `MASTER_KEY`) before anything changes, then restored in
+  maintenance mode (API answers 503, the web shows a banner) into a side database that replaces
+  the live one only on success; files are replaced and migrations run forward.
+- **System page**: processes and their heartbeats, missing roles, message rate, connected
+  devices, browser sessions, queues, database and storage size, backups and restore.
+- **Prometheus metrics** on `/metrics` in every process (ingest results and rows, devices by
+  status, open alarms, queues, websocket sessions, deliveries, Node.js process metrics) and an
+  optional `monitoring` profile with Prometheus and a provisioned Grafana dashboard.
+- **S3 storage** (`STORAGE_DRIVER=s3`, also S3-compatible services), with downloads through
+  short-lived links signed by the API.
+- **AWS IoT Core** as the device transport (`MQTT_TRANSPORT=aws-iot`): a thing and certificate
+  per device (shown once, private key not kept), rotation on regenerate, removal on delete, a
+  per-device policy; ingest over mutual TLS with lifecycle events for presence; commands through
+  the data plane. `install.sh --mqtt=aws-iot --storage=s3`, `docker-compose.aws.yml` and
+  `cli aws-iot-setup`; `DATABASE_URL` and `REDIS_URL` can point at managed services.
+- **Load test** (`scripts/test.sh --load`): 10,000 simulated devices at one message every 10 s
+  on a stack sharing 4 cores and 8 GB, checking rate, loss and latency. Result: 999.8 messages/s,
+  none lost, p95 692 ms (`docs/load-test.md`).
+- Docs: `backups.md`, `monitoring.md`, `aws.md`, `load-test.md`.
+
+### Changed
+
+- Ingest, Redis and PostgreSQL work per message cut for the load test: telemetry batches via
+  `unnest()`, device ACLs returned at authentication, Redis auto-pipelining and AOF-only
+  persistence, telemetry events on their own stream, `last_seen` and stored latest values
+  refreshed once they lag (Redis keeps the exact values). Platform services use an internal EMQX
+  listener with deep session queues, so a slow moment doesn't drop messages.
+- The server image includes the PostgreSQL 16 client tools (`pg_dump`, `pg_restore`).
+- `install.sh` generates `BACKUP_PASSPHRASE`; `update.sh` adds it to existing installs and takes
+  a full backup before updating (from v0.4.0 on), besides the database snapshot used for rollback.
+- The simulator creates devices in parallel, paces connections, reports per minute and writes a
+  JSON summary.
+
 ## [0.3.0] - 2026-10-09
 
 Alarms and notifications (sub-project 3).

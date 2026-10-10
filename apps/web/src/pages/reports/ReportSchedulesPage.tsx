@@ -1,3 +1,4 @@
+import { profileKeys } from '@perspice/shared';
 import type { ReportScheduleDto, ReportScheduleInput, ScheduleCadence } from '@perspice/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, Plus, Trash2 } from 'lucide-react';
@@ -75,7 +76,7 @@ function ScheduleDialog({ onClose }: { onClose: () => void }) {
   const set = (patch: Partial<Draft>) => setD({ ...d, ...patch });
   const list = devices.data?.pages.flatMap((p) => p.items) ?? [];
   const device = list.find((x) => x.id === d.deviceId);
-  const keys = profiles.find((p) => p.id === device?.profileId)?.telemetrySchema ?? [];
+  const keys = profileKeys(profiles.find((p) => p.id === device?.profileId));
   const people = users.filter((u) => u.status === 'active');
 
   async function submit(e: FormEvent) {

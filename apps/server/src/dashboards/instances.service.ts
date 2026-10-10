@@ -5,7 +5,8 @@ import type { AuthUser } from '../auth/auth.types';
 import { forbidden, notFound } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
-import { dashboardInstance, dashboardTemplate, deviceProfile } from '../db/schema';
+import { assetType, dashboardInstance, dashboardTemplate, deviceProfile } from '../db/schema';
+import { AssetsService } from '../assets/assets.service';
 import { DevicesService } from '../devices/devices.service';
 import { ensureInstance } from './assignment';
 
@@ -33,6 +34,7 @@ export class InstancesService {
   constructor(
     @Inject(DB) private readonly db: DB,
     private readonly devices: DevicesService,
+    private readonly assets: AssetsService,
   ) {}
 
   /** The dashboard of a device the viewer can see: its customer's instance of the profile default. */
@@ -43,6 +45,16 @@ export class InstancesService {
     const tpl = await this.db.query.dashboardTemplate.findFirst({ where: eq(dashboardTemplate.id, profile.defaultDashboardTemplateId) });
     if (!tpl) return null;
     return toView(await ensureInstance(this.db, tpl.id, d.customerId), tpl);
+  }
+
+  /** An asset's dashboard: its customer's instance of the asset type's default template. */
+  async forAsset(actor: AuthUser, assetId: string): Promise<DashboardView | null> {
+    const a = await this.assets.find(actor, assetId);
+    const type = await this.db.query.assetType.findFirst({ where: eq(assetType.id, a.typeId) });
+    if (!type?.defaultDashboardTemplateId) return null;
+    const tpl = await this.db.query.dashboardTemplate.findFirst({ where: eq(dashboardTemplate.id, type.defaultDashboardTemplateId) });
+    if (!tpl) return null;
+    return toView(await ensureInstance(this.db, tpl.id, a.customerId), tpl);
   }
 
   /** The built-in overview, as the viewer's portal (platform or their customer) sees it. */

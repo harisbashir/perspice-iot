@@ -14,6 +14,7 @@ import { DB } from '../db/db.module';
 import { isUuid, scoped } from '../db/scoped-repo';
 import { alarm, alarmEvent, alarmRule, customer, device, user } from '../db/schema';
 import { ScopeService } from '../rbac/scope';
+import { inAssetSubtree } from '../assets/subtree';
 import { AlarmStore, type AlarmRow } from './alarm-store';
 import { AlarmEngine } from './engine';
 
@@ -48,6 +49,7 @@ export class AlarmsService {
       f.status?.length ? inArray(alarm.status, f.status) : undefined,
       f.severity?.length ? inArray(alarm.severity, f.severity) : undefined,
       f.deviceId ? eq(alarm.deviceId, f.deviceId) : undefined,
+      f.assetId ? inAssetSubtree(alarm.deviceId, f.assetId) : undefined,
       f.profileId ? eq(device.profileId, f.profileId) : undefined,
       f.customerId ? eq(alarm.customerId, f.customerId) : undefined,
       f.from !== undefined ? gte(alarm.startedAt, new Date(f.from)) : undefined,

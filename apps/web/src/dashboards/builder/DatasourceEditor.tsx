@@ -1,4 +1,4 @@
-import { ALARM_SEVERITIES, type AlarmStatus, type DataSource, type DeviceProfileDto, ENTITY_COLUMNS } from '@perspice/shared';
+import { ALARM_SEVERITIES, type AlarmStatus, type DataSource, type DeviceProfileDto, ENTITY_COLUMNS, profileKeys } from '@perspice/shared';
 import type { WidgetDefinition } from '@perspice/widgets';
 import { useId } from 'react';
 import { useProfiles } from '@/pages/devices/hooks';
@@ -8,6 +8,7 @@ const KIND_LABEL: Record<DataSource['kind'], string> = {
   currentDevice: 'The dashboard’s device',
   device: 'A specific device',
   devicesOfProfile: 'Devices of a profile',
+  currentAsset: 'The dashboard’s asset (its devices)',
   entityList: 'Device list',
   alarms: 'Alarms',
 };
@@ -60,7 +61,14 @@ export function DatasourceEditor({
 }) {
   const id = useId();
   const { data: profiles = [] } = useProfiles();
-  const keys = (profile?.telemetrySchema ?? []).map((k) => ({ key: k.key, label: k.label }));
+  // Asset dashboards have no profile of their own: offer the chosen profile's keys, or every profile's.
+  const keySource =
+    value.kind === 'currentAsset'
+      ? value.profileId
+        ? profileKeys(profiles.find((p) => p.id === value.profileId))
+        : [...new Map(profiles.flatMap((p) => profileKeys(p)).map((k) => [k.key, k])).values()]
+      : profileKeys(profile);
+  const keys = keySource.map((k) => ({ key: k.key, label: k.label }));
   const keyLimit = widget.data.keys?.max;
   const kinds = widget.data.sources;
 
@@ -70,6 +78,7 @@ export function DatasourceEditor({
     else if (kind === 'currentDevice') onChange({ kind, keys: currentKeys });
     else if (kind === 'device') onChange({ kind, deviceId: value.kind === 'device' ? value.deviceId : '', keys: currentKeys });
     else if (kind === 'devicesOfProfile') onChange({ kind, profileId: profile?.id ?? null, keys: currentKeys });
+    else if (kind === 'currentAsset') onChange({ kind, depth: 'subtree', profileId: profile?.id ?? null, keys: currentKeys });
     else if (kind === 'alarms') onChange({ kind, filter: { status: ['active', 'acknowledged'] }, pageSize: 10 });
     else onChange({ kind, profileId: profile?.id ?? null, columns: ['status', 'name', 'lastSeen'], pageSize: 25 });
   }
@@ -98,7 +107,18 @@ export function DatasourceEditor({
           <input id={`${id}-device`} className={selectClass} value={value.deviceId} onChange={(e) => onChange({ ...value, deviceId: e.target.value.trim() })} />
         </div>
       )}
-      {(value.kind === 'devicesOfProfile' || value.kind === 'entityList') && (
+      {value.kind === 'currentAsset' && (
+        <div className="space-y-1">
+          <label htmlFor={`${id}-depth`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            Devices
+          </label>
+          <select id={`${id}-depth`} className={selectClass} value={value.depth} onChange={(e) => onChange({ ...value, depth: e.target.value as 'children' | 'subtree' })}>
+            <option value="subtree">Everywhere in the asset (sub-assets too)</option>
+            <option value="children">Attached to the asset itself</option>
+          </select>
+        </div>
+      )}
+      {(value.kind === 'devicesOfProfile' || value.kind === 'entityList' || value.kind === 'currentAsset') && (
         <div className="space-y-1">
           <label htmlFor={`${id}-profile`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
             Profile
@@ -166,6 +186,10 @@ export function DatasourceEditor({
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!!value.filter.currentDeviceOnly} onChange={(e) => onChange({ ...value, filter: { ...value.filter, currentDeviceOnly: e.target.checked } })} />
             Only the dashboard’s device
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!value.filter.currentAssetOnly} onChange={(e) => onChange({ ...value, filter: { ...value.filter, currentAssetOnly: e.target.checked } })} />
+            Only the dashboard’s asset
           </label>
           {widget.data.mode === 'list' && (
             <div className="space-y-1">

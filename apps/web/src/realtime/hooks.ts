@@ -1,4 +1,4 @@
-import type { DeviceDto, DeviceStatus, LatestValue } from '@perspice/shared';
+import type { DeviceDto, DeviceLocationDto, DeviceStatus, LatestValue } from '@perspice/shared';
 import { type QueryClient, type InfiniteData, useQueryClient } from '@tanstack/react-query';
 import type { Page } from '@/api/types';
 import { useDeviceRooms, useRoomSubscription, useSocketEvent } from './socket';
@@ -51,6 +51,9 @@ export function useDeviceLive(deviceId: string): void {
   });
   useSocketEvent<StatusEvent>('status', (e) => {
     if (e.deviceId === deviceId) patchDevice(qc, deviceId, (d) => ({ ...d, status: e.to }));
+  });
+  useSocketEvent<{ deviceId: string; location: DeviceLocationDto }>('location', (e) => {
+    if (e.deviceId === deviceId) patchDevice(qc, deviceId, (d) => (d.location && d.location.ts >= e.location.ts ? d : { ...d, location: e.location }));
   });
 }
 

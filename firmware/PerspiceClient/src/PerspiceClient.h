@@ -1,5 +1,5 @@
 // PerspiceClient — connects Arduino/ESP32 devices to the Perspice IoT platform over MQTT.
-// Protocol: perspice/v1/<deviceId>/{telemetry,attributes,status,cmd,cmd/ack,config}.
+// Protocol: perspice/v1/<deviceId>/{telemetry,attributes,status,cmd,cmd/ack,config,ota,ota/progress}.
 #pragma once
 
 #include <Arduino.h>
@@ -43,6 +43,8 @@ class PerspiceClient {
 #if defined(ESP32)
   // Flushes, disconnects cleanly and deep-sleeps for `seconds` (the device restarts afterwards).
   void sleepCycle(uint32_t seconds);
+  // True while an OTA update is downloading (the device restarts when it succeeds).
+  bool otaInProgress() const { return otaPending_; }
 #endif
 
  private:
@@ -56,6 +58,18 @@ class PerspiceClient {
   void handleMessage(char* topic, uint8_t* payload, unsigned int length);
   void topic(char* out, size_t outBytes, const char* channel) const;
   static void dispatch(char* topic, uint8_t* payload, unsigned int length);
+
+#if defined(ESP32)
+  void receiveOta(JsonDocument& msg);
+  void runOta();
+  void otaProgress(const char* state, int pct, const char* error = nullptr);
+  bool otaPending_ = false;
+  char otaJob_[40] = "";
+  char otaVersion_[41] = "";
+  char otaSha_[65] = "";
+  char otaUrl_[512] = "";
+  uint32_t otaSize_ = 0;
+#endif
 
   static PerspiceClient* instance_;
   PubSubClient mqtt_;

@@ -7,6 +7,8 @@ export interface StorageDriver {
   get(key: string): Promise<{ body: Buffer; contentType: string }>;
   getStream(key: string): Promise<{ body: Readable; contentType: string; size: number }>;
   delete(key: string): Promise<void>;
+  /** Renames an object (replacing any object at `to`). */
+  move(from: string, to: string): Promise<void>;
   getSignedUrl(key: string, ttlSeconds: number): Promise<string>;
   list(prefix: string): Promise<string[]>;
 }
