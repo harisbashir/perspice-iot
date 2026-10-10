@@ -18,6 +18,7 @@ import { CommandsModule } from './commands/commands.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { LocationModule } from './location/location.module';
 import { FirmwareModule } from './firmware/firmware.module';
+import { EnergyModule } from './energy/energy.module';
 import { AlarmsModule } from './alarms/alarms.module';
 import { AwsModule } from './aws/aws.module';
 import { BackupsModule } from './backups/backups.module';
@@ -72,6 +73,7 @@ export class AppModule {
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
+        EnergyModule.forRoot({ api: runsRole(role, 'api') }),
         FirmwareModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         LocationModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler'), rules: runsRole(role, 'rules') }),
         DashboardsModule,

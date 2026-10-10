@@ -1,3 +1,4 @@
+import { ENERGY_RANGES } from './energy.js';
 import type { DeviceLocationDto } from './location.js';
 import { ALARM_SEVERITIES, ALARM_STATUSES } from './alarm-constants.js';
 import type { AlarmDto, AlarmSummary } from './alarms.js';
@@ -122,7 +123,7 @@ export const ENTITY_COLUMNS = ['status', 'name', 'profile', 'customer', 'lastSee
 
 // ── Widget data API (POST /api/dashboards/data) ───────────────────────────────────────────
 
-export const DATA_MODES = ['latest', 'history', 'list', 'stats', 'locations'] as const;
+export const DATA_MODES = ['latest', 'history', 'list', 'stats', 'locations', 'energy'] as const;
 export type DataMode = (typeof DATA_MODES)[number];
 export const MAX_DATA_REQUESTS = 60;
 
@@ -132,6 +133,8 @@ export const DataRequestSchema = z.object({
   mode: z.enum(DATA_MODES),
   timewindow: TimewindowSchema.optional(),
   agg: z.enum(['auto', 'raw', 'avg', 'min', 'max']).default('auto'),
+  /** `energy` mode: the timewindow, or this local day/week/month/year so far. */
+  energyRange: z.enum(ENERGY_RANGES).default('window'),
   page: z.number().int().min(0).max(10_000).default(0),
   sort: z
     .object({ by: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/), dir: z.enum(['asc', 'desc']).default('asc') })

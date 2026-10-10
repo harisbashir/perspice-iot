@@ -1,6 +1,7 @@
-import type { OtaDeviceState, OtaJobStatus, OtaTarget } from '@perspice/shared';
+import type { OtaDeviceState, OtaJobStatus, OtaTarget, TariffPeriod } from '@perspice/shared';
 import { bigint, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_common';
+import { customer } from './customers';
 import { device, deviceProfile } from './devices';
 import { user } from './users';
 
@@ -69,5 +70,16 @@ export const deviceClaim = pgTable('device_claim', {
   codeHash: text('code_hash').notNull().unique(),
   claimedAt: timestamp('claimed_at', { withTimezone: true }),
   claimedBy: uuid('claimed_by').references(() => user.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+/** Energy tariffs (spec §11): one per customer, and the platform default (scope 'platform'). */
+export const tariff = pgTable('tariff', {
+  /** 'platform' or the customer's id; one tariff each. */
+  scope: text('scope').primaryKey(),
+  customerId: uuid('customer_id').references(() => customer.id, { onDelete: 'cascade' }),
+  currency: text('currency').notNull(),
+  defaultRate: doublePrecision('default_rate').notNull(),
+  periods: jsonb('periods').$type<TariffPeriod[]>().notNull().default([]),
   ...timestamps(),
 });

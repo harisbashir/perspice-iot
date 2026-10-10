@@ -53,6 +53,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'report.schedule',
       'geofence.manage',
       'device.claim',
+      'tariff.manage',
     ],
   },
   customer_operator: {

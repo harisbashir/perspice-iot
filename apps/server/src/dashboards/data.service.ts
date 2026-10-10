@@ -1,3 +1,4 @@
+import { EnergyService } from '../energy/energy.service';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   type AlarmListData,
@@ -65,6 +66,7 @@ export class DataService {
     private readonly scopes: ScopeService,
     private readonly telemetry: TelemetryService,
     private readonly alarms: AlarmsService,
+    private readonly energy: EnergyService,
   ) {}
 
   async query(actor: AuthUser, deviceId: string | undefined, requests: DataRequest[]): Promise<Record<string, WidgetDataResult>> {
@@ -94,6 +96,7 @@ export class DataService {
         if (r.mode === 'latest') return this.latestOne(actor, id, ds.keys);
         if (r.mode === 'history') return this.history(actor, id, ds.keys, r);
         if (r.mode === 'locations') return this.locations([await this.devices.find(actor, id)], ds.keys, false);
+        if (r.mode === 'energy') return this.energy.summary(actor, id, ds.keys[0], r.energyRange, windowOf(r.timewindow));
         throw validation([], `Mode "${r.mode}" does not apply to a single device`);
       }
       case 'devicesOfProfile':

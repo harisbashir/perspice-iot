@@ -27,6 +27,7 @@ export const PERMISSIONS = [
   'geofence.manage',
   'firmware.manage',
   'device.claim',
+  'tariff.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

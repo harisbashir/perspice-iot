@@ -1,6 +1,7 @@
 import type {
   DashboardState,
   DataRequest,
+  EnergyRange,
   FleetLatestData,
   HistoryData,
   LatestData,
@@ -9,9 +10,10 @@ import type {
   LocationsData,
   DeviceLocationDto,
   Timewindow,
+  WidgetConfig,
   WidgetDataResult,
 } from '@perspice/shared';
-import { ENTITY_COLUMNS } from '@perspice/shared';
+import { ENERGY_RANGES, ENTITY_COLUMNS } from '@perspice/shared';
 import { getWidget, isFleet, isHistory, isLatest, isList, isLocations, isStats } from '@perspice/widgets';
 
 export type Results = Record<string, WidgetDataResult>;
@@ -22,6 +24,12 @@ export type WidgetQuery = { page?: number; sort?: { by: string; dir: 'asc' | 'de
 const BUILT_IN = new Set<string>(ENTITY_COLUMNS);
 
 /** The data API requests for a dashboard state; widgets without data (or unknown types) are skipped. */
+/** An energy widget's `range` setting (this day/week/month/year, or the dashboard's timewindow). */
+function energyRangeOf(w: WidgetConfig): EnergyRange {
+  const range = (w.settings as { range?: unknown } | undefined)?.range;
+  return (ENERGY_RANGES as readonly unknown[]).includes(range) ? (range as EnergyRange) : 'window';
+}
+
 export function buildRequests(
   state: DashboardState,
   deviceId: string | undefined,
@@ -41,6 +49,7 @@ export function buildRequests(
       mode: def.data.mode,
       timewindow,
       agg: 'auto',
+      energyRange: energyRangeOf(w),
       page: q.page ?? 0,
       ...(q.sort ? { sort: q.sort } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
