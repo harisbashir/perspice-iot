@@ -5,6 +5,11 @@ set -euo pipefail
 log() { printf '\n==> %s\n' "$*"; }
 fail() {
   printf '\nINSTALL E2E FAILED: %s\n' "$*" >&2
+  # The logs that explain most failures.
+  for svc in api emqx ingest; do
+    printf '\n--- %s (last 40 lines) ---\n' "$svc" >&2
+    docker compose -p perspice -f /opt/perspice/docker-compose.yml --env-file /opt/perspice/.env logs --tail 40 "$svc" >&2 2>/dev/null || true
+  done
   exit 1
 }
 BASE="https://localhost"
