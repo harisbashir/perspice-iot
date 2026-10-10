@@ -162,6 +162,32 @@ describe('alarm rules', () => {
     );
   });
 
+  it('creates a geofence rule from the geofences the user can see', async () => {
+    let body: unknown;
+    const G = '33333333-3333-4333-8333-333333333333';
+    server.use(
+      http.get('*/api/device-profiles', () => HttpResponse.json([profile])),
+      http.get('*/api/geofences', () =>
+        HttpResponse.json([{ id: G, name: 'Depot', customerId: null, color: '#2563eb', shape: { type: 'circle', center: { lat: 51.5, lng: -0.12 }, radiusM: 500 }, createdAt: 0, updatedAt: 0 }]),
+      ),
+      http.post('*/api/alarm-rules', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...(body as object), id: 'r2', version: 1 }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(`/alarm-rules?profileId=${P}`, { user: platform });
+    await user.click(await screen.findByRole('button', { name: 'New rule' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name'), 'Left depot');
+    await user.selectOptions(within(dialog).getByLabelText('Type'), 'Device leaves (or enters) a geofence');
+    expect(within(dialog).queryByLabelText('Value')).not.toBeInTheDocument();
+    await user.selectOptions(await within(dialog).findByLabelText('Geofence'), 'Depot (platform-wide)');
+    expect(within(dialog).getByRole('status', { name: 'Rule preview' })).toHaveTextContent('Raises when: Device leaves the geofence (clears 20 m back)');
+    await user.click(within(dialog).getByRole('button', { name: 'Create rule' }));
+    await waitFor(() => expect(body).toMatchObject({ type: 'geofence', condition: { geofenceId: G, trigger: 'outside' }, clear: { marginM: 20 } }));
+  });
+
   it('keeps inherited profile rules read-only for customers', async () => {
     server.use(
       http.get('*/api/alarm-rules', () =>

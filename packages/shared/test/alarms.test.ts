@@ -32,14 +32,21 @@ describe('alarm rules', () => {
   it('rejects reserved types, bad keys, negative margins and inverted ranges', () => {
     const bad = [
       { type: 'geofence', condition: {} },
+      { type: 'geofence', condition: { geofenceId: 'not-a-uuid' } },
+      { type: 'geofence', condition: { geofenceId: P }, clear: { marginM: -5 } },
       { type: 'maintenance_due', condition: {} },
       { type: 'threshold', condition: { key: 'bad key', op: '<', value: 1 }, clear: { margin: 0 } },
       { type: 'threshold', condition: { key: 'k', op: '<', value: 1 }, clear: { margin: -1 } },
       { type: 'range', condition: { key: 'k', min: 10, max: 5, mode: 'outside' }, clear: { margin: 0 } },
     ];
     for (const r of bad) expect(AlarmRuleInputSchema.safeParse({ ...base, ...r }).success).toBe(false);
-    const reserved = AlarmRuleInputSchema.safeParse({ ...base, type: 'geofence', condition: {} });
+    const reserved = AlarmRuleInputSchema.safeParse({ ...base, type: 'maintenance_due', condition: {} });
     expect(JSON.stringify(reserved.error?.issues)).toContain('not available yet');
+  });
+
+  it('accepts geofence rules, leaving by default, with a 20 m clear margin', () => {
+    const parsed = AlarmRuleInputSchema.parse({ ...base, type: 'geofence', condition: { geofenceId: P } });
+    expect(parsed).toMatchObject({ type: 'geofence', condition: { geofenceId: P, trigger: 'outside' }, clear: { marginM: 20 } });
   });
 
   it('validates scopes, schedules and recipients', () => {

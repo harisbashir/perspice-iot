@@ -33,9 +33,9 @@ export type NotifyChannel = (typeof NOTIFY_CHANNELS)[number];
 
 // ── Alarm rules ──────────────────────────────────────────────────────────────────────────────
 
-export const ALARM_RULE_TYPES = ['threshold', 'range', 'duration', 'rate_of_change', 'state_match', 'status', 'no_data_key'] as const;
-/** Reserved for later sub-projects (location, generator maintenance). */
-export const RESERVED_ALARM_RULE_TYPES = ['geofence', 'maintenance_due'] as const;
+export const ALARM_RULE_TYPES = ['threshold', 'range', 'duration', 'rate_of_change', 'state_match', 'status', 'no_data_key', 'geofence'] as const;
+/** Reserved for a later sub-project (generator maintenance). */
+export const RESERVED_ALARM_RULE_TYPES = ['maintenance_due'] as const;
 export type AlarmRuleType = (typeof ALARM_RULE_TYPES)[number];
 
 const Op = z.enum(['>', '>=', '<', '<=']);
@@ -119,6 +119,14 @@ const RULE_VARIANTS = [
     type: z.literal('status'),
     condition: z.object({ statuses: z.array(z.enum(['offline', 'dead'])).min(1) }),
     clear: NoClear,
+  }),
+  z.object({
+    ...common,
+    type: z.literal('geofence'),
+    /** `outside`: raise when the device leaves the geofence; `inside`: when it enters. */
+    condition: z.object({ geofenceId: Uuid, trigger: z.enum(['outside', 'inside']).default('outside') }),
+    /** Clear only once back by this many metres (against GPS jitter at the boundary). */
+    clear: z.object({ marginM: z.number().min(0).max(5000).default(20) }).default({}),
   }),
   z.object({
     ...common,

@@ -1,10 +1,10 @@
 import { Inject, Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import type { LatestValue } from '@perspice/shared';
-import { and, eq, sql } from 'drizzle-orm';
+import type { GeofenceShape, LatestValue } from '@perspice/shared';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import { REDIS } from '../common/redis.module';
 import { DB } from '../db/db.module';
-import { alarm, customer, device } from '../db/schema';
+import { alarm, customer, device, geofence } from '../db/schema';
 import { LATEST_KEY } from '../devices/devices.service';
 import { DEVICE_EVENTS_STREAM, type DomainEvent, TELEMETRY_EVENTS_STREAM } from '../events/events';
 import { StreamConsumer } from '../events/stream-consumer';
@@ -38,6 +38,7 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(AlarmEngine.name);
   private consumers: StreamConsumer[] = [];
   private readonly contexts = new Map<string, DeviceContext>();
+  private readonly geofenceCache = new Map<string, { version: string; value: { name: string; shape: GeofenceShape } }>();
 
   constructor(
     @Inject(DB) private readonly db: DB,
@@ -61,6 +62,18 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
   }
 
   async handle(e: DomainEvent): Promise<void> {
+    if (e.type === 'device.location') {
+      const fix = e.fix;
+      if (!fix) return;
+      await this.withDevice(e.deviceId, async (ctx) => {
+        const rules = ctx.rules.filter((r) => r.type === 'geofence');
+        if (!rules.length) return;
+        const geofences = await this.geofencesFor(rules, ctx.version);
+        const input: EvalInput = { kind: 'location', ts: e.ts, fix, geofences };
+        for (const rule of rules) await this.evaluateOne(ctx, rule, input);
+      });
+      return;
+    }
     let input: EvalInput;
     if (e.type === 'telemetry') {
       input = { kind: 'telemetry', ts: e.ts, values: await this.valuesOf(e.deviceId, e.keys, e.values) };
@@ -70,8 +83,28 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
       return;
     }
     await this.withDevice(e.deviceId, async (ctx) => {
-      for (const rule of ctx.rules) await this.evaluateOne(ctx, rule, input);
+      // Geofence rules only follow location fixes.
+      for (const rule of ctx.rules) if (rule.type !== 'geofence') await this.evaluateOne(ctx, rule, input);
     });
+  }
+
+  /** Shapes of the rules' geofences, cached per rules version (geofence edits bump it). */
+  private async geofencesFor(rules: RuleRow[], version: string): Promise<Record<string, { name: string; shape: GeofenceShape }>> {
+    const ids = [...new Set(rules.map((r) => (r.condition as { geofenceId: string }).geofenceId))];
+    const out: Record<string, { name: string; shape: GeofenceShape }> = {};
+    const missing = ids.filter((id) => {
+      const c = this.geofenceCache.get(id);
+      if (c && c.version === version) out[id] = c.value;
+      return !(c && c.version === version);
+    });
+    if (missing.length) {
+      const rows = await this.db.select({ id: geofence.id, name: geofence.name, shape: geofence.shape }).from(geofence).where(inArray(geofence.id, missing));
+      for (const r of rows) {
+        out[r.id] = { name: r.name, shape: r.shape };
+        this.geofenceCache.set(r.id, { version, value: out[r.id]! });
+      }
+    }
+    return out;
   }
 
   /** Fires due duration and no-data timers. */

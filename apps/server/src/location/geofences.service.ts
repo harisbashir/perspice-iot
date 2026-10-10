@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type GeofenceDto, GeofenceInputSchema, bboxOf } from '@perspice/shared';
-import { and, asc, eq, gte, isNull, lte, or, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte, or, type SQL, sql } from 'drizzle-orm';
+import type Redis from 'ioredis';
 import { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
-import { forbidden, notFound } from '../common/app-error';
+import { RULES_VERSION_KEY } from '../alarms/rules-version';
+import { conflict, forbidden, notFound } from '../common/app-error';
+import { REDIS } from '../common/redis.module';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
-import { customer, geofence } from '../db/schema';
+import { alarmRule, customer, geofence } from '../db/schema';
 
 type Row = typeof geofence.$inferSelect;
 
@@ -36,7 +39,10 @@ const toDto = (r: Row): GeofenceDto => ({
  */
 @Injectable()
 export class GeofencesService {
-  constructor(@Inject(DB) private readonly db: DB) {}
+  constructor(
+    @Inject(DB) private readonly db: DB,
+    @Inject(REDIS) private readonly redis: Redis,
+  ) {}
 
   /** What an actor can see: their customer's and platform-wide ones; platform users see all. */
   visibleTo(actor: AuthUser): SQL | undefined {
@@ -76,12 +82,21 @@ export class GeofencesService {
       .set({ ...patch, ...(patch.shape ? bboxColumns(patch.shape) : {}) })
       .where(eq(geofence.id, existing.id))
       .returning();
+    await this.redis.incr(RULES_VERSION_KEY); // the alarm engine reloads the shape
     return toDto(row!);
   }
 
+  /** Refused while alarm rules use the geofence: deleting it would silently stop them. */
   async remove(actor: AuthUser, id: string): Promise<void> {
     const existing = await this.findWritable(actor, id);
+    const users = await this.db
+      .select({ name: alarmRule.name })
+      .from(alarmRule)
+      .where(and(eq(alarmRule.type, 'geofence'), sql`${alarmRule.condition}->>'geofenceId' = ${existing.id}`))
+      .limit(20);
+    if (users.length) throw conflict(`Used by alarm rules: ${users.map((u) => u.name).join(', ')}. Delete or change them first.`);
     await this.db.delete(geofence).where(eq(geofence.id, existing.id));
+    await this.redis.incr(RULES_VERSION_KEY);
   }
 
   /** A geofence the actor can see, or 404. */
