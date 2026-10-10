@@ -1,6 +1,6 @@
-import type { DeviceProfileDto, GeofenceDto, LocationsData } from '@perspice/shared';
+import type { DeviceProfileDto, GeofenceDto, LocationsData, RoutePoint, Timewindow, TripDto } from '@perspice/shared';
 import { Map as MapIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { formatValue, keyDef, timeAgo } from '../../data/format';
 import { dataOf, isLocations } from '../../data/result';
@@ -16,6 +16,7 @@ export const CLUSTER_THRESHOLD = 100;
 const STATUS_COLOR: Record<string, string> = { online: '#16a34a', offline: '#d97706', dead: '#dc2626', never: '#94a3b8' };
 
 const schema = z.object({
+  mode: field.select('Show', ['markers', 'route'], 'Route: one device’s path over the time window, with playback').default('markers'),
   cluster: field.boolean('Group nearby devices when there are many').default(true),
   showGeofences: field.boolean('Show geofences').default(true),
   fit: field.boolean('Zoom to the devices').default(true),
@@ -153,6 +154,135 @@ function MapView({ data, keys, settings, profile, actions }: { data: LocationsDa
   return <div ref={el} className="h-full w-full rounded" data-testid="map" />;
 }
 
+const SPEEDS = [1, 10, 60, 300] as const;
+const windowOf = (tw: Timewindow): [number, number] => (tw.kind === 'absolute' ? [tw.fromMs, tw.toMs] : [Date.now() - tw.lastMs, Date.now()]);
+
+/** One device's fixes over the time window, with a time slider, playback and its trips. */
+function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: string; timewindow: Timewindow; settings: Settings; actions: WidgetActions }) {
+  const el = useRef<HTMLDivElement>(null);
+  const map = useRef<L.Map | null>(null);
+  const position = useRef<L.CircleMarker | null>(null);
+  const [points, setPoints] = useState<RoutePoint[]>([]);
+  const [trips, setTrips] = useState<TripDto[]>([]);
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(60);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const m = L.map(el.current!, { maxZoom: 19 }).setView([20, 0], 2);
+    map.current = m;
+    let alive = true;
+    void actions.mapTiles().then((t) => {
+      if (!alive) return;
+      m.setMaxZoom(t.maxZoom);
+      L.tileLayer(t.urlTemplate, { attribution: t.attribution, maxZoom: t.maxZoom }).addTo(m);
+    });
+    if (settings.showGeofences) void actions.geofences().then((gs) => alive && gs.forEach((g) => geofenceLayer(g).addTo(m)));
+    const [from, to] = windowOf(timewindow);
+    void Promise.all([actions.route(deviceId, from, to), actions.trips(deviceId, from, to)]).then(([route, t]) => {
+      if (!alive) return;
+      setPoints(route.points);
+      setTrips(t);
+      setLoading(false);
+      if (!route.points.length) return;
+      const line = route.points.map((p) => [p.lat, p.lng] as [number, number]);
+      L.polyline(line, { color: '#2563eb', weight: 3, className: 'perspice-route' }).addTo(m);
+      position.current = L.circleMarker(line[0]!, { radius: 7, color: '#1e3a8a', fillColor: '#ffffff', fillOpacity: 1, weight: 3, className: 'perspice-position' }).addTo(m);
+      m.fitBounds(L.latLngBounds(line), { padding: [24, 24], maxZoom: 16 });
+    });
+    return () => {
+      alive = false;
+      m.remove();
+      map.current = null;
+      position.current = null;
+    };
+    // Once per mount: the dashboard remounts the widget when its time window or settings change.
+  }, []);
+
+  // Move the position marker with the slider.
+  useEffect(() => {
+    const p = points[index];
+    if (p) position.current?.setLatLng([p.lat, p.lng]);
+  }, [index, points]);
+
+  // Playback: advance through the fixes at `speed` × real time (at least one fix per tick).
+  useEffect(() => {
+    if (!playing || points.length < 2) return;
+    const timer = setInterval(() => {
+      setIndex((i) => {
+        if (i >= points.length - 1) {
+          setPlaying(false);
+          return i;
+        }
+        const target = points[i]!.ts + speed * 250;
+        let j = i + 1;
+        while (j < points.length - 1 && points[j + 1]!.ts <= target) j++;
+        return j;
+      });
+    }, 250);
+    return () => clearInterval(timer);
+  }, [playing, points, speed]);
+
+  const pickTrip = (t: TripDto) => {
+    const start = points.findIndex((p) => p.ts >= t.startTs);
+    if (start >= 0) setIndex(start);
+    const inTrip = points.filter((p) => p.ts >= t.startTs && p.ts <= (t.endTs ?? Infinity)).map((p) => [p.lat, p.lng] as [number, number]);
+    if (inTrip.length) map.current?.fitBounds(L.latLngBounds(inTrip), { padding: [24, 24], maxZoom: 17 });
+  };
+  const current = points[index];
+
+  return (
+    <div className="flex h-full gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div ref={el} className="min-h-0 flex-1 rounded" data-testid="map" />
+        {!loading && !points.length && <p className="text-center text-xs text-slate-500">No locations in this period</p>}
+        {points.length > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <button type="button" className="rounded border px-2 py-0.5" onClick={() => setPlaying(!playing)}>
+              {playing ? 'Pause' : 'Play'}
+            </button>
+            <input
+              type="range"
+              aria-label="Time"
+              className="min-w-0 flex-1"
+              min={0}
+              max={points.length - 1}
+              value={index}
+              onChange={(e) => setIndex(Number(e.target.value))}
+            />
+            <select aria-label="Playback speed" className="rounded border px-1" value={speed} onChange={(e) => setSpeed(Number(e.target.value) as (typeof SPEEDS)[number])}>
+              {SPEEDS.map((s) => (
+                <option key={s} value={s}>
+                  {s}×
+                </option>
+              ))}
+            </select>
+            <span data-testid="route-time" className="tabular-nums text-slate-600">
+              {current ? new Date(current.ts).toLocaleTimeString() : ''}
+              {current?.speed !== undefined ? ` · ${Math.round(current.speed)} km/h` : ''}
+            </span>
+          </div>
+        )}
+      </div>
+      {trips.length > 0 && (
+        <ul className="w-40 shrink-0 space-y-1 overflow-y-auto text-xs" aria-label="Trips">
+          {trips.map((t) => (
+            <li key={t.id}>
+              <button type="button" className="w-full rounded border px-2 py-1 text-left hover:bg-slate-50" onClick={() => pickTrip(t)}>
+                <span className="block">{new Date(t.startTs).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                <span className="text-slate-500">
+                  {(t.distanceM / 1000).toFixed(1)} km{t.endTs === null ? ' · under way' : ''}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export const mapWidget: WidgetDefinition<Settings> = {
   type: 'map',
   name: 'Map',
@@ -162,10 +292,25 @@ export const mapWidget: WidgetDefinition<Settings> = {
   settingsSchema: schema,
   data: { mode: 'locations', sources: ['currentDevice', 'device', 'devicesOfProfile', 'entityList'], keys: { min: 0, max: 5 } },
   defaultSize: { w: 8, h: 8 },
-  Component: ({ config, settings, result, profile, actions }) => {
+  Component: ({ config, settings, result, profile, actions, timewindow }) => {
     const data = dataOf(result);
     const ds = config.datasource;
     const keys = 'keys' in ds ? ds.keys : ds.kind === 'entityList' ? ds.columns : [];
+    if (settings.mode === 'route') {
+      const single = ds.kind === 'currentDevice' || ds.kind === 'device';
+      const deviceId = isLocations(data) ? data.devices[0]?.id : undefined;
+      return (
+        <WidgetStatus result={result}>
+          {!single ? (
+            <p className="p-2 text-sm text-slate-500">Route playback shows one device: choose “This device” or a single device as the data source.</p>
+          ) : deviceId ? (
+            <RouteView deviceId={deviceId} timewindow={timewindow} settings={settings} actions={actions} />
+          ) : (
+            <p className="p-2 text-sm text-slate-500">This device has no location yet.</p>
+          )}
+        </WidgetStatus>
+      );
+    }
     return (
       <WidgetStatus result={result}>
         {isLocations(data) && (

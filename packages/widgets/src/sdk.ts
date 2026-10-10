@@ -5,6 +5,8 @@ import type {
   DeviceSummary,
   GeofenceDto,
   MapTiles,
+  RouteDto,
+  TripDto,
   Timewindow,
   WidgetConfig,
   WidgetDataResult,
@@ -43,6 +45,9 @@ export interface WidgetActions {
   mapTiles(): Promise<MapTiles>;
   /** Map widgets: the geofences the viewer can see. */
   geofences(): Promise<GeofenceDto[]>;
+  /** Route playback: a device's fixes and trips over a time range. */
+  route(deviceId: string, from: number, to: number): Promise<RouteDto>;
+  trips(deviceId: string, from: number, to: number): Promise<TripDto[]>;
 }
 
 /**

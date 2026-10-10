@@ -3,6 +3,8 @@ import {
   type DeviceLocationDto,
   type Fix,
   type LocationKeys,
+  type RouteDto,
+  type RoutePoint,
   LocationKeysSchema,
   type TripSettings,
   TripSettingsSchema,
@@ -61,9 +63,6 @@ export interface ProfileLocation {
   at: number;
 }
 
-export interface RoutePoint extends Fix {
-  ts: number;
-}
 
 /**
  * Device locations (spec R12). Reported fixes come from telemetry (keys per profile); Redis
@@ -192,7 +191,7 @@ export class LocationService {
   }
 
   /** Fixes from telemetry over a range, oldest first; time-bucketed beyond 10,000 fixes. */
-  async route(deviceId: string, profileId: string, from: number, to: number): Promise<{ points: RoutePoint[]; downsampled: boolean }> {
+  async route(deviceId: string, profileId: string, from: number, to: number): Promise<RouteDto> {
     const { keys } = await this.profileLocation(profileId);
     const range = sql`device_id = ${deviceId} AND ts >= to_timestamp(${from} / 1000.0) AND ts <= to_timestamp(${to} / 1000.0)`;
     const count = await this.db.execute<{ n: number }>(

@@ -8,7 +8,7 @@ import { applyTheme } from '@/branding/applyTheme';
 import { useBranding } from '@/branding/BrandingProvider';
 import { WidgetFrame } from '@/dashboards/WidgetFrame';
 import { buildRequests } from '@/dashboards/live';
-import { loadGeofences, loadMapTiles } from '@/dashboards/map-services';
+import { loadGeofences, loadMapTiles, loadRoute, loadTrips } from '@/dashboards/map-services';
 
 registerBuiltInWidgets();
 
@@ -32,6 +32,8 @@ const readOnly: WidgetActions = {
   setQuery: () => undefined,
   mapTiles: loadMapTiles,
   geofences: loadGeofences,
+  route: loadRoute,
+  trips: loadTrips,
 };
 
 /**

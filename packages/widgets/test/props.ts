@@ -71,6 +71,8 @@ export function propsFor<S extends Record<string, unknown>>(
       setQuery: vi.fn(),
       mapTiles: vi.fn().mockResolvedValue({ urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM', maxZoom: 19 }),
       geofences: vi.fn().mockResolvedValue([]),
+      route: vi.fn().mockResolvedValue({ points: [], downsampled: false }),
+      trips: vi.fn().mockResolvedValue([]),
     },
   };
 }

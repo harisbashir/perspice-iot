@@ -1,6 +1,6 @@
 import type { LocationsData, WidgetDataResult } from '@perspice/shared';
-import { act, render, waitFor } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { mapWidget } from '../src/library/maps/map';
 import { device, propsFor } from './props';
 
@@ -100,5 +100,64 @@ describe('map widget', () => {
   it('says when no device has a location', () => {
     const { getByText } = render(<mapWidget.Component {...propsFor(mapWidget, { datasource, result: { ok: true, data: { truncated: false, devices: [] } } })} />);
     expect(getByText('No devices with a location')).toBeInTheDocument();
+  });
+});
+
+describe('route playback', () => {
+  const T0 = Date.now() - 3_600_000;
+  const points = Array.from({ length: 20 }, (_, i) => ({ ts: T0 + i * 60_000, lat: 51.5 + i * 0.001, lng: -0.12, speed: 30 }));
+  const trip = { id: 't1', deviceId: 'd0', startTs: T0 + 5 * 60_000, endTs: T0 + 15 * 60_000, start: { lat: 51.505, lng: -0.12 }, end: { lat: 51.515, lng: -0.12 }, distanceM: 1112, maxSpeedKmh: 30, avgSpeedKmh: 6.7 };
+  const routeProps = () => {
+    const props = propsFor(mapWidget, { datasource: { kind: 'currentDevice', keys: [] }, settings: { mode: 'route' }, result: located(1) });
+    props.actions.route = vi.fn().mockResolvedValue({ points, downsampled: false });
+    props.actions.trips = vi.fn().mockResolvedValue([trip]);
+    return props;
+  };
+
+  it("draws the device's route over the dashboard's time window", async () => {
+    const props = routeProps();
+    const { container } = render(<mapWidget.Component {...props} />);
+    await waitFor(() => expect(container.querySelector('.perspice-route')).not.toBeNull());
+    expect(props.actions.route).toHaveBeenCalledWith('d0', expect.any(Number), expect.any(Number));
+    const [, from, to] = (props.actions.route as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(to - from).toBe(86_400_000); // the last 24 h
+  });
+
+  it('the time slider moves the position marker along the route', async () => {
+    const { container } = render(<mapWidget.Component {...routeProps()} />);
+    const slider = await screen.findByRole('slider', { name: 'Time' });
+    const marker = () => container.querySelector('.perspice-position')!.getAttribute('d');
+    const start = marker();
+    fireEvent.change(slider, { target: { value: '19' } });
+    expect(marker()).not.toBe(start);
+    expect(screen.getByTestId('route-time')).toHaveTextContent(new Date(points[19]!.ts).toLocaleTimeString());
+  });
+
+  it('plays the route', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<mapWidget.Component {...routeProps()} />);
+      const slider = await screen.findByRole('slider', { name: 'Time' });
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(Number((slider as HTMLInputElement).value)).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('lists trips; choosing one moves to its start', async () => {
+    render(<mapWidget.Component {...routeProps()} />);
+    const item = await screen.findByRole('button', { name: /1\.1 km/ });
+    fireEvent.click(item);
+    expect((screen.getByRole('slider', { name: 'Time' }) as HTMLInputElement).value).toBe('5');
+  });
+
+  it('asks for a single device', () => {
+    render(<mapWidget.Component {...propsFor(mapWidget, { datasource, settings: { mode: 'route' }, result: located(3) })} />);
+    expect(screen.getByText(/Route playback shows one device/)).toBeInTheDocument();
   });
 });

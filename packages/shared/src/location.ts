@@ -101,6 +101,17 @@ export interface DeviceLocationDto extends Fix {
   source: 'fixed' | 'reported';
 }
 
+/** A fix of a route (GET /devices/:id/route). */
+export interface RoutePoint extends Fix {
+  ts: number;
+}
+
+export interface RouteDto {
+  points: RoutePoint[];
+  /** More fixes than returned: one per time bucket. */
+  downsampled: boolean;
+}
+
 export interface TripDto {
   id: string;
   deviceId: string;

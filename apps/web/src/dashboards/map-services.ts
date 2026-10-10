@@ -1,4 +1,4 @@
-import { DEFAULT_MAP_TILES, type GeofenceDto, type MapTiles } from '@perspice/shared';
+import { DEFAULT_MAP_TILES, type GeofenceDto, type MapTiles, type RouteDto, type TripDto } from '@perspice/shared';
 import { api } from '@/api/client';
 
 let tiles: Promise<MapTiles> | null = null;
@@ -18,6 +18,13 @@ export function loadGeofences(): Promise<GeofenceDto[]> {
   }
   return geofences.value;
 }
+
+export const loadRoute = (deviceId: string, from: number, to: number) =>
+  api<RouteDto>(`/devices/${deviceId}/route?from=${Math.floor(from)}&to=${Math.ceil(to)}`);
+
+/** Trips overlap the range; the API allows at most 30 days per request. */
+export const loadTrips = (deviceId: string, from: number, to: number) =>
+  api<TripDto[]>(`/devices/${deviceId}/trips?from=${Math.floor(Math.max(from, to - 30 * 86_400_000))}&to=${Math.ceil(to)}`);
 
 /** Tests and sign-out. */
 export function resetMapServices(): void {
