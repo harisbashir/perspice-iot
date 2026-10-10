@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-10
+
+Calculated telemetry, energy and generators (sub-project 5c).
+
+### Added
+
+- **Calculated keys** per device profile, computed for every message before it is stored (so
+  they chart, aggregate, alarm and export like any other key): **formulas** in a small, safe
+  expression language (arithmetic, comparisons, logic, conditionals, `abs min max round floor ceil
+  sqrt pow log exp clamp`; no code execution; size limits), **counter use** since the last reading
+  (meter resets handled, implausible jumps dropped), **run time** of a running state, and **level
+  drops** (fuel used, refuels ignored). Checked as you type in the profile editor, with a preview
+  on one of the profile's devices. Calculated keys appear in every key picker.
+- **Energy**: consumption and cost per hour, day, week (from Monday) or month in the customer's
+  timezone (`GET /devices/:id/energy`), and the **Energy summary** widget (this day, week, month or
+  year so far, or the time window; cost; change against the same point of the previous period;
+  bars).
+- **Tariffs** per customer with a platform default: currency, price per unit and time-of-use
+  periods by weekday and hour (Settings → Energy tariff, permission `tariff.manage`).
+- **Run hours** and a **service log** per device (Maintenance tab; permission `device.service` for
+  customer admins and operators).
+- Alarm rule type **Service due** (`maintenance_due`): an interval in run hours and/or days, with
+  an optional earlier reminder; checked a minute after run time reports and hourly; cleared by
+  logging a service.
+- Simulator: keys ending in `_kwh`, `_wh` or `_total` rise like meters. The `GeneratorController`
+  example reports an energy counter.
+- Load test option `LOAD_CALCULATED` (on by default): two formulas and a counter delta per
+  message.
+- Docs: [energy.md](docs/energy.md).
+
 ## [0.6.0] - 2026-10-10
 
 Fleet operations (sub-project 5b).
