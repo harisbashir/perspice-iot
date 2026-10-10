@@ -67,3 +67,17 @@ setup() {
   run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0 --mqtt=mosquitto
   [ "$status" -eq 64 ]
 }
+
+@test "the API isn't restarted after start-up, and MQTT is checked before the install reports success" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.1.0
+  [ "$status" -eq 0 ]
+  # The web push keys come from a one-off container before the stack starts.
+  vapid="$(grep -n 'run --rm --no-deps api node dist/cli.js vapid-keys' <<<"$output" | head -n1 | cut -d: -f1)"
+  up="$(grep -n 'compose .*up -d$' <<<"$output" | head -n1 | cut -d: -f1)"
+  [ -n "$vapid" ] && [ -n "$up" ] && [ "$vapid" -lt "$up" ]
+  ! grep -q 'up -d api$' <<<"$output"
+  roundtrip="$(grep -n 'health --mqtt-roundtrip' <<<"$output" | head -n1 | cut -d: -f1)"
+  done_line="$(grep -n '8/8 Done' <<<"$output" | head -n1 | cut -d: -f1)"
+  [ -n "$roundtrip" ] && [ "$roundtrip" -lt "$done_line" ]
+}

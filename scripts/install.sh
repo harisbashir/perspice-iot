@@ -203,14 +203,17 @@ if [[ "$AWS_IOT" == "1" ]]; then
     while IFS='=' read -r key value; do [[ -n "$key" ]] && env_set "$key" "$value"; done <<<"$aws_env"
   fi
 fi
+# Web push keys, generated before the stack starts: restarting the API afterwards would cut the
+# broker's connection to its authentication hook just as the install finishes.
+if [[ "$DRY_RUN" == "1" ]]; then
+  run_or_print compose run --rm --no-deps api node dist/cli.js vapid-keys
+else
+  while IFS='=' read -r key value; do [[ -n "$key" ]] && env_set "$key" "$value"; done < <(compose run --rm --no-deps -T api node dist/cli.js vapid-keys)
+fi
 run_or_print compose up -d
 wait_healthy api 240 || die "The API did not become healthy. See: perspice logs api"
 if [[ "$AWS_IOT" != "1" ]]; then
   wait_healthy emqx 180 || die "The MQTT broker did not become healthy. See: perspice logs emqx"
-fi
-if [[ "$DRY_RUN" != "1" ]]; then
-  while IFS='=' read -r key value; do env_set "$key" "$value"; done < <(compose exec -T api node dist/cli.js vapid-keys)
-  run_or_print compose up -d api
 fi
 ok "Services are healthy"
 
@@ -248,6 +251,21 @@ else
 fi
 
 # 8. Summary --------------------------------------------------------------------------------------
+# Devices must be able to connect when we say we're done: a message through the broker and back.
+if [[ "$AWS_IOT" != "1" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip
+  else
+    mqtt_ok=0
+    for _ in $(seq 1 24); do
+      if compose exec -T api node dist/cli.js health --mqtt-roundtrip >/dev/null 2>&1; then mqtt_ok=1; break; fi
+      sleep 5
+    done
+    [[ "$mqtt_ok" == "1" ]] || die "Devices can't use the MQTT broker yet. See: perspice logs emqx and perspice logs api"
+  fi
+  ok "MQTT round trip"
+fi
+
 step "8/8 Done"
 cat <<SUMMARY
 

@@ -54,6 +54,9 @@ device="$(jq -r .device.id <<<"$created")"
 device_token="$(jq -r .token <<<"$created")"
 publish() { mosquitto_pub -h localhost -p 1883 -q 1 -i "$device" -u "$device" -P "$device_token" -t "perspice/v1/$device/telemetry" -m "{\"values\":{\"temperature\":$1}}"; }
 latest_temp() { api -H "authorization: Bearer $1" "$BASE/api/devices/$device/telemetry/latest" | jq -r '.temperature.v // empty'; }
+# Installers before 1.0 restarted the API at the very end, so the broker may refuse devices for up
+# to a minute after they finish (1.0 waits for an MQTT round trip before reporting success).
+for _ in $(seq 1 24); do publish 21.5 2>/dev/null && break; sleep 5; done
 publish 21.5 || fail "publish before the update"
 for _ in $(seq 1 20); do [[ "$(latest_temp "$access")" == "21.5" ]] && break; sleep 0.5; done
 [[ "$(latest_temp "$access")" == "21.5" ]] || fail "telemetry not stored before the update"
