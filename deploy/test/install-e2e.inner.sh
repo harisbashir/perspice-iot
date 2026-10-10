@@ -69,7 +69,8 @@ for _ in $(seq 1 20); do [[ "$(latest_temp "$access")" == "21.5" ]] && break; sl
 [[ "$(latest_temp "$access")" == "21.5" ]] || fail "telemetry not stored before the update"
 
 log "Updating $FROM → $NEW with update.sh --source"
-bash /opt/perspice/scripts/update.sh --yes --source /opt/src/new 2>&1 | tee /work/update.log
+# Installs before 1.0 have an update.sh without --source: the new release's updater does it.
+bash /opt/src/new/scripts/update.sh --yes --source /opt/src/new 2>&1 | tee /work/update.log
 [[ "$(version)" == "$NEW" ]] || fail "version after the update is $(version)"
 grep -q 'Perspice .* is running' /work/update.log || fail "update did not report success"
 
