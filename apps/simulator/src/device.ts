@@ -1,5 +1,6 @@
 import type { TelemetryKeyDef } from '@perspice/shared';
 import mqtt, { type MqttClient } from 'mqtt';
+import type { MobileFix } from './mobility.js';
 import { valueGenerator } from './values.js';
 
 export interface SimDeviceOptions {
@@ -12,6 +13,8 @@ export interface SimDeviceOptions {
   sleepy: boolean;
   onSent: () => void;
   onError: (err: Error) => void;
+  /** Mobile devices: the next position, sent with every message. */
+  mobile?: () => MobileFix;
 }
 
 /** One simulated device: publishes values, acks every command with `{ echo: params }`. */
@@ -29,7 +32,7 @@ export class SimDevice {
   }
 
   async tick(): Promise<void> {
-    const payload = JSON.stringify({ ts: Date.now(), values: this.next() });
+    const payload = JSON.stringify({ ts: Date.now(), values: { ...this.next(), ...(this.o.mobile ? this.o.mobile() : {}) } });
     try {
       if (this.o.http) await this.postHttp(payload);
       else if (this.o.sleepy) {

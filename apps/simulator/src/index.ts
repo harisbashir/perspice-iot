@@ -16,6 +16,9 @@ const HELP = `Usage: perspice-sim --url <api> --api-key <pk_…> --mqtt <mqtt://
   --max-p95-ms <ms>     exit 1 if p95 latency exceeds this (default 2000)
   --min-rate <msg/s>    exit 1 if the sustained rate is below this
   --connect-rate <n>    new connections per second at start-up (default 500)
+  --mobile-share <0-1>  this fraction of the devices drive around, sending lat, lng, speed, heading, acc
+  --center <lat,lng>    centre of the area mobile devices drive in (default 51.5,-0.12)
+  --radius-km <km>      radius of that area (default 20)
   --summary <file>      also write the final report as JSON to this file
   --report json         print the final report as JSON
   --insecure            accept self-signed TLS certificates (local test stacks only)`;
@@ -38,6 +41,9 @@ const { values } = parseArgs({
     report: { type: 'string' },
     'min-rate': { type: 'string' },
     'connect-rate': { type: 'string', default: '500' },
+    'mobile-share': { type: 'string', default: '0' },
+    center: { type: 'string', default: '51.5,-0.12' },
+    'radius-km': { type: 'string', default: '20' },
     summary: { type: 'string' },
     insecure: { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
@@ -67,6 +73,11 @@ const report = await runSimulation({
   devicesFile: values['devices-file'],
   insecure: values.insecure,
   connectRate: Number(values['connect-rate']),
+  mobileShare: Number(values['mobile-share']),
+  mobileArea: {
+    center: { lat: Number(values.center!.split(',')[0]), lng: Number(values.center!.split(',')[1]) },
+    radiusKm: Number(values['radius-km']),
+  },
   log: values.report === 'json' ? () => undefined : (l) => console.log(l),
 });
 

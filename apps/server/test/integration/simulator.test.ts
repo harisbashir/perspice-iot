@@ -66,4 +66,34 @@ describe('device simulator', () => {
     );
     expect(res.rows[0]).toEqual({ devices: 5, messages: report.sent });
   });
+
+  it('mobile devices report positions that become device locations', async () => {
+    const admin = await createUser(t.db, { roleKey: 'platform_admin' });
+    const auth = `Bearer ${await tokenFor(t, admin.email, admin.password)}`;
+    const key = await t.http.post('/api/api-keys').set('Authorization', auth).send({ name: 'sim-mobile', permissions: ['device.read', 'device.write', 'profile.read'] });
+    const profile = await createProfile(t.db, { name: 'Tracker Sim', locationMode: 'reported', telemetrySchema: [{ key: 'batt_v', label: 'Battery', type: 'number' }] });
+    const report = await runSimulation({
+      url: await t.baseUrl(),
+      apiKey: key.body.key,
+      mqtt: t.mqttUrl!,
+      profile: profile.name,
+      count: 3,
+      intervalS: 1,
+      durationS: 3,
+      create: true,
+      sleepy: false,
+      http: false,
+      measureLatency: false,
+      devicesFile: join(mkdtempSync(join(tmpdir(), 'sim-')), 'devices.json'),
+      createConcurrency: 3,
+      mobileShare: 1,
+      mobileArea: { center: { lat: 48.85, lng: 2.35 }, radiusKm: 2 },
+      log: () => undefined,
+    });
+    expect(report.errors).toBe(0);
+    const res = await t.http.get(`/api/devices?profileId=${profile.id}`).set('Authorization', auth);
+    const located = (res.body.items as { location: { lat: number; lng: number } | null }[]).filter((d) => d.location);
+    expect(located).toHaveLength(3);
+    for (const d of located) expect(Math.abs(d.location!.lat - 48.85)).toBeLessThan(0.05);
+  });
 });

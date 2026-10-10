@@ -20,7 +20,7 @@ jobs:
         include:
           - fqbn: esp32:esp32:esp32
             core: esp32:esp32
-            examples: BasicSensor GeneratorController DeepSleepSensor
+            examples: BasicSensor GeneratorController DeepSleepSensor GpsTracker
           - fqbn: arduino:avr:mega
             core: arduino:avr
             examples: BasicSensor
@@ -32,7 +32,7 @@ jobs:
           arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
           arduino-cli core install ${{ matrix.core }}
-          arduino-cli lib install PubSubClient ArduinoJson Ethernet
+          arduino-cli lib install PubSubClient ArduinoJson Ethernet TinyGPSPlus
       - run: |
           for ex in ${{ matrix.examples }}; do
             arduino-cli compile --fqbn ${{ matrix.fqbn }} --library firmware/PerspiceClient \

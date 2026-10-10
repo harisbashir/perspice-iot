@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { type Socket, io } from 'socket.io-client';
 import { ApiClient } from './api.js';
 import { SimDevice } from './device.js';
+import { type MobileOptions, mobileRoute } from './mobility.js';
 
 export interface SimOptions {
   url: string;
@@ -22,6 +23,9 @@ export interface SimOptions {
   connectRate?: number;
   /** Parallel requests when creating devices. */
   createConcurrency?: number;
+  /** This fraction of the devices (0–1) drive around `mobileArea`, reporting lat/lng/speed. */
+  mobileShare?: number;
+  mobileArea?: MobileOptions;
   log?: (line: string) => void;
 }
 
@@ -115,9 +119,12 @@ export async function runSimulation(o: SimOptions): Promise<SimReport> {
 
   let sent = 0;
   let errors = 0;
+  const mobileCount = Math.round(stored.length * (o.mobileShare ?? 0));
+  const area = o.mobileArea ?? { center: { lat: 51.5, lng: -0.12 }, radiusKm: 20 };
   const devices = stored.map(
-    (d) =>
+    (d, i) =>
       new SimDevice({
+        ...(i < mobileCount ? { mobile: mobileRoute(area, o.intervalS) } : {}),
         id: d.id,
         token: d.token,
         mqttUrl: o.mqtt,
