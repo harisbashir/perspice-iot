@@ -60,3 +60,14 @@ export const otaJobDevice = pgTable(
   },
   (t) => [primaryKey({ columns: [t.jobId, t.deviceId] }), index('ota_job_device_device_idx').on(t.deviceId)],
 );
+
+/** A device's claim code (hashed; one per device, single-use). */
+export const deviceClaim = pgTable('device_claim', {
+  deviceId: uuid('device_id')
+    .primaryKey()
+    .references(() => device.id, { onDelete: 'cascade' }),
+  codeHash: text('code_hash').notNull().unique(),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  claimedBy: uuid('claimed_by').references(() => user.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});

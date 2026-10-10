@@ -52,6 +52,7 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'webhook.manage',
       'report.schedule',
       'geofence.manage',
+      'device.claim',
     ],
   },
   customer_operator: {

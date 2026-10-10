@@ -227,6 +227,19 @@ export class DevicesService {
     return dto!;
   }
 
+  /** Gives an unassigned device to a customer (claiming; the caller has checked the code). */
+  async assignClaimed(id: string, customerId: string, groupId: string | null, name?: string): Promise<DeviceDto> {
+    const set: Partial<typeof device.$inferInsert> = { customerId, groupId: await this.resolveGroup(customerId, groupId) };
+    if (name) set.name = name;
+    const [row] = await this.db.update(device).set(set).where(eq(device.id, id)).returning();
+    if (!row) throw notFound();
+    await ensureDeviceDashboard(this.db, row.profileId, row.customerId);
+    await this.redis.del(devMetaKey(id), `timeouts:${id}`);
+    await this.credentials.invalidate(id);
+    const [dto] = await this.toDtos([row]);
+    return dto!;
+  }
+
   async remove(actor: AuthUser, id: string): Promise<void> {
     const existing = await this.find(actor, id);
     await this.db.delete(device).where(eq(device.id, id));

@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   'report.schedule',
   'geofence.manage',
   'firmware.manage',
+  'device.claim',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

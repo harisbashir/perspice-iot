@@ -1,3 +1,4 @@
+import { ClaimService } from '../provisioning/claim.service';
 import { BulkService } from './bulk.service';
 import { Global, Module } from '@nestjs/common';
 import { CredentialsService } from './credentials.service';
@@ -10,7 +11,7 @@ import { ProfilesService } from './profiles.service';
 @Global()
 @Module({
   controllers: [ProfilesController, DevicesController],
-  providers: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService],
+  providers: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService, ClaimService],
   exports: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService],
 })
 export class DevicesModule {}

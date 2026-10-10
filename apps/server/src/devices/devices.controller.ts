@@ -5,6 +5,8 @@ import { Audited } from '../audit/audited.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators';
 import { Require } from '../rbac/require.decorator';
+import { ClaimService } from '../provisioning/claim.service';
+import { forbidden, validation } from '../common/app-error';
 import { BulkService } from './bulk.service';
 import { DevicesService } from './devices.service';
 
@@ -20,6 +22,8 @@ const CreateDevice = z.object({
   offlineTimeoutS: Timeout.optional(),
   deadTimeoutS: Timeout.optional(),
 });
+
+const CreateWithClaim = CreateDevice.extend({ withClaimCode: z.boolean().default(false) });
 
 const UpdateDevice = CreateDevice.partial().extend({ disabled: z.boolean().optional() }).strict();
 
@@ -40,7 +44,27 @@ export class DevicesController {
   constructor(
     private readonly devices: DevicesService,
     private readonly bulkOps: BulkService,
+    private readonly claims: ClaimService,
   ) {}
+
+  /** A customer admin adds an unassigned device with its claim code. */
+  @Post('claim')
+  @HttpCode(200)
+  @Require('device.claim')
+  @Audited('device.claim', 'device')
+  claim(@CurrentUser() actor: AuthUser, @Body() raw: unknown) {
+    return this.claims.claim(actor, raw);
+  }
+
+  /** A new claim code for an unassigned device (the old one stops working). */
+  @Post(':id/claim-code')
+  @HttpCode(200)
+  @Require('device.write')
+  @Audited('device.claim_code', 'device')
+  async claimCode(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    if (actor.scopeType !== 'platform') throw forbidden('Claim codes are issued by the platform');
+    return { claimCode: await this.claims.issue((await this.devices.find(actor, id)).id) };
+  }
 
   /** One action on up to 500 devices; the action's own permission applies (audited by the service). */
   @Post('bulk')
@@ -71,8 +95,15 @@ export class DevicesController {
   @Post()
   @Require('device.write')
   @Audited('device.create', 'device')
-  create(@CurrentUser() actor: AuthUser, @Body() raw: unknown) {
-    return this.devices.create(actor, CreateDevice.parse(raw));
+  async create(@CurrentUser() actor: AuthUser, @Body() raw: unknown) {
+    const { withClaimCode, ...input } = CreateWithClaim.parse(raw);
+    if (!withClaimCode) return this.devices.create(actor, input);
+    // A claim code is for stock: an unassigned device a customer adds later.
+    if (actor.scopeType !== 'platform' || input.customerId || input.groupId) {
+      throw validation([{ path: ['withClaimCode'], message: 'Only unassigned devices can have a claim code' }]);
+    }
+    const created = await this.devices.create(actor, input);
+    return { ...created, claimCode: await this.claims.issue(created.device.id) };
   }
 
   @Patch(':id')

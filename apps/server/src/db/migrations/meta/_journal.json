@@ -78,6 +78,13 @@
       "when": 1791607340799,
       "tag": "0010_ota_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791608720536,
+      "tag": "0011_device_claims",
+      "breakpoints": true
     }
   ]
 }
