@@ -13,6 +13,6 @@ export class DataController {
   @HttpCode(200)
   async query(@CurrentUser() actor: AuthUser, @Body() raw: unknown) {
     const q = DataQuerySchema.parse(raw);
-    return { results: await this.data.query(actor, q.deviceId, q.requests) };
+    return { results: await this.data.query(actor, q.deviceId, q.requests, q.assetId) };
   }
 }

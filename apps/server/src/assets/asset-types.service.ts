@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type AssetTypeDto, AssetTypeInputSchema } from '@perspice/shared';
 import { asc, eq, sql } from 'drizzle-orm';
-import { conflict, notFound } from '../common/app-error';
+import { conflict, notFound, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
-import { asset, assetType } from '../db/schema';
+import { asset, assetType, dashboardTemplate } from '../db/schema';
 
 type TypeRow = typeof assetType.$inferSelect;
 
@@ -37,6 +37,12 @@ export class AssetTypesService {
   async update(id: string, body: unknown): Promise<AssetTypeDto> {
     await this.get(id);
     const input = AssetTypeInputSchema.partial().parse(body);
+    if (input.defaultDashboardTemplateId) {
+      const tpl = await this.db.query.dashboardTemplate.findFirst({ where: eq(dashboardTemplate.id, input.defaultDashboardTemplateId) });
+      if (!tpl || tpl.kind !== 'asset' || (tpl.assetTypeId !== null && tpl.assetTypeId !== id)) {
+        throw validation([{ path: ['defaultDashboardTemplateId'], message: 'Choose an asset dashboard template made for this type' }]);
+      }
+    }
     const [row] = await this.db.update(assetType).set({ ...input, updatedAt: new Date() }).where(eq(assetType.id, id)).returning();
     return (await this.list()).find((t) => t.id === row!.id)!;
   }
@@ -45,6 +51,7 @@ export class AssetTypesService {
     await this.get(id);
     const used = await this.db.query.asset.findFirst({ where: eq(asset.typeId, id), columns: { id: true } });
     if (used) throw conflict('Assets of this type exist');
+    await this.db.delete(dashboardTemplate).where(eq(dashboardTemplate.assetTypeId, id));
     await this.db.delete(assetType).where(eq(assetType.id, id));
   }
 }

@@ -10,8 +10,10 @@ export const dashboardTemplate = pgTable(
   {
     id: id(),
     name: text('name').notNull(),
-    kind: text('kind', { enum: ['device', 'overview'] }).notNull(),
+    kind: text('kind', { enum: ['device', 'overview', 'asset'] }).notNull(),
     profileId: uuid('profile_id').references(() => deviceProfile.id, { onDelete: 'cascade' }),
+    /** Asset templates: the asset type they are for (checked by the service). */
+    assetTypeId: uuid('asset_type_id'),
     definition: jsonb('definition').$type<DashboardDefinition>().notNull(),
     /** Incremented on every definition change; overrides remember the version they copied. */
     version: integer('version').notNull().default(1),

@@ -16,7 +16,7 @@ import { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
 import { validation } from '../common/app-error';
 import { DB } from '../db/db.module';
-import { customer, deviceProfile } from '../db/schema';
+import { customer, device, deviceProfile } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 import { TariffService } from './tariff.service';
 
@@ -49,14 +49,17 @@ export class EnergyService {
     const ctx = await this.context(actor, deviceId, q.key);
     const period = q.period ?? periodFor(q.from, q.to);
     const span = q.to - q.from;
-    const [now, prev] = await Promise.all([this.hours(deviceId, q.key, q.from, q.to), this.hours(deviceId, q.key, q.from - span, q.from)]);
+    const [now, prev] = await Promise.all([this.hours([deviceId], q.key, q.from, q.to), this.hours([deviceId], q.key, q.from - span, q.from)]);
     return this.build(ctx, period, now, prev);
   }
 
   /** The `energy` dashboard data mode: the timewindow, or this local period so far. */
   async summary(actor: AuthUser, deviceId: string, key: string | undefined, range: EnergyRange, window: { from: number; to: number }): Promise<EnergyData> {
     if (!key) throw validation([], 'Choose the energy key');
-    const ctx = await this.context(actor, deviceId, key);
+    return this.summarise(await this.context(actor, deviceId, key), [deviceId], key, range, window);
+  }
+
+  private async summarise(ctx: Awaited<ReturnType<EnergyService['context']>>, deviceIds: string[], key: string, range: EnergyRange, window: { from: number; to: number }): Promise<EnergyData> {
     let { from, to } = window;
     let prevFrom = from - (to - from);
     if (range !== 'window') {
@@ -66,8 +69,24 @@ export class EnergyService {
     }
     const period: EnergyPeriod = range === 'today' ? 'hour' : range === 'week' || range === 'month' ? 'day' : range === 'year' ? 'month' : periodFor(from, to);
     // The previous period up to the same point (e.g. the first 10 days of last month).
-    const [now, prev] = await Promise.all([this.hours(deviceId, key, from, to), this.hours(deviceId, key, prevFrom, Math.min(from, prevFrom + (to - from)))]);
+    const [now, prev] = await Promise.all([this.hours(deviceIds, key, from, to), this.hours(deviceIds, key, prevFrom, Math.min(from, prevFrom + (to - from)))]);
     return this.build(ctx, period, now, prev);
+  }
+
+  /**
+   * The energy data mode over several devices (an asset's), summed per hour, in the customer's
+   * timezone and priced with its tariff. The caller has resolved the devices within scope.
+   */
+  async summaryForDevices(customerId: string, deviceIds: string[], key: string | undefined, range: EnergyRange, window: { from: number; to: number }): Promise<EnergyData> {
+    if (!key) throw validation([], 'Choose the energy key');
+    const [tz, tariff, first] = await Promise.all([
+      this.db.query.customer.findFirst({ where: eq(customer.id, customerId), columns: { timezone: true } }),
+      this.tariffs.effective(customerId),
+      deviceIds.length ? this.db.query.device.findFirst({ where: eq(device.id, deviceIds[0]!), columns: { profileId: true } }) : undefined,
+    ]);
+    const profile = first ? await this.db.query.deviceProfile.findFirst({ where: eq(deviceProfile.id, first.profileId), columns: { telemetrySchema: true, calculated: true } }) : undefined;
+    const ctx = { key, unit: profileKeys(profile).find((k) => k.key === key)?.unit ?? null, timezone: tz?.timezone ?? 'UTC', tariff };
+    return this.summarise(ctx, deviceIds, key, range, window);
   }
 
   private async context(actor: AuthUser, deviceId: string, key: string) {
@@ -96,13 +115,15 @@ export class EnergyService {
   }
 
   /** Hourly sums from the hourly aggregate, buckets starting in [from, to). */
-  private async hours(deviceId: string, key: string, from: number, to: number): Promise<{ ts: number; v: number }[]> {
-    if (to <= from) return [];
+  private async hours(deviceIds: string[], key: string, from: number, to: number): Promise<{ ts: number; v: number }[]> {
+    if (to <= from || !deviceIds.length) return [];
     const start = new Date(Math.floor(from / H) * H);
     const res = await this.db.execute<{ ts: string; v: string }>(sql`
-      SELECT (extract(epoch FROM bucket) * 1000)::bigint AS ts, avg * count AS v
+      SELECT (extract(epoch FROM bucket) * 1000)::bigint AS ts, sum(avg * count) AS v
       FROM telemetry_1h
-      WHERE device_id = ${deviceId} AND key = ${key} AND bucket >= ${start.toISOString()} AND bucket < ${new Date(to).toISOString()} AND count > 0`);
+      WHERE device_id IN (${sql.join(deviceIds.map((d) => sql`${d}::uuid`), sql`, `)}) AND key = ${key}
+        AND bucket >= ${start.toISOString()} AND bucket < ${new Date(to).toISOString()} AND count > 0
+      GROUP BY bucket`);
     return res.rows.map((r) => ({ ts: Number(r.ts), v: Number(r.v) }));
   }
 }

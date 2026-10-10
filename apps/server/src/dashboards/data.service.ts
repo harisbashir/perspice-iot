@@ -1,3 +1,4 @@
+import { AssetsService } from '../assets/assets.service';
 import { EnergyService } from '../energy/energy.service';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -67,14 +68,15 @@ export class DataService {
     private readonly telemetry: TelemetryService,
     private readonly alarms: AlarmsService,
     private readonly energy: EnergyService,
+    private readonly assets: AssetsService,
   ) {}
 
-  async query(actor: AuthUser, deviceId: string | undefined, requests: DataRequest[]): Promise<Record<string, WidgetDataResult>> {
+  async query(actor: AuthUser, deviceId: string | undefined, requests: DataRequest[], assetId?: string): Promise<Record<string, WidgetDataResult>> {
     const scope = await this.scopes.forUser(actor);
     const entries = await Promise.all(
       requests.map(async (r): Promise<[string, WidgetDataResult]> => {
         try {
-          return [r.widgetId, { ok: true, data: await this.resolve(actor, scope, deviceId, r) }];
+          return [r.widgetId, { ok: true, data: await this.resolve(actor, scope, deviceId, r, assetId) }];
         } catch (err) {
           if (err instanceof AppError) return [r.widgetId, { ok: false, code: err.code, message: err.message }];
           throw err;
@@ -84,7 +86,7 @@ export class DataService {
     return Object.fromEntries(entries);
   }
 
-  private async resolve(actor: AuthUser, scope: Scope, deviceId: string | undefined, r: DataRequest): Promise<unknown> {
+  private async resolve(actor: AuthUser, scope: Scope, deviceId: string | undefined, r: DataRequest, assetId?: string): Promise<unknown> {
     const ds = r.datasource;
     switch (ds.kind) {
       case 'none':
@@ -98,6 +100,21 @@ export class DataService {
         if (r.mode === 'locations') return this.locations([await this.devices.find(actor, id)], ds.keys, false);
         if (r.mode === 'energy') return this.energy.summary(actor, id, ds.keys[0], r.energyRange, windowOf(r.timewindow));
         throw validation([], `Mode "${r.mode}" does not apply to a single device`);
+      }
+      case 'currentAsset': {
+        if (!assetId) throw validation([], 'This widget needs the dashboard to be opened for an asset');
+        const a = await this.assets.find(actor, assetId); // scope: 404 outside it
+        const ids = await this.assets.deviceIds(a.id, ds.depth, scope);
+        const onAsset = ids.length ? inArray(device.id, ids) : sql`false`;
+        if (r.mode === 'stats') return this.stats(scope, ds.profileId, ds.filter, onAsset);
+        if (r.mode === 'latest') return this.latestMany(scope, ds.profileId, ds.filter, ds.keys, onAsset);
+        if (r.mode === 'locations') return this.locatedIn(this.conditions(scope, ds.profileId, ds.filter, onAsset), ds.keys);
+        if (r.mode === 'list') {
+          const columns = ['name', 'status', 'lastSeen', ...ds.keys];
+          return this.list(scope, { kind: 'entityList', profileId: ds.profileId, filter: ds.filter, columns, pageSize: 25 }, r, onAsset);
+        }
+        if (r.mode === 'energy') return this.energy.summaryForDevices(a.customerId, ids, ds.keys[0], r.energyRange, windowOf(r.timewindow));
+        throw validation([], `Mode "${r.mode}" does not apply to an asset`);
       }
       case 'devicesOfProfile':
         if (r.mode === 'stats') return this.stats(scope, ds.profileId, ds.filter);
@@ -117,6 +134,7 @@ export class DataService {
           severity: ds.filter.severity,
           profileId: ds.filter.profileId ?? undefined,
           deviceId: ds.filter.currentDeviceOnly ? (deviceId ?? NO_DEVICE) : undefined,
+          assetId: ds.filter.currentAssetOnly ? (assetId ?? NO_DEVICE) : undefined,
         };
         if (r.mode === 'stats') return (await this.alarms.summary(actor, f)) satisfies AlarmStatsData;
         if (r.mode === 'list') {
@@ -140,8 +158,9 @@ export class DataService {
     return this.telemetry.history(actor, id, { keys, from, to, agg: r.agg, limit: 10_000 });
   }
 
-  private conditions(scope: Scope, profileId: string | null, filter: Filter): SQL | undefined {
+  private conditions(scope: Scope, profileId: string | null, filter: Filter, extra?: SQL): SQL | undefined {
     const conds: (SQL | undefined)[] = [
+      extra,
       profileId ? eq(device.profileId, profileId) : undefined,
       filter?.status?.length ? inArray(device.status, filter.status) : undefined,
       filter?.tags?.length ? arrayContains(device.tags, filter.tags) : undefined,
@@ -165,19 +184,19 @@ export class DataService {
     return { devices, truncated };
   }
 
-  private async latestMany(scope: Scope, profileId: string | null, filter: Filter, keys: string[]): Promise<FleetLatestData> {
+  private async latestMany(scope: Scope, profileId: string | null, filter: Filter, keys: string[], extra?: SQL): Promise<FleetLatestData> {
     const rows = await this.db
       .select()
       .from(device)
-      .where(this.conditions(scope, profileId, filter))
+      .where(this.conditions(scope, profileId, filter, extra))
       .orderBy(asc(device.name))
       .limit(MAX_DASHBOARD_DEVICES);
     const dtos = await this.devices.toDtos(rows);
     return { devices: rows.map((d, i) => ({ ...summary(d, dtos[i]!.lastSeen), values: pick(dtos[i]!.latest, keys) })) };
   }
 
-  private async list(scope: Scope, ds: Extract<DataSource, { kind: 'entityList' }>, r: DataRequest): Promise<ListData> {
-    const unfiltered = this.conditions(scope, ds.profileId, ds.filter);
+  private async list(scope: Scope, ds: Extract<DataSource, { kind: 'entityList' }>, r: DataRequest, extra?: SQL): Promise<ListData> {
+    const unfiltered = this.conditions(scope, ds.profileId, ds.filter, extra);
     const where = r.customerId ? and(unfiltered, eq(device.customerId, r.customerId)) : unfiltered;
     const [{ total } = { total: 0 }] = await this.db.select({ total: count() }).from(device).where(where);
 
@@ -233,8 +252,8 @@ export class DataService {
       .limit(500);
   }
 
-  private async stats(scope: Scope, profileId: string | null, filter: Filter): Promise<StatsData> {
-    const where = this.conditions(scope, profileId, filter);
+  private async stats(scope: Scope, profileId: string | null, filter: Filter, extra?: SQL): Promise<StatsData> {
+    const where = this.conditions(scope, profileId, filter, extra);
     const rows = await this.db.select({ status: device.status, n: count() }).from(device).where(where).groupBy(device.status);
     const out: StatsData = { total: 0, online: 0, offline: 0, dead: 0, never: 0, messages24h: 0 };
     for (const r of rows) {
