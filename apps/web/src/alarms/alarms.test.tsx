@@ -188,6 +188,33 @@ describe('alarm rules', () => {
     await waitFor(() => expect(body).toMatchObject({ type: 'geofence', condition: { geofenceId: G, trigger: 'outside' }, clear: { marginM: 20 } }));
   });
 
+  it('creates a maintenance rule from run hours or days', async () => {
+    let body: unknown;
+    const generator = { ...profile, calculated: [{ key: 'run_s', label: 'Generator run time', kind: 'runtime', source: 'gen_running', gapCapS: 900 }] };
+    server.use(
+      http.get('*/api/device-profiles', () => HttpResponse.json([generator])),
+      http.post('*/api/alarm-rules', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...(body as object), id: 'r3', version: 1 }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(`/alarm-rules?profileId=${P}`, { user: platform });
+    await user.click(await screen.findByRole('button', { name: 'New rule' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name'), 'Generator service');
+    await user.selectOptions(within(dialog).getByLabelText('Type'), 'Service due (run hours or days)');
+    expect(within(dialog).queryByLabelText('Value')).not.toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText('Run time key'), 'run_s');
+    await user.type(within(dialog).getByLabelText('Every (run hours)'), '250');
+    const remind = within(dialog).getByLabelText('Remind at (% of the interval)');
+    await user.clear(remind);
+    await user.type(remind, '90');
+    expect(within(dialog).getByRole('status', { name: 'Rule preview' })).toHaveTextContent('Raises when: Service every 250 h of Generator run time or 180 days (reminds at 90%)');
+    await user.click(within(dialog).getByRole('button', { name: 'Create rule' }));
+    await waitFor(() => expect(body).toMatchObject({ type: 'maintenance_due', condition: { runtimeKey: 'run_s', everyHours: 250, everyDays: 180, remindAtPct: 90 } }));
+  });
+
   it('keeps inherited profile rules read-only for customers', async () => {
     server.use(
       http.get('*/api/alarm-rules', () =>

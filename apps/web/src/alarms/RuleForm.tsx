@@ -187,7 +187,7 @@ export function RuleForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {d.type !== 'status' && d.type !== 'geofence' && keyField}
+        {d.type !== 'status' && d.type !== 'geofence' && d.type !== 'maintenance_due' && keyField}
         {(d.type === 'threshold' || d.type === 'duration') && (
           <>
             {opField}
@@ -271,6 +271,35 @@ export function RuleForm({
               </label>
             ))}
           </fieldset>
+        )}
+        {d.type === 'maintenance_due' && (
+          <>
+            <Field label="Run time key" help="A runtime calculated key (seconds running); needed for run-hour intervals.">
+              {(id, h) => (
+                <select id={id} aria-describedby={h} className={selectClass} value={String(c.runtimeKey ?? '')} onChange={(e) => setCond({ runtimeKey: e.target.value || undefined })}>
+                  <option value="">None (days only)</option>
+                  {keys.map((k) => (
+                    <option key={k.key} value={k.key}>
+                      {k.label} ({k.key})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+            <Field label="Every (run hours)">
+              {(id) => (
+                <Input id={id} type="number" min={1} value={c.everyHours === undefined ? '' : String(c.everyHours)} onChange={(e) => setCond({ everyHours: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              )}
+            </Field>
+            <Field label="Every (days)">
+              {(id) => (
+                <Input id={id} type="number" min={1} value={c.everyDays === undefined ? '' : String(c.everyDays)} onChange={(e) => setCond({ everyDays: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              )}
+            </Field>
+            <Field label="Remind at (% of the interval)" help="100 = when due; e.g. 90 reminds a little before.">
+              {(id, h) => <Input id={id} aria-describedby={h} type="number" min={50} max={100} value={String(c.remindAtPct ?? 100)} onChange={(e) => setCond({ remindAtPct: num(e.target.value) })} />}
+            </Field>
+          </>
         )}
         {(d.type === 'threshold' || d.type === 'range' || d.type === 'duration' || d.type === 'rate_of_change') && marginField}
       </div>
