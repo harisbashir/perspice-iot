@@ -23,6 +23,7 @@ export default defineConfig({
     { name: 'operations', testMatch: 'operations.spec.ts', dependencies: ['alarms'] },
     { name: 'location', testMatch: 'location.spec.ts', dependencies: ['operations'] },
     { name: 'fleet', testMatch: 'fleet.spec.ts', dependencies: ['location'] },
+    { name: 'energy', testMatch: 'energy.spec.ts', dependencies: ['fleet'] },
     { name: 'live', testMatch: 'live.spec.ts' },
   ],
 });
