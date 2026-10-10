@@ -34,5 +34,10 @@ export function describeRule(r: RuleCore, label: (key: string) => string = (k) =
       return `No ${label(r.condition.key)} for ${dur(r.condition.forS)}`;
     case 'geofence':
       return `Device ${r.condition.trigger === 'inside' ? 'enters' : 'leaves'} the geofence` + (r.clear.marginM ? ` (clears ${r.clear.marginM} m back)` : '');
+    case 'maintenance_due': {
+      const { runtimeKey, everyHours, everyDays, remindAtPct } = r.condition;
+      const every = [everyHours !== undefined && runtimeKey ? `${everyHours} h of ${label(runtimeKey)}` : null, everyDays !== undefined ? `${everyDays} days` : null].filter(Boolean).join(' or ');
+      return `Service every ${every}` + (remindAtPct < 100 ? ` (reminds at ${remindAtPct}%)` : '');
+    }
   }
 }

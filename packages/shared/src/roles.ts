@@ -54,11 +54,12 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'geofence.manage',
       'device.claim',
       'tariff.manage',
+      'device.service',
     ],
   },
   customer_operator: {
     scope: 'customer',
-    permissions: ['device.read', 'device.command', 'profile.read', 'telemetry.read', 'export.data', 'notification.read', 'alarm.read', 'alarm.ack', 'report.schedule'],
+    permissions: ['device.read', 'device.command', 'device.service', 'profile.read', 'telemetry.read', 'export.data', 'notification.read', 'alarm.read', 'alarm.ack', 'report.schedule'],
   },
   customer_viewer: {
     scope: 'customer',

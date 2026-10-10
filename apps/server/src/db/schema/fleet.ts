@@ -83,3 +83,21 @@ export const tariff = pgTable('tariff', {
   periods: jsonb('periods').$type<TariffPeriod[]>().notNull().default([]),
   ...timestamps(),
 });
+
+/** A logged service of a device (spec §11 maintenance); resets its maintenance reminders. */
+export const deviceService = pgTable(
+  'device_service',
+  {
+    id: id(),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => device.id, { onDelete: 'cascade' }),
+    servicedAt: timestamp('serviced_at', { withTimezone: true }).notNull(),
+    note: text('note').notNull().default(''),
+    /** Total run hours of each runtime key when it was done. */
+    runHours: jsonb('run_hours').$type<Record<string, number>>().notNull().default({}),
+    createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
+    ...timestamps(),
+  },
+  (t) => [index('device_service_device_idx').on(t.deviceId, t.servicedAt)],
+);

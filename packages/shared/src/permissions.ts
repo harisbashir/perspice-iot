@@ -28,6 +28,7 @@ export const PERMISSIONS = [
   'firmware.manage',
   'device.claim',
   'tariff.manage',
+  'device.service',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

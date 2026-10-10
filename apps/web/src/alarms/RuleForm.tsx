@@ -30,6 +30,7 @@ export const TYPE_LABEL: Record<AlarmRuleType, string> = {
   status: 'Device offline or dead',
   no_data_key: 'Value stops reporting',
   geofence: 'Device leaves (or enters) a geofence',
+  maintenance_due: 'Service due (run hours or days)',
 };
 
 const DEFAULT_CONDITION: Record<AlarmRuleType, { condition: Record<string, unknown>; clear: Record<string, unknown> }> = {
@@ -41,6 +42,7 @@ const DEFAULT_CONDITION: Record<AlarmRuleType, { condition: Record<string, unkno
   status: { condition: { statuses: ['offline', 'dead'] }, clear: {} },
   no_data_key: { condition: { key: '', forS: 3600 }, clear: {} },
   geofence: { condition: { geofenceId: '', trigger: 'outside' }, clear: { marginM: 20 } },
+  maintenance_due: { condition: { everyDays: 180, remindAtPct: 100 }, clear: {} },
 };
 
 const CUSTOMER_ROLES: BuiltInRoleKey[] = ['customer_admin', 'customer_operator', 'customer_viewer'];

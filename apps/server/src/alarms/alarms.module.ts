@@ -6,6 +6,8 @@ import { AlarmEngine } from './engine';
 import { AlarmRulesController } from './rules.controller';
 import { AlarmRulesService } from './rules.service';
 import { AlarmTimersJob } from './timers.job';
+import { MaintenanceController } from './maintenance.controller';
+import { MaintenanceJob, MaintenanceService } from './maintenance.service';
 
 @Global()
 @Module({})
@@ -13,17 +15,19 @@ export class AlarmsModule {
   static forRoot(opts: { api: boolean; rules: boolean; scheduler: boolean }): DynamicModule {
     return {
       module: AlarmsModule,
-      controllers: opts.api ? [AlarmRulesController, AlarmsController] : [],
+      controllers: opts.api ? [AlarmRulesController, AlarmsController, MaintenanceController] : [],
       providers: [
         AlarmRulesService,
         AlarmStore,
         AlarmsService,
         AlarmEngine,
         AlarmTimersJob,
+        MaintenanceService,
+        MaintenanceJob,
         { provide: 'RUN_ALARM_ENGINE', useValue: opts.rules },
         { provide: 'SCHEDULE_ALARM_JOBS', useValue: opts.scheduler },
       ],
-      exports: [AlarmRulesService, AlarmStore, AlarmEngine, AlarmsService],
+      exports: [AlarmRulesService, AlarmStore, AlarmEngine, AlarmsService, MaintenanceService],
     };
   }
 }

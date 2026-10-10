@@ -22,6 +22,7 @@ describe('alarm rules', () => {
       { type: 'state_match', condition: { key: 'door_open', values: [true] } },
       { type: 'status', condition: { statuses: ['offline', 'dead'] } },
       { type: 'no_data_key', condition: { key: 'fuel_level', forS: 3600 } },
+      { type: 'maintenance_due', condition: { runtimeKey: 'run_s', everyHours: 250, everyDays: 180 } },
     ];
     for (const r of rules) {
       const parsed = AlarmRuleInputSchema.parse({ ...base, ...r });
@@ -29,19 +30,23 @@ describe('alarm rules', () => {
     }
   });
 
-  it('rejects reserved types, bad keys, negative margins and inverted ranges', () => {
+  it('rejects bad conditions, keys, negative margins and inverted ranges', () => {
     const bad = [
       { type: 'geofence', condition: {} },
       { type: 'geofence', condition: { geofenceId: 'not-a-uuid' } },
       { type: 'geofence', condition: { geofenceId: P }, clear: { marginM: -5 } },
       { type: 'maintenance_due', condition: {} },
+      { type: 'maintenance_due', condition: { everyHours: 250 } },
+      { type: 'maintenance_due', condition: { everyDays: 30, remindAtPct: 20 } },
       { type: 'threshold', condition: { key: 'bad key', op: '<', value: 1 }, clear: { margin: 0 } },
       { type: 'threshold', condition: { key: 'k', op: '<', value: 1 }, clear: { margin: -1 } },
       { type: 'range', condition: { key: 'k', min: 10, max: 5, mode: 'outside' }, clear: { margin: 0 } },
     ];
     for (const r of bad) expect(AlarmRuleInputSchema.safeParse({ ...base, ...r }).success).toBe(false);
-    const reserved = AlarmRuleInputSchema.safeParse({ ...base, type: 'maintenance_due', condition: {} });
-    expect(JSON.stringify(reserved.error?.issues)).toContain('not available yet');
+    const noInterval = AlarmRuleInputSchema.safeParse({ ...base, type: 'maintenance_due', condition: {} });
+    expect(JSON.stringify(noInterval.error?.issues)).toContain('Give a service interval');
+    const noKey = AlarmRuleInputSchema.safeParse({ ...base, type: 'maintenance_due', condition: { everyHours: 250 } });
+    expect(JSON.stringify(noKey.error?.issues)).toContain('Run hours need the run time key');
   });
 
   it('accepts geofence rules, leaving by default, with a 20 m clear margin', () => {
