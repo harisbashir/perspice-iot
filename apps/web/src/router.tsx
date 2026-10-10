@@ -18,6 +18,8 @@ import { DeviceDetailPage } from './pages/devices/DeviceDetailPage';
 import { TemplateEditorPage } from './pages/dashboards/TemplateEditorPage';
 import { TemplatesPage } from './pages/dashboards/TemplatesPage';
 import { DevicesPage } from './pages/devices/DevicesPage';
+import { FirmwarePage } from './pages/firmware/FirmwarePage';
+import { OtaJobPage } from './pages/firmware/OtaJobPage';
 import { OverviewPage } from './pages/overview/OverviewPage';
 import { ProfileEditor } from './pages/profiles/ProfileEditor';
 import { ProfilesPage } from './pages/profiles/ProfilesPage';
@@ -48,6 +50,8 @@ export const routes: RouteObject[] = [
       { path: 'devices', element: <RequirePermission perm="device.read"><DevicesPage /></RequirePermission> },
       { path: 'devices/:id', element: <RequirePermission perm="device.read"><DeviceDetailPage /></RequirePermission> },
       { path: 'devices/:id/dashboard/edit', element: <RequirePermission perm="dashboard.customize"><DeviceDashboardEditPage /></RequirePermission> },
+      { path: 'firmware', element: <RequirePermission perm="firmware.manage"><FirmwarePage /></RequirePermission> },
+      { path: 'ota-jobs/:id', element: <RequirePermission perm="firmware.manage"><OtaJobPage /></RequirePermission> },
       { path: 'dashboards', element: <RequirePermission perm="dashboard.edit"><TemplatesPage /></RequirePermission> },
       { path: 'dashboards/:templateId/edit', element: <RequirePermission perm="dashboard.edit"><TemplateEditorPage /></RequirePermission> },
       { path: 'profiles', element: <RequirePermission perm="profile.read"><ProfilesPage /></RequirePermission> },

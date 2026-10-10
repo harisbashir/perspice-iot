@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { FileUp, KeyRound, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/PageHeader';
@@ -7,14 +7,31 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExportMenu } from '@/exports/ExportMenu';
 import { useStatusFeed } from '@/realtime/hooks';
+import { BulkBar } from './BulkBar';
+import { ClaimDialog } from './ClaimDialog';
 import { CreateDeviceDialog } from './CreateDeviceDialog';
+import { ImportDialog } from './ImportDialog';
 import { DevicesTable } from './DevicesTable';
 import { type DeviceFilters, useDeviceList, useProfiles } from './hooks';
 
 export function DevicesPage() {
-  const { hasPerm } = useAuth();
+  const { user, hasPerm } = useAuth();
+  const isPlatform = user?.scopeType === 'platform';
   const [filters, setFilters] = useState<DeviceFilters>({});
   const [open, setOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const canBulk = hasPerm('device.write') || hasPerm('device.command');
+  const select = (ids: string[], on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
   const list = useDeviceList(filters);
   const { data: profiles = [] } = useProfiles();
   useStatusFeed();
@@ -41,6 +58,16 @@ export function DevicesPage() {
                 },
               })}
             />
+            {isPlatform && hasPerm('device.write') && (
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                <FileUp className="h-4 w-4" /> Import
+              </Button>
+            )}
+            {!isPlatform && hasPerm('device.claim') && (
+              <Button variant="outline" onClick={() => setClaiming(true)}>
+                <KeyRound className="h-4 w-4" /> Add with claim code
+              </Button>
+            )}
             {hasPerm('device.write') && (
               <Button onClick={() => setOpen(true)}>
                 <Plus className="h-4 w-4" /> New device
@@ -83,13 +110,20 @@ export function DevicesPage() {
           ))}
         </select>
       </div>
-      {list.isLoading ? <Skeleton className="h-40" /> : <DevicesTable devices={devices} profileName={profileName} />}
+      {canBulk && <BulkBar deviceIds={[...selected]} onDone={() => setSelected(new Set())} />}
+      {list.isLoading ? (
+        <Skeleton className="h-40" />
+      ) : (
+        <DevicesTable devices={devices} profileName={profileName} {...(canBulk ? { selected, onSelect: select } : {})} />
+      )}
       {list.hasNextPage && (
         <Button variant="outline" className="mt-4" onClick={() => void list.fetchNextPage()}>
           Load more
         </Button>
       )}
       <CreateDeviceDialog open={open} onOpenChange={setOpen} />
+      <ImportDialog open={importing} onOpenChange={setImporting} />
+      <ClaimDialog open={claiming} onOpenChange={setClaiming} />
     </div>
   );
 }

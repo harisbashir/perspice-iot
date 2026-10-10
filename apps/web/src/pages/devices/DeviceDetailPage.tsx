@@ -14,6 +14,7 @@ import { CommandsPanel } from './CommandsPanel';
 import { CredentialsPanel } from './CredentialsPanel';
 import { DebugPanel } from './DebugPanel';
 import { LatestValuesPanel } from './LatestValuesPanel';
+import { OtaPanel } from './OtaPanel';
 import { StatusBadge } from './StatusBadge';
 import { timeAgo } from './format';
 import { useDevice, useProfile } from './hooks';
@@ -60,6 +61,7 @@ export function DeviceDetailPage() {
           {profile?.trips.enabled && hasPerm('telemetry.read') && <TabsTrigger value="trips">Trips</TabsTrigger>}
           <TabsTrigger value="commands">Commands</TabsTrigger>
           <TabsTrigger value="attributes">Attributes</TabsTrigger>
+          <TabsTrigger value="firmware">Firmware</TabsTrigger>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           {hasPerm('device.read') && <TabsTrigger value="debug">Debug</TabsTrigger>}
         </TabsList>
@@ -107,6 +109,9 @@ export function DeviceDetailPage() {
         </TabsContent>
         <TabsContent value="attributes">
           <AttributesPanel device={device} />
+        </TabsContent>
+        <TabsContent value="firmware">
+          <OtaPanel deviceId={device.id} firmwareVersion={device.firmwareVersion} />
         </TabsContent>
         <TabsContent value="credentials">
           <CredentialsPanel deviceId={device.id} />
