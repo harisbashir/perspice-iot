@@ -79,6 +79,23 @@ trip state machine and geofence evaluation in the path). Same host and limits.
 | latency, publish → websocket | p50 13 ms, **p95 63 ms**, p99 701 ms, max 891 ms |
 | whole stack CPU | 310% average, 376% peak of 400% |
 
+### v0.7.0, with calculated telemetry
+
+Rerun with the default `LOAD_CALCULATED=1`: the profile gets two formulas (`dew_point`,
+`temperature_f`) and a counter delta on a simulated energy meter, so every message is evaluated
+and stores three more values (about 4,000 rows/s instead of 3,000). Same host and limits.
+
+| | result |
+| --- | --- |
+| sustained rate | 999.9 messages/s (every minute 999.8–1000.1) |
+| sent / stored | 899,964 / 899,964 — **0 lost** |
+| latency, publish → websocket | p50 28 ms, **p95 191 ms**, p99 1,699 ms, max 2,121 ms |
+| whole stack CPU | 346% average, 402% peak of 400% |
+
+The criterion still holds, but with almost no headroom: the extra rows cost PostgreSQL and ingest
+CPU (peaks 134% and 97%), and the tail latency rises. Each calculated key adds a stored value per
+message, so size servers for the rows written, not only the messages received.
+
 ## Bottlenecks found and fixed
 
 The first runs failed. What the test found, in order:

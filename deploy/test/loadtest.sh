@@ -7,6 +7,8 @@
 #   LOAD_COUNT=10000 LOAD_DURATION=900 LOAD_INTERVAL=10   the load (defaults shown)
 #   LOAD_MOBILE_SHARE=0.1   this fraction of devices drive around reporting positions (locations
 #                           and trips switched on for the profile)
+#   LOAD_CALCULATED=1   the profile gets two formulas and a counter delta on a simulated meter
+#                       (calculated telemetry on every message; 0 to switch off)
 #   LOAD_OUT=<dir>   where the summary, per-minute report and container stats go (default: a temp dir)
 #   SKIP_BUILD=1     reuse images built by an earlier run; KEEP_STACK=1 leaves the stack running
 #   LOAD_OVERRIDE=<file>  one more compose override (e.g. to profile a service)
@@ -89,8 +91,20 @@ api -X POST -H "authorization: Bearer $access" "$BASE/api/auth/totp/enable" -d "
 key="$(api -X POST -H "authorization: Bearer $access" "$BASE/api/api-keys" \
   -d '{"name":"load test","permissions":["device.read","device.write","profile.read","telemetry.read"]}' | json "d['key']")"
 MOBILE_SHARE="${LOAD_MOBILE_SHARE:-0}"
+profile_id="$(api -H "authorization: Bearer $access" "$BASE/api/device-profiles" | json "[p['id'] for p in d if p['name']=='Generic Sensor'][0]")"
+if [[ "${LOAD_CALCULATED:-1}" == "1" ]]; then
+  api -X PATCH -H "authorization: Bearer $access" "$BASE/api/device-profiles/$profile_id" -d '{
+    "telemetrySchema":[
+      {"key":"temperature","label":"Temperature","unit":"°C","type":"number","decimals":1},
+      {"key":"humidity","label":"Humidity","unit":"%","type":"number","decimals":0},
+      {"key":"energy_kwh","label":"Energy meter","unit":"kWh","type":"number"}],
+    "calculated":[
+      {"key":"dew_point","label":"Dew point","unit":"°C","kind":"formula","expr":"round(temperature - (100 - humidity) / 5, 1)"},
+      {"key":"temperature_f","label":"Temperature","unit":"°F","kind":"formula","expr":"temperature * 1.8 + 32"},
+      {"key":"energy_used","label":"Energy used","unit":"kWh","kind":"counter_delta","source":"energy_kwh"}]
+  }' >/dev/null || fail "add calculated keys to the profile"
+fi
 if [[ "$MOBILE_SHARE" != "0" ]]; then
-  profile_id="$(api -H "authorization: Bearer $access" "$BASE/api/device-profiles" | json "[p['id'] for p in d if p['name']=='Generic Sensor'][0]")"
   api -X PATCH -H "authorization: Bearer $access" "$BASE/api/device-profiles/$profile_id" \
     -d '{"locationMode":"reported","trips":{"enabled":true}}' >/dev/null || fail "enable locations on the profile"
 fi

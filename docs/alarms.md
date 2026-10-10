@@ -15,11 +15,12 @@ under **Alarms → Alarm rules** (or from a device's **Alarms** tab).
 | Device status | the device goes offline or dead | it is back online |
 | No data | a value stops reporting for N seconds | it reports again |
 | Geofence | the device leaves (or enters) a geofence | it is back inside (outside) by the clear margin, default 20 m |
+| Service due | run hours (of a run time key) or days since the last service reach the interval (or the reminder share of it) | a service is logged on the device's Maintenance tab |
 
 The **clear margin** stops alarms flapping when a value hovers around the threshold: with
 "fuel below 20, margin 5" the alarm clears only once fuel is back at 25 or more. Geofence rules
-need devices with reported locations ([location.md](location.md)); maintenance rules arrive with
-the generator features in a later release.
+need devices with reported locations ([location.md](location.md)); service-due rules and the
+service log are described in [energy.md](energy.md).
 
 ### Scope
 
