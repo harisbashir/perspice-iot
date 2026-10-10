@@ -22,4 +22,12 @@ struct PerspiceConfig {
   uint16_t keepAliveS = 30;
   // Telemetry messages kept while offline (oldest dropped when full).
   uint16_t bufferCapacity = PERSPICE_DEFAULT_BUFFER;
+  // This firmware's version, reported as the "fw" attribute on every connect (OTA updates are
+  // confirmed by the new version coming back after the restart).
+  const char* firmwareVersion = nullptr;
+  // ESP32: apply OTA updates sent by the platform.
+  bool otaEnabled = true;
+  // ESP32: PEM root certificate of the download server. Without it the server isn't verified,
+  // but the image's SHA-256 still is before anything is written to the boot partition.
+  const char* otaCaCert = nullptr;
 };

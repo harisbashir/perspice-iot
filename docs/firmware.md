@@ -42,6 +42,7 @@ void loop() {
 | `BasicSensor` | ESP32 + W5500, or Arduino Mega + Ethernet shield | periodic telemetry over Ethernet |
 | `GeneratorController` | ESP32 (Wi-Fi, TLS) | `gen_start` / `gen_stop` commands driving a relay, shared config |
 | `DeepSleepSensor` | ESP32 (Wi-Fi) | wake → send → deep sleep (use a *sleepy* profile) |
+| `OtaUpdate` | ESP32 (Wi-Fi) | firmware updates from the platform: HTTPS download, SHA-256 check, restart, version reported ([fleet.md](fleet.md)) |
 | `GpsTracker` | ESP32 + serial GPS (NEO-6M/7M/8M), library `TinyGPSPlus` | position every 10 s, ignition input for trips ([location.md](location.md)) |
 
 CI compiles every example for `esp32:esp32:esp32` and `BasicSensor` for `arduino:avr:mega`,
