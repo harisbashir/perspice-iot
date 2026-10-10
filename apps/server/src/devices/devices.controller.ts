@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { z } from 'zod';
 import { Audited } from '../audit/audited.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators';
 import { Require } from '../rbac/require.decorator';
+import { BulkService } from './bulk.service';
 import { DevicesService } from './devices.service';
 
 const Tags = z.array(z.string().trim().min(1).max(50)).max(50);
@@ -35,7 +37,18 @@ const Attributes = z.record(z.unknown());
 
 @Controller('devices')
 export class DevicesController {
-  constructor(private readonly devices: DevicesService) {}
+  constructor(
+    private readonly devices: DevicesService,
+    private readonly bulkOps: BulkService,
+  ) {}
+
+  /** One action on up to 500 devices; the action's own permission applies (audited by the service). */
+  @Post('bulk')
+  @HttpCode(200)
+  @Require('device.read')
+  bulk(@CurrentUser() actor: AuthUser, @Body() raw: unknown, @Req() req: Request) {
+    return this.bulkOps.run(actor, raw, req.ip ?? null);
+  }
 
   @Get()
   @Require('device.read')
