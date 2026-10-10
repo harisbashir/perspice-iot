@@ -83,7 +83,8 @@ rollback() {
     info "Restoring the pre-update database snapshot $SNAPSHOT"
     db_restore_from "$SNAPSHOT" || warn "Restoring the snapshot failed; restore it manually with: perspice db-restore $SNAPSHOT"
   fi
-  compose up -d || true
+  # The target may have added services (a renderer, say) that the rolled-back release doesn't have.
+  compose up -d --remove-orphans || true
   die "Update to $TARGET failed and was rolled back to $CURRENT. Details: $LOG" 1
 }
 
@@ -142,12 +143,22 @@ MIGRATED=1
 run_or_print compose run --rm migrate || rollback
 
 step "4/5 Restarting services"
-for svc in ingest rules scheduler renderer api caddy; do
+# Infrastructure first: its configuration changes between releases too (0.4.0 added the broker's
+# internal listener, 1.0 the database healthcheck), and the app services need the new one.
+# Compose only recreates a container whose configuration changed.
+if [[ "$DRY_RUN" == "1" ]]; then
+  services=(redis postgres emqx cert-sync ingest rules scheduler renderer api caddy)
+else
+  mapfile -t services < <(compose_services redis postgres emqx cert-sync ingest rules scheduler renderer api caddy)
+fi
+for svc in "${services[@]}"; do
   run_or_print compose up -d --no-deps "$svc" || rollback
-  [[ "$svc" == caddy ]] && continue
-  wait_healthy "$svc" 120 || rollback
+  [[ "$svc" == caddy || "$svc" == cert-sync ]] && continue
+  wait_healthy "$svc" 180 || rollback
   ok "$svc"
 done
+# Services the new release adds that aren't in the list above.
+run_or_print compose up -d --remove-orphans || rollback
 
 step "5/5 Health check"
 run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip || rollback

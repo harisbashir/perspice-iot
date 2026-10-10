@@ -124,6 +124,17 @@ latest_release() {
 
 APP_SERVICES=(api ingest rules scheduler renderer)
 
+# The given services that the active compose file defines, in the order given: releases add
+# services (renderer in 0.2.0), so a rollback must not name ones its compose file lacks.
+compose_services() {
+  local defined
+  defined="$(compose config --services 2>/dev/null)" || return 1
+  local svc
+  for svc in "$@"; do
+    if grep -qx "$svc" <<<"$defined"; then printf '%s\n' "$svc"; fi
+  done
+}
+
 # Installs the deployment files of release $1 (compose file, EMQX and cert-sync config, this
 # library) into $PERSPICE_HOME: from the checkout in $PERSPICE_SRC when set, otherwise from the
 # release's source archive.
@@ -158,15 +169,18 @@ db_snapshot_to() {
 
 # Restores a dump the way TimescaleDB supports: into a fresh database (pre/post-restore hooks),
 # which replaces the live one only after the restore succeeded.
+# Every step is checked: callers run this in a condition, where `set -e` doesn't apply.
 db_restore_from() {
   local file="$1"
   [[ -s "$file" ]] || die "Dump not found or empty: $file"
   local psql=(compose exec -T postgres psql -U perspice -v ON_ERROR_STOP=1 -q)
-  compose stop "${APP_SERVICES[@]}"
-  "${psql[@]}" -d postgres -c 'DROP DATABASE IF EXISTS perspice_restore WITH (FORCE)' -c 'CREATE DATABASE perspice_restore'
-  "${psql[@]}" -d perspice_restore -c 'CREATE EXTENSION IF NOT EXISTS timescaledb' -c 'SELECT timescaledb_pre_restore()'
-  compose exec -T postgres pg_restore -U perspice -d perspice_restore --no-owner --exit-on-error <"$file"
-  "${psql[@]}" -d perspice_restore -c 'SELECT timescaledb_post_restore()'
-  "${psql[@]}" -d postgres -c 'DROP DATABASE perspice WITH (FORCE)' -c 'ALTER DATABASE perspice_restore RENAME TO perspice'
-  compose start "${APP_SERVICES[@]}"
+  local apps
+  mapfile -t apps < <(compose_services "${APP_SERVICES[@]}")
+  compose stop "${apps[@]}" || return 1
+  "${psql[@]}" -d postgres -c 'DROP DATABASE IF EXISTS perspice_restore WITH (FORCE)' -c 'CREATE DATABASE perspice_restore' || return 1
+  "${psql[@]}" -d perspice_restore -c 'CREATE EXTENSION IF NOT EXISTS timescaledb' -c 'SELECT timescaledb_pre_restore()' || return 1
+  compose exec -T postgres pg_restore -U perspice -d perspice_restore --no-owner --exit-on-error <"$file" || return 1
+  "${psql[@]}" -d perspice_restore -c 'SELECT timescaledb_post_restore()' || return 1
+  "${psql[@]}" -d postgres -c 'DROP DATABASE perspice WITH (FORCE)' -c 'ALTER DATABASE perspice_restore RENAME TO perspice' || return 1
+  compose start "${apps[@]}" || return 1
 }

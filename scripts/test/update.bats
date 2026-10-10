@@ -20,8 +20,9 @@ setup() {
   [ "$status" -eq 0 ]
   grep -q 'pg_dump' "$STUB_LOG"
   grep -q 'run --rm migrate' "$STUB_LOG"
-  order="$(grep -o 'up -d --no-deps [a-z]*' "$STUB_LOG" | awk '{print $4}' | paste -sd' ')"
-  [ "$order" = "ingest rules scheduler renderer api caddy" ]
+  order="$(grep -o 'up -d --no-deps [a-z-]*' "$STUB_LOG" | awk '{print $4}' | paste -sd' ')"
+  # Infrastructure first (its configuration can change between releases), then the app.
+  [ "$order" = "redis postgres emqx cert-sync ingest rules scheduler renderer api caddy" ]
   grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
   [ ! -e "$PERSPICE_HOME/docker-compose.yml.previous" ]
   grep -q '^PERSPICE_VERSION=0.2.0$' "$PERSPICE_HOME/.env"
@@ -132,4 +133,22 @@ make_source() {
   run bash "$SCRIPTS/update.sh" --yes --source "$BATS_TEST_TMPDIR/empty"
   [ "$status" -eq 64 ]
   [[ "$output" == *"VERSION"* ]]
+}
+
+@test "a rollback to a release without some services restores and restarts only those it has" {
+  # The release rolled back to (e.g. 0.1.0) has no renderer.
+  STUB_SERVICES="postgres redis emqx cert-sync api ingest rules scheduler web caddy" STUB_FAIL_ON="health --mqtt-roundtrip" \
+    run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rolled back to 0.1.0"* ]]
+  [[ "$output" != *"Restoring the snapshot failed"* ]]
+  grep -q 'stop api ingest rules scheduler$' "$STUB_LOG"
+  grep -q 'start api ingest rules scheduler$' "$STUB_LOG"
+  grep -q 'up -d --remove-orphans' "$STUB_LOG"
+}
+
+@test "a failing restore is reported, not hidden" {
+  STUB_FAIL_ON="health --mqtt-roundtrip|pg_restore" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Restoring the snapshot failed"* ]]
 }
