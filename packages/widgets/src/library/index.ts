@@ -7,6 +7,7 @@ import { commandButton } from './control/command-button';
 import { setpointWidget } from './control/setpoint';
 import { sliderWidget } from './control/slider';
 import { toggleWidget } from './control/toggle';
+import { mapWidget } from './maps/map';
 import { imageOverlay } from './other/image-overlay';
 import { markdownCard } from './other/markdown';
 import { entityTable } from './tables/entity-table';
@@ -22,6 +23,7 @@ import { valueCard } from './values/value-card';
 
 export const BUILT_IN_WIDGETS = [
   ...CHART_WIDGETS,
+  mapWidget,
   valueCard,
   multiValueWidget,
   ledWidget,

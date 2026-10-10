@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { WidgetFrame } from './WidgetFrame';
 import { useDashboardData } from './useDashboardData';
+import { loadGeofences, loadMapTiles } from './map-services';
 
 registerBuiltInWidgets();
 
@@ -73,6 +74,8 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
             }
           },
           setQuery: (patch) => setQuery(w.id, patch),
+          mapTiles: loadMapTiles,
+          geofences: loadGeofences,
         };
       },
     [device?.id, navigate, setQuery],

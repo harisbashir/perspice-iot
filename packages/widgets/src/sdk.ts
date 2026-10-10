@@ -3,6 +3,8 @@ import type {
   DataSource,
   DeviceProfileDto,
   DeviceSummary,
+  GeofenceDto,
+  MapTiles,
   Timewindow,
   WidgetConfig,
   WidgetDataResult,
@@ -10,7 +12,7 @@ import type {
 import type { ComponentType } from 'react';
 import type { z } from 'zod';
 
-export type WidgetCategory = 'chart' | 'value' | 'table' | 'control' | 'other';
+export type WidgetCategory = 'chart' | 'value' | 'table' | 'map' | 'control' | 'other';
 
 /** What the dashboard gives each widget. */
 export interface WidgetProps<S = Record<string, unknown>> {
@@ -37,6 +39,10 @@ export interface WidgetActions {
   openAlarm(alarmId: string): void;
   /** Asks the dashboard to change this widget's request (e.g. a table's page or sort). */
   setQuery(patch: { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string }): void;
+  /** Map widgets: the configured tile server. */
+  mapTiles(): Promise<MapTiles>;
+  /** Map widgets: the geofences the viewer can see. */
+  geofences(): Promise<GeofenceDto[]>;
 }
 
 /**

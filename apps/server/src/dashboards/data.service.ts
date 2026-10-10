@@ -6,12 +6,13 @@ import {
   type DataSource,
   type DeviceSummary,
   ENTITY_COLUMNS,
-
   type FleetLatestData,
   type HistoryData,
   type LatestData,
   type ListData,
+  type LocationsData,
   MAX_DASHBOARD_DEVICES,
+  MAX_MAP_DEVICES,
   type StatsData,
   type Timewindow,
   type WidgetDataResult,
@@ -92,15 +93,21 @@ export class DataService {
         if (!id) throw validation([], 'This widget needs the dashboard to be opened for a device');
         if (r.mode === 'latest') return this.latestOne(actor, id, ds.keys);
         if (r.mode === 'history') return this.history(actor, id, ds.keys, r);
+        if (r.mode === 'locations') return this.locations([await this.devices.find(actor, id)], ds.keys, false);
         throw validation([], `Mode "${r.mode}" does not apply to a single device`);
       }
       case 'devicesOfProfile':
         if (r.mode === 'stats') return this.stats(scope, ds.profileId, ds.filter);
         if (r.mode === 'latest') return this.latestMany(scope, ds.profileId, ds.filter, ds.keys);
+        if (r.mode === 'locations') return this.locatedIn(this.conditions(scope, ds.profileId, ds.filter), ds.keys);
         throw validation([], `Mode "${r.mode}" does not apply to a device group`);
-      case 'entityList':
+      case 'entityList': {
         if (r.mode === 'list') return this.list(scope, ds, r);
-        throw validation([], 'Entity lists support mode "list" only');
+        const where = this.conditions(scope, ds.profileId, ds.filter);
+        const keys = ds.columns.filter((c) => !(ENTITY_COLUMNS as readonly string[]).includes(c));
+        if (r.mode === 'locations') return this.locatedIn(r.customerId ? and(where, eq(device.customerId, r.customerId)) : where, keys);
+        throw validation([], 'Entity lists support modes "list" and "locations"');
+      }
       case 'alarms': {
         const f = {
           status: ds.filter.status,
@@ -138,6 +145,21 @@ export class DataService {
       filter?.search ? ilike(device.name, `%${filter.search}%`) : undefined,
     ];
     return scoped(device, scope, ...conds);
+  }
+
+  /** Devices with a location (stored, or reported and still in Redis), for maps. */
+  private async locatedIn(where: SQL | undefined, keys: string[]): Promise<LocationsData> {
+    const rows = await this.db.select().from(device).where(where).orderBy(asc(device.name)).limit(MAX_MAP_DEVICES + 1);
+    return this.locations(rows.slice(0, MAX_MAP_DEVICES), keys, rows.length > MAX_MAP_DEVICES);
+  }
+
+  private async locations(rows: (typeof device.$inferSelect)[], keys: string[], truncated: boolean): Promise<LocationsData> {
+    const dtos = await this.devices.toDtos(rows);
+    const devices = rows.flatMap((d, i) => {
+      const dto = dtos[i]!;
+      return dto.location ? [{ ...summary(d, dto.lastSeen), location: dto.location, values: pick(dto.latest, keys) }] : [];
+    });
+    return { devices, truncated };
   }
 
   private async latestMany(scope: Scope, profileId: string | null, filter: Filter, keys: string[]): Promise<FleetLatestData> {

@@ -5,6 +5,7 @@ const CATEGORIES: [WidgetCategory, string][] = [
   ['value', 'Values'],
   ['chart', 'Charts'],
   ['table', 'Tables'],
+  ['map', 'Maps'],
   ['control', 'Controls'],
   ['other', 'Other'],
 ];

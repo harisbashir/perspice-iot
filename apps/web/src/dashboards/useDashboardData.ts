@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api/client';
 import { useDevicesSubscription } from '@/realtime/hooks';
 import { useRoomSubscription, useSocketEvent } from '@/realtime/socket';
-import { type Results, type StatusEvent, type TelemetryEvent, type WidgetQuery, applyStatus, applyTelemetry, buildRequests, devicesIn } from './live';
+import { type LocationEvent, type Results, type StatusEvent, type TelemetryEvent, type WidgetQuery, applyLocation, applyStatus, applyTelemetry, buildRequests, devicesIn } from './live';
 
 /**
  * Fetches every widget's data in one request and keeps it live: telemetry and status events for
@@ -35,6 +35,7 @@ export function useDashboardData(state: DashboardState, deviceId: string | undef
   const refetchTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(refetchTimer.current), []);
   useSocketEvent<TelemetryEvent>('telemetry', (e) => setResults((r) => applyTelemetry(r, meta, e, timewindow.kind === 'relative')));
+  useSocketEvent<LocationEvent>('location', (e) => setResults((r) => applyLocation(r, e)));
   useSocketEvent('alarm', () => {
     if (!hasAlarms) return;
     clearTimeout(refetchTimer.current);

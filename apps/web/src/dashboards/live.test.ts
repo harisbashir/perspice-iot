@@ -1,7 +1,7 @@
-import type { DashboardState, HistoryData, LatestData, ListData } from '@perspice/shared';
+import type { DashboardState, HistoryData, LatestData, ListData, LocationsData } from '@perspice/shared';
 import { describe, expect, it } from 'vitest';
 import { dataOf, registerBuiltInWidgets } from '@perspice/widgets';
-import { applyStatus, applyTelemetry, buildRequests } from './live';
+import { applyLocation, applyStatus, applyTelemetry, buildRequests, devicesIn } from './live';
 
 registerBuiltInWidgets();
 
@@ -120,5 +120,29 @@ describe('alarm sources', () => {
     const { requests, meta } = buildRequests(state, 'd1', { kind: 'relative', lastMs: 60_000 }, {});
     expect(requests[0]).toMatchObject({ widgetId: 'a', mode: 'list', datasource: { kind: 'alarms' } });
     expect(meta.a).toEqual({ keys: [], alarms: true });
+  });
+});
+
+describe('map widgets', () => {
+  const loc = (lat: number) => ({ lat, lng: -0.12, ts: 1, source: 'reported' as const });
+  const results = () => ({
+    map: { ok: true as const, data: { truncated: false, devices: [{ ...device, location: loc(51.5), values: {} }] } satisfies LocationsData },
+  });
+  const meta = { map: { keys: ['fuel_level'], locations: true } };
+
+  it('moves a device when a newer location arrives, and ignores older ones', () => {
+    const moved = applyLocation(results(), { deviceId: 'd1', location: { ...loc(51.6), ts: 5 } });
+    expect((dataOf(moved.map) as LocationsData).devices[0]!.location.lat).toBe(51.6);
+    const r = results();
+    expect(applyLocation(r, { deviceId: 'd1', location: { ...loc(40), ts: 0 } })).toBe(r);
+    expect(applyLocation(r, { deviceId: 'other', location: loc(40) })).toBe(r);
+  });
+
+  it('follows status and popup values, and subscribes to the devices shown', () => {
+    const s = applyStatus(results(), { deviceId: 'd1', from: 'online', to: 'offline', ts: 2 }, meta);
+    expect((dataOf(s.map) as LocationsData).devices[0]!.status).toBe('offline');
+    const v = applyTelemetry(results(), meta, { deviceId: 'd1', values: { fuel_level: { ts: 2, v: 12 } } }, true);
+    expect((dataOf(v.map) as LocationsData).devices[0]!.values.fuel_level?.v).toBe(12);
+    expect(devicesIn(results(), meta)).toEqual(['d1']);
   });
 });

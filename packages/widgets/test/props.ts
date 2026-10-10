@@ -69,6 +69,8 @@ export function propsFor<S extends Record<string, unknown>>(
       ackAlarm: vi.fn().mockResolvedValue(undefined),
       openAlarm: vi.fn(),
       setQuery: vi.fn(),
+      mapTiles: vi.fn().mockResolvedValue({ urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM', maxZoom: 19 }),
+      geofences: vi.fn().mockResolvedValue([]),
     },
   };
 }

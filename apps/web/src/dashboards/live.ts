@@ -6,15 +6,17 @@ import type {
   LatestData,
   LatestValueDto,
   ListData,
+  LocationsData,
+  DeviceLocationDto,
   Timewindow,
   WidgetDataResult,
 } from '@perspice/shared';
 import { ENTITY_COLUMNS } from '@perspice/shared';
-import { getWidget, isFleet, isHistory, isLatest, isList, isStats } from '@perspice/widgets';
+import { getWidget, isFleet, isHistory, isLatest, isList, isLocations, isStats } from '@perspice/widgets';
 
 export type Results = Record<string, WidgetDataResult>;
 /** Per widget: the single device it shows (if any) and the telemetry keys it cares about. */
-export type WidgetMeta = Record<string, { deviceId?: string; keys: string[]; stats?: 'fleet' | 'filtered'; alarms?: boolean }>;
+export type WidgetMeta = Record<string, { deviceId?: string; keys: string[]; stats?: 'fleet' | 'filtered'; alarms?: boolean; locations?: boolean }>;
 export type WidgetQuery = { page?: number; sort?: { by: string; dir: 'asc' | 'desc' }; customerId?: string };
 
 const BUILT_IN = new Set<string>(ENTITY_COLUMNS);
@@ -43,7 +45,11 @@ export function buildRequests(
       ...(q.sort ? { sort: q.sort } : {}),
       ...(q.customerId ? { customerId: q.customerId } : {}),
     });
-    if (ds.kind === 'currentDevice' || ds.kind === 'device') {
+    if (def.data.mode === 'locations') {
+      // Maps follow location events (and status/values for their popups) of the devices shown.
+      const keys = 'keys' in ds ? ds.keys : ds.kind === 'entityList' ? ds.columns.filter((c) => !BUILT_IN.has(c)) : [];
+      meta[w.id] = { keys, locations: true };
+    } else if (ds.kind === 'currentDevice' || ds.kind === 'device') {
       meta[w.id] = { deviceId: ds.kind === 'device' ? ds.deviceId : deviceId, keys: ds.keys };
     } else if (ds.kind === 'entityList') {
       meta[w.id] = { keys: ds.columns.filter((c) => !BUILT_IN.has(c)) };
@@ -64,6 +70,10 @@ export function buildRequests(
 export interface TelemetryEvent {
   deviceId: string;
   values: Record<string, LatestValueDto>;
+}
+export interface LocationEvent {
+  deviceId: string;
+  location: DeviceLocationDto;
 }
 export interface StatusEvent {
   deviceId: string;
@@ -96,6 +106,9 @@ export function applyTelemetry(results: Results, meta: WidgetMeta, e: TelemetryE
     } else if (isList(d) && d.items.some((x) => x.id === e.deviceId)) {
       out[id] = { ok: true, data: { ...d, items: d.items.map((x) => (x.id === e.deviceId ? { ...x, values: { ...x.values, ...fresh } } : x)) } satisfies ListData };
       changed = true;
+    } else if (isLocations(d) && d.devices.some((x) => x.id === e.deviceId)) {
+      out[id] = { ok: true, data: { ...d, devices: d.devices.map((x) => (x.id === e.deviceId ? { ...x, values: { ...x.values, ...fresh } } : x)) } satisfies LocationsData };
+      changed = true;
     } else if (isHistory(d) && relativeWindow && meta[id]!.deviceId === e.deviceId) {
       const series = { ...d.series };
       for (const [k, lv] of Object.entries(fresh)) if (series[k]) series[k] = [...series[k]!, [lv.ts, lv.v]];
@@ -125,7 +138,25 @@ export function applyStatus(results: Results, e: StatusEvent, meta: WidgetMeta =
     } else if (isFleet(d) && d.devices.some((x) => x.id === e.deviceId)) {
       out[id] = { ok: true, data: { devices: d.devices.map((x) => (x.id === e.deviceId ? { ...x, status: e.to } : x)) } };
       changed = true;
+    } else if (isLocations(d) && d.devices.some((x) => x.id === e.deviceId)) {
+      out[id] = { ok: true, data: { ...d, devices: d.devices.map((x) => (x.id === e.deviceId ? { ...x, status: e.to } : x)) } };
+      changed = true;
     }
+  }
+  return changed ? out : results;
+}
+
+/** Moves a device on the maps showing it (newer fixes only). */
+export function applyLocation(results: Results, e: LocationEvent): Results {
+  let changed = false;
+  const out: Results = { ...results };
+  for (const [id, r] of Object.entries(results)) {
+    if (!r.ok || !isLocations(r.data)) continue;
+    const d = r.data;
+    const target = d.devices.find((x) => x.id === e.deviceId);
+    if (!target || target.location.ts >= e.location.ts) continue;
+    out[id] = { ok: true, data: { ...d, devices: d.devices.map((x) => (x.id === e.deviceId ? { ...x, location: e.location } : x)) } satisfies LocationsData };
+    changed = true;
   }
   return changed ? out : results;
 }
@@ -138,6 +169,7 @@ export function devicesIn(results: Results, meta: WidgetMeta): string[] {
     if (!r.ok) continue;
     if (isList(r.data)) r.data.items.forEach((x) => ids.add(x.id));
     if (isFleet(r.data)) r.data.devices.forEach((x) => ids.add(x.id));
+    if (isLocations(r.data)) r.data.devices.forEach((x) => ids.add(x.id));
   }
   return [...ids];
 }

@@ -8,6 +8,7 @@ import { applyTheme } from '@/branding/applyTheme';
 import { useBranding } from '@/branding/BrandingProvider';
 import { WidgetFrame } from '@/dashboards/WidgetFrame';
 import { buildRequests } from '@/dashboards/live';
+import { loadGeofences, loadMapTiles } from '@/dashboards/map-services';
 
 registerBuiltInWidgets();
 
@@ -29,6 +30,8 @@ const readOnly: WidgetActions = {
   openAlarm: () => undefined,
   ackAlarm: () => Promise.reject(new Error('Not available in reports')),
   setQuery: () => undefined,
+  mapTiles: loadMapTiles,
+  geofences: loadGeofences,
 };
 
 /**

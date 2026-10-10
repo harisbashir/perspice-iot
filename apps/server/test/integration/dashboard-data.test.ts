@@ -143,6 +143,34 @@ describe('dashboard data API', () => {
     expect((await list(a.auth, b.c.id)).total).toBe(0);
   });
 
+  it('serves located devices for maps, within scope, with their popup values', async () => {
+    const a = await customer();
+    const b = await customer();
+    const p = await createProfile(t.db, { locationMode: 'fixed' });
+    const { device: located } = await createDevice(t.db, { profileId: p.id, customerId: a.c.id, name: 'Yard 1', location: { lat: 51.5, lng: -0.12, ts: 1, source: 'fixed' } });
+    await createDevice(t.db, { profileId: p.id, customerId: a.c.id, name: 'Nowhere' });
+    await createDevice(t.db, { profileId: p.id, customerId: b.c.id, name: 'Foreign', location: { lat: 48.8, lng: 2.3, ts: 1, source: 'fixed' } });
+    // A newer reported position in Redis wins over the stored one.
+    await t.redis.set(`loc:${located.id}`, JSON.stringify({ lat: 51.6, lng: -0.1, ts: 2, source: 'reported' }));
+    await latest(located.id, { fuel_level: 40 });
+    const res = await query(a.auth, {
+      deviceId: located.id,
+      requests: [
+        { widgetId: 'map', datasource: { kind: 'devicesOfProfile', profileId: p.id, filter: {}, keys: ['fuel_level'] }, mode: 'locations' },
+        { widgetId: 'one', datasource: { kind: 'currentDevice', keys: [] }, mode: 'locations' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.results.map).toEqual({
+      ok: true,
+      data: {
+        truncated: false,
+        devices: [expect.objectContaining({ id: located.id, name: 'Yard 1', location: expect.objectContaining({ lat: 51.6, lng: -0.1 }), values: { fuel_level: expect.objectContaining({ v: 40 }) } })],
+      },
+    });
+    expect(res.body.results.one.data.devices.map((d: { id: string }) => d.id)).toEqual([located.id]);
+  });
+
   it('computes fleet stats within scope', async () => {
     const a = await customer();
     const b = await customer();

@@ -1,3 +1,4 @@
+import type { DeviceLocationDto } from './location.js';
 import { ALARM_SEVERITIES, ALARM_STATUSES } from './alarm-constants.js';
 import type { AlarmDto, AlarmSummary } from './alarms.js';
 import { z } from 'zod';
@@ -8,6 +9,8 @@ export const MAX_STATES = 20;
 export const MAX_WIDGETS_PER_STATE = 60;
 /** Most devices one dashboard may show at once (list sources, live subscriptions). */
 export const MAX_DASHBOARD_DEVICES = 500;
+/** Map widgets show at most this many devices. */
+export const MAX_MAP_DEVICES = 5000;
 
 const Key = z.string().regex(KEY_PATTERN);
 const Keys = z.array(Key).max(50);
@@ -119,7 +122,7 @@ export const ENTITY_COLUMNS = ['status', 'name', 'profile', 'customer', 'lastSee
 
 // ── Widget data API (POST /api/dashboards/data) ───────────────────────────────────────────
 
-export const DATA_MODES = ['latest', 'history', 'list', 'stats'] as const;
+export const DATA_MODES = ['latest', 'history', 'list', 'stats', 'locations'] as const;
 export type DataMode = (typeof DATA_MODES)[number];
 export const MAX_DATA_REQUESTS = 60;
 
@@ -190,6 +193,13 @@ export interface StatsData {
   dead: number;
   never: number;
   messages24h: number;
+}
+
+/** mode `locations`: the source's devices that have a location (at most 5,000), for maps. */
+export interface LocationsData {
+  devices: (DeviceSummary & { location: DeviceLocationDto; values: Record<string, LatestValueDto> })[];
+  /** More located devices matched than were returned. */
+  truncated: boolean;
 }
 
 /** mode `list` on `alarms`: the newest matching alarms. */
