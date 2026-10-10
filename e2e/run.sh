@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the Playwright suite in Microsoft's Playwright image (bundled browsers and system
-# libraries) against a freshly started stack.  Usage: e2e/run.sh [location|operations|alarms|dashboards|core|live] [playwright args…]
+# libraries) against a freshly started stack.  Usage: e2e/run.sh [fleet|location|operations|alarms|dashboards|core|live] [playwright args…]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

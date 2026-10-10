@@ -80,7 +80,7 @@ export function OtaJobPage() {
             <TableHead>Device</TableHead>
             <TableHead>State</TableHead>
             <TableHead>Error</TableHead>
-            <TableHead>Updated</TableHead>
+            <TableHead>Last change</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

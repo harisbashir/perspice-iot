@@ -18,7 +18,7 @@ export function OtaPanel({ deviceId, firmwareVersion }: { deviceId: string; firm
             <TableHead>Version</TableHead>
             <TableHead>State</TableHead>
             <TableHead>Error</TableHead>
-            <TableHead>Updated</TableHead>
+            <TableHead>Last change</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
