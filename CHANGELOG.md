@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
+Asset hierarchy (sub-project 5d).
+
+### Added
+
+- **Asset types** (platform): name, icon, attributes (text, number, date) and a default asset
+  dashboard.
+- **Assets**: a tree per customer (sites containing equipment, up to 8 levels), scoped by customer
+  and group like devices, with attributes from the type, an optional location, breadcrumbs, moves
+  checked against loops and depth, and roll-ups per subtree (devices by status, open alarms by worst
+  severity). Assets page with the tree; asset page with Dashboard, Devices, Sub-assets, Alarms and
+  Details.
+- **Devices on assets**: at most one asset per device, of the same customer; attach from the asset,
+  the device page or in bulk; device and alarm lists filter by asset (subtree).
+- **Asset dashboards**: templates for an asset type, served per customer like device dashboards; the
+  data source "the dashboard's asset" (its devices, directly or in the whole subtree) for KPIs, maps,
+  bar and pie charts, device lists and summed energy; alarm widgets limited to the asset.
+- Docs: [assets.md](docs/assets.md).
+
 ## [0.7.0] - 2026-10-10
 
 Calculated telemetry, energy and generators (sub-project 5c).
