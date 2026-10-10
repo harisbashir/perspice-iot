@@ -6,6 +6,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators';
 import { Require } from '../rbac/require.decorator';
 import { ClaimService } from '../provisioning/claim.service';
+import { ImportService } from '../provisioning/import.service';
 import { forbidden, validation } from '../common/app-error';
 import { BulkService } from './bulk.service';
 import { DevicesService } from './devices.service';
@@ -45,7 +46,17 @@ export class DevicesController {
     private readonly devices: DevicesService,
     private readonly bulkOps: BulkService,
     private readonly claims: ClaimService,
+    private readonly imports: ImportService,
   ) {}
+
+  /** Devices from a CSV (text/csv body); `dryRun=true` only checks it. Credentials come back once. */
+  @Post('import')
+  @HttpCode(200)
+  @Require('device.write')
+  @Audited('device.import', 'device')
+  import(@CurrentUser() actor: AuthUser, @Query('dryRun') dryRun: string | undefined, @Req() req: Request) {
+    return this.imports.run(actor, req, dryRun === 'true' || dryRun === '1');
+  }
 
   /** A customer admin adds an unassigned device with its claim code. */
   @Post('claim')

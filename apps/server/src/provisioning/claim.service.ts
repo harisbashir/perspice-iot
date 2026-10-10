@@ -12,7 +12,7 @@ import { device, deviceClaim } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 
 const CLAIMS_PER_MIN = 10;
-const hashCode = (code: string) => createHash('sha256').update(code).digest('hex');
+export const hashClaimCode = (code: string) => createHash('sha256').update(code).digest('hex');
 
 /** A random claim code from the unambiguous alphabet (about 60 bits). */
 export function newClaimCode(): string {
@@ -42,8 +42,8 @@ export class ClaimService {
     const code = newClaimCode();
     await this.db
       .insert(deviceClaim)
-      .values({ deviceId, codeHash: hashCode(code) })
-      .onConflictDoUpdate({ target: deviceClaim.deviceId, set: { codeHash: hashCode(code), claimedAt: null, claimedBy: null, updatedAt: new Date() } });
+      .values({ deviceId, codeHash: hashClaimCode(code) })
+      .onConflictDoUpdate({ target: deviceClaim.deviceId, set: { codeHash: hashClaimCode(code), claimedAt: null, claimedBy: null, updatedAt: new Date() } });
     return formatClaimCode(code);
   }
 
@@ -58,7 +58,7 @@ export class ClaimService {
       .set({ claimedAt: new Date(), claimedBy: actor.id, updatedAt: new Date() })
       .where(
         and(
-          eq(deviceClaim.codeHash, hashCode(input.code)),
+          eq(deviceClaim.codeHash, hashClaimCode(input.code)),
           isNull(deviceClaim.claimedAt),
           inArray(deviceClaim.deviceId, this.db.select({ id: device.id }).from(device).where(sql`${device.customerId} IS NULL`)),
         ),
