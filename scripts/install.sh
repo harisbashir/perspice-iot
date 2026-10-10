@@ -131,6 +131,20 @@ ok "Domain $DOMAIN, version $VERSION"
 # 4. Secrets --------------------------------------------------------------------------------------
 step "4/8 Generating secrets"
 mkdir -p "$PERSPICE_HOME" "$PERSPICE_HOME/backups"
+# A reinstall keeps the data volumes, so it must keep the secrets they depend on: the database
+# password, the keys that encrypt stored secrets and sign sessions, the backup passphrase (older
+# backups need it) and the web push keys (browsers are subscribed with them).
+PREVIOUS_ENV=""
+if [[ "$REINSTALL" == "1" && -f "$PERSPICE_HOME/.env" ]]; then
+  PREVIOUS_ENV="$(mktemp)"
+  cp "$PERSPICE_HOME/.env" "$PREVIOUS_ENV"
+fi
+secret() {
+  local key="$1" previous=""
+  shift
+  [[ -n "$PREVIOUS_ENV" ]] && previous="$(env_get "$key" "$PREVIOUS_ENV")"
+  if [[ -n "$previous" ]]; then printf '%s' "$previous"; else "$@"; fi
+}
 umask 077
 cat >"$PERSPICE_HOME/.env" <<ENV
 PERSPICE_VERSION=$VERSION
@@ -138,19 +152,19 @@ PERSPICE_IMAGE_OWNER=$([[ "$BUILD" == "1" ]] && echo local || echo "${PERSPICE_R
 BASE_DOMAIN=$DOMAIN
 PUBLIC_URL=https://$DOMAIN
 ACME_EMAIL=$ADMIN_EMAIL
-POSTGRES_PASSWORD=$(gen_secret 24)
-JWT_SECRET=$(gen_secret 48)
-MASTER_KEY=$(openssl rand -base64 32)
-INTERNAL_SECRET=$(gen_secret 32)
-MQTT_INGEST_PASSWORD=$(gen_secret 24)
+POSTGRES_PASSWORD=$(secret POSTGRES_PASSWORD gen_secret 24)
+JWT_SECRET=$(secret JWT_SECRET gen_secret 48)
+MASTER_KEY=$(secret MASTER_KEY openssl rand -base64 32)
+INTERNAL_SECRET=$(secret INTERNAL_SECRET gen_secret 32)
+MQTT_INGEST_PASSWORD=$(secret MQTT_INGEST_PASSWORD gen_secret 24)
 EMQX_API_KEY=perspice
-EMQX_API_SECRET=$(gen_secret 32)
-EMQX_DASHBOARD_PASSWORD=$(gen_secret 18)
-BACKUP_PASSPHRASE=$(gen_secret 32)
+EMQX_API_SECRET=$(secret EMQX_API_SECRET gen_secret 32)
+EMQX_DASHBOARD_PASSWORD=$(secret EMQX_DASHBOARD_PASSWORD gen_secret 18)
+BACKUP_PASSPHRASE=$(secret BACKUP_PASSPHRASE gen_secret 32)
 MQTT_PLAIN_ENABLED=$MQTT_PLAIN
 LOG_LEVEL=info
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
+VAPID_PUBLIC_KEY=$(secret VAPID_PUBLIC_KEY true)
+VAPID_PRIVATE_KEY=$(secret VAPID_PRIVATE_KEY true)
 VAPID_SUBJECT=mailto:$ADMIN_EMAIL
 STORAGE_DRIVER=$STORAGE
 MQTT_TRANSPORT=$MQTT_MODE
@@ -165,6 +179,7 @@ if [[ "$STORAGE" == "s3" && -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
   printf 'S3_ACCESS_KEY_ID=%s\nS3_SECRET_ACCESS_KEY=%s\n' "$AWS_ACCESS_KEY_ID" "${AWS_SECRET_ACCESS_KEY:-}" >>"$PERSPICE_HOME/.env"
 fi
 chmod 600 "$PERSPICE_HOME/.env"
+[[ -n "$PREVIOUS_ENV" ]] && rm -f "$PREVIOUS_ENV"
 umask 022
 ok "Wrote $PERSPICE_HOME/.env (mode 600)"
 
@@ -205,10 +220,12 @@ if [[ "$AWS_IOT" == "1" ]]; then
 fi
 # Web push keys, generated before the stack starts: restarting the API afterwards would cut the
 # broker's connection to its authentication hook just as the install finishes.
-if [[ "$DRY_RUN" == "1" ]]; then
-  run_or_print compose run --rm --no-deps api node dist/cli.js vapid-keys
-else
-  while IFS='=' read -r key value; do [[ -n "$key" ]] && env_set "$key" "$value"; done < <(compose run --rm --no-deps -T api node dist/cli.js vapid-keys)
+if [[ -z "$(env_get VAPID_PUBLIC_KEY)" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_or_print compose run --rm --no-deps api node dist/cli.js vapid-keys
+  else
+    while IFS='=' read -r key value; do [[ -n "$key" ]] && env_set "$key" "$value"; done < <(compose run --rm --no-deps -T api node dist/cli.js vapid-keys)
+  fi
 fi
 run_or_print compose up -d
 wait_healthy api 240 || die "The API did not become healthy. See: perspice logs api"

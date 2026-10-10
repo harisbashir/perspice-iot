@@ -81,3 +81,20 @@ setup() {
   done_line="$(grep -n '8/8 Done' <<<"$output" | head -n1 | cut -d: -f1)"
   [ -n "$roundtrip" ] && [ "$roundtrip" -lt "$done_line" ]
 }
+
+@test "--reinstall keeps the secrets the existing data depends on" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.1.0
+  [ "$status" -eq 0 ]
+  cp "$PERSPICE_HOME/.env" "$BATS_TEST_TMPDIR/first.env"
+  printf 'VAPID_PUBLIC_KEY=pub-1\nVAPID_PRIVATE_KEY=priv-1\n' >>"$PERSPICE_HOME/.env"
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --reinstall --domain example.org --admin-email admin@example.org --version 0.1.0
+  [ "$status" -eq 0 ]
+  for key in POSTGRES_PASSWORD JWT_SECRET MASTER_KEY INTERNAL_SECRET MQTT_INGEST_PASSWORD EMQX_API_SECRET EMQX_DASHBOARD_PASSWORD BACKUP_PASSPHRASE; do
+    [ "$(sed -n "s/^${key}=//p" "$BATS_TEST_TMPDIR/first.env")" = "$(sed -n "s/^${key}=//p" "$PERSPICE_HOME/.env")" ] || { echo "$key changed"; false; }
+  done
+  # Settings follow the new options; web push keys are kept, not regenerated.
+  grep -q '^BASE_DOMAIN=example.org$' "$PERSPICE_HOME/.env"
+  [ "$(grep -c '^VAPID_PUBLIC_KEY=pub-1$' "$PERSPICE_HOME/.env")" = "1" ]
+  [[ "$output" != *"vapid-keys"* ]]
+}
