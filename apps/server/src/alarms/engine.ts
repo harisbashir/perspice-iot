@@ -11,6 +11,7 @@ import { StreamConsumer } from '../events/stream-consumer';
 import { AlarmStore } from './alarm-store';
 import { type RuleRow, type RuleTarget, effectiveRules } from './effective';
 import { type EvalInput, type EvalRule, type RuleState, evaluate } from './evaluator';
+import { MaintenanceService } from './maintenance.service';
 import { AlarmRulesService, RULES_VERSION_KEY } from './rules.service';
 
 /** Members are `ruleId:deviceId`, scored by when a duration or no-data timer is due. */
@@ -19,6 +20,10 @@ export const TIMERS_KEY = 'alarm:timers';
 const stateKey = (rule: Pick<RuleRow, 'id' | 'version'>, deviceId: string) => `alarm:state:${rule.id}:${rule.version}:${deviceId}`;
 const STATE_TTL_S = 30 * 86_400;
 const CONTEXT_TTL_MS = 60_000;
+/** When run time reports, a maintenance check follows this much later (once the data is written)… */
+const MAINTENANCE_DELAY_MS = 60_000;
+/** …and at most this often per device. */
+const MAINTENANCE_RECHECK_S = 300;
 
 interface DeviceContext {
   target: RuleTarget;
@@ -45,6 +50,7 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
     @Inject(REDIS) private readonly redis: Redis,
     private readonly rules: AlarmRulesService,
     private readonly store: AlarmStore,
+    private readonly maintenance: MaintenanceService,
     @Inject('RUN_ALARM_ENGINE') private readonly consume: boolean,
   ) {}
 
@@ -83,8 +89,15 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
       return;
     }
     await this.withDevice(e.deviceId, async (ctx) => {
-      // Geofence rules only follow location fixes.
-      for (const rule of ctx.rules) if (rule.type !== 'geofence') await this.evaluateOne(ctx, rule, input);
+      // Geofence rules only follow location fixes; maintenance rules are checked from run hours.
+      for (const rule of ctx.rules) {
+        if (rule.type === 'maintenance_due') {
+          const key = (rule.condition as { runtimeKey?: string }).runtimeKey;
+          if (e.type === 'telemetry' && key && e.keys.includes(key)) await this.scheduleMaintenance(rule, e.deviceId);
+        } else if (rule.type !== 'geofence') {
+          await this.evaluateOne(ctx, rule, input);
+        }
+      }
     });
   }
 
@@ -118,10 +131,25 @@ export class AlarmEngine implements OnModuleInit, OnApplicationShutdown {
           await this.redis.zrem(TIMERS_KEY, member);
           return;
         }
+        if (rule.type === 'maintenance_due') {
+          await this.redis.zrem(TIMERS_KEY, member);
+          await this.redis.set(`alarm:maint:${deviceId}`, '1', 'EX', MAINTENANCE_RECHECK_S);
+          await this.maintenance.check(now, deviceId);
+          return;
+        }
         await this.evaluateOne(ctx, rule, { kind: 'tick', ts: now });
       }).catch((err: Error) => this.logger.error(`Timer ${member} failed: ${err.message}`));
     }
     return due.length;
+  }
+
+  /**
+   * Run time reported: check the device's maintenance shortly (not on every message, and not before
+   * the batched telemetry is written) instead of waiting for the hourly check.
+   */
+  private async scheduleMaintenance(rule: RuleRow, deviceId: string): Promise<void> {
+    if (await this.redis.exists(`alarm:maint:${deviceId}`)) return;
+    await this.redis.zadd(TIMERS_KEY, 'NX', Date.now() + MAINTENANCE_DELAY_MS, `${rule.id}:${deviceId}`);
   }
 
   /** Forgets a device's state after an alarm was cleared by hand, so the rule can raise again. */

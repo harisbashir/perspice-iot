@@ -1,6 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AlarmEngine } from '../../src/alarms/engine';
 import { MaintenanceService } from '../../src/alarms/maintenance.service';
+import { TelemetryStore } from '../../src/ingest/telemetry-store';
 import { alarm, device as deviceTable, telemetry } from '../../src/db/schema';
 import { tokenFor } from '../auth-helpers';
 import { createCustomer, createDevice, createProfile, createUser } from '../factories';
@@ -98,5 +100,34 @@ describe('run hours and maintenance reminders', () => {
     expect((await t.http.post(`/api/devices/${device.id}/services`).set('Authorization', b.admin).send({})).status).toBe(404);
     expect((await t.http.get(`/api/devices/${device.id}/services`).set('Authorization', b.admin)).status).toBe(404);
     expect((await t.http.get(`/api/devices/${device.id}/run-hours`).query({ key: 'run_s' }).set('Authorization', b.admin)).status).toBe(404);
+  });
+
+  it('re-checks a device as soon as its run time reports, without waiting for the hourly check', async () => {
+    const a = await tenant();
+    const res = await t.http
+      .post('/api/device-profiles')
+      .set('Authorization', platform)
+      .send({
+        name: `Generator ${Math.random()}`,
+        telemetrySchema: [{ key: 'gen_running', label: 'Running', type: 'boolean' }],
+        calculated: [{ key: 'run_s', label: 'Run time', kind: 'runtime', source: 'gen_running' }],
+      });
+    const p = res.body as { id: string };
+    await rule(p.id, { runtimeKey: 'run_s', everyHours: 0.01 }); // 36 seconds
+    const { device, token } = await createDevice(t.db, { profileId: p.id, customerId: a.c.id });
+    const now = Date.now();
+    for (const ts of [now - 120_000, now - 60_000, now]) {
+      expect((await t.http.post('/api/v1/device/telemetry').set('x-device-token', token).send({ ts, values: { gen_running: true } })).status).toBe(202);
+    }
+    // The engine schedules a check a minute later; the scheduler's timer tick runs it.
+    const engine = t.app.get(AlarmEngine);
+    let found = await open(device.id);
+    for (let i = 0; i < 50 && !found; i++) {
+      await t.app.get(TelemetryStore).writer.flush();
+      await engine.tick(Date.now() + 61_000);
+      found = await open(device.id);
+      if (!found) await new Promise((r) => setTimeout(r, 200));
+    }
+    expect(found?.message).toMatch(/^Service due: [\d.]+ h run since the last service \(every 0 h\)$/);
   });
 });
