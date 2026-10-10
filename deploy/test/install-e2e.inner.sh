@@ -27,7 +27,14 @@ tar -xzf /work/current.tar.gz -C /opt/src
 NEW="$(tr -d '[:space:]' </opt/src/new/VERSION)"
 
 log "Installing $FROM with its own install.sh (images built from its source)"
-bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" 2>&1 | tee /work/install.log
+old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" "$@" 2>&1 | tee /work/install.log; }
+# In a nested container TimescaleDB's first-boot tuning can crash and restart the database; before
+# 1.0 the healthcheck could call that window ready and the migration failed. A user would run the
+# installer again, which keeps the data: so do we, once.
+if ! old_install; then
+  log "The $FROM install failed; running it again with --reinstall"
+  old_install --reinstall || fail "install of $FROM failed twice"
+fi
 [[ "$(version)" == "$FROM" ]] || fail "installed version is $(version)"
 for _ in $(seq 1 60); do api "$BASE/health" >/dev/null 2>&1 && break; sleep 2; done
 api "$BASE/health" >/dev/null || fail "health endpoint not reachable after install"
