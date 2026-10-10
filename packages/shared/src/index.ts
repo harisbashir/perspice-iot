@@ -10,3 +10,4 @@ export * from './alarms.js';
 export * from './system.js';
 export * from './geo.js';
 export * from './location.js';
+export * from './fleet.js';
