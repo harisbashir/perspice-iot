@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   'webhook.manage',
   'report.schedule',
   'geofence.manage',
+  'firmware.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

@@ -64,6 +64,13 @@
       "when": 1791591418371,
       "tag": "0008_geofences",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791606830448,
+      "tag": "0009_firmware",
+      "breakpoints": true
     }
   ]
 }

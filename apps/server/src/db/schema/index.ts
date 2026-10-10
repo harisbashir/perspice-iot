@@ -11,3 +11,4 @@ export * from './dashboards';
 export * from './alarms';
 export * from './delivery';
 export * from './location';
+export * from './fleet';
