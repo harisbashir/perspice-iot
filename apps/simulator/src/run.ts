@@ -26,6 +26,9 @@ export interface SimOptions {
   /** This fraction of the devices (0–1) drive around `mobileArea`, reporting lat/lng/speed. */
   mobileShare?: number;
   mobileArea?: MobileOptions;
+  /** Devices report this fw version on connect and take OTA updates (MQTT only). */
+  firmwareVersion?: string;
+  ota?: boolean;
   log?: (line: string) => void;
 }
 
@@ -132,6 +135,8 @@ export async function runSimulation(o: SimOptions): Promise<SimReport> {
         keys: profile.telemetrySchema,
         http: o.http,
         sleepy: o.sleepy,
+        ...(o.firmwareVersion ? { firmwareVersion: o.firmwareVersion } : {}),
+        ...(o.ota ? { ota: true, onOta: (e: string) => log(`${d.name}: ${e}`) } : {}),
         onSent: () => sent++,
         onError: (err) => {
           errors++;
