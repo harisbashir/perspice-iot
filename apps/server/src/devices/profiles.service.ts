@@ -1,6 +1,6 @@
 import { CONFIG, type Config } from '../config/config';
 import { Inject, Injectable } from '@nestjs/common';
-import { type DeviceProfileDto, LocationKeysSchema, TripSettingsSchema } from '@perspice/shared';
+import { type CalculatedKey, type DeviceProfileDto, LocationKeysSchema, type TelemetryKeyDef, TripSettingsSchema, checkCalculated } from '@perspice/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types';
@@ -13,6 +13,12 @@ import type { CreateProfile, UpdateProfile } from './profile.schema';
 import { timeoutIssue } from './profile.schema';
 
 type ProfileRow = typeof deviceProfile.$inferSelect;
+
+/** Calculated keys must fit the profile's telemetry keys (spec §11). */
+function checkCalculatedKeys(defs: CalculatedKey[], telemetrySchema: TelemetryKeyDef[]): void {
+  const issues = checkCalculated(defs, telemetrySchema);
+  if (issues.length) throw validation(issues.map((i) => ({ path: ['calculated', i.index, i.field], message: i.message })));
+}
 
 export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   id: p.id,
@@ -29,6 +35,7 @@ export const toProfileDto = (p: ProfileRow): DeviceProfileDto => ({
   locationMode: p.locationMode,
   locationKeys: LocationKeysSchema.parse(p.locationKeys),
   trips: TripSettingsSchema.parse(p.tripSettings),
+  calculated: p.calculated,
   defaultDashboardTemplateId: p.defaultDashboardTemplateId,
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
@@ -83,6 +90,7 @@ export class ProfilesService {
     const dead = input.deadTimeoutS ?? 86400;
     if (dead <= offline) throw validation([timeoutIssue]);
     await this.checkTransport(input.transport);
+    checkCalculatedKeys(input.calculated ?? [], input.telemetrySchema ?? []);
     const { trips, ...fields } = input;
     const [row] = await this.db.insert(deviceProfile).values({ ...fields, ...(trips ? { tripSettings: trips } : {}) }).returning();
     return toProfileDto(row!);
@@ -94,6 +102,7 @@ export class ProfilesService {
       throw validation([timeoutIssue]);
     }
     await this.checkTransport(patch.transport, existing);
+    checkCalculatedKeys(patch.calculated ?? existing.calculated, patch.telemetrySchema ?? existing.telemetrySchema);
     const { trips, ...fields } = patch;
     const [row] = await this.db
       .update(deviceProfile)

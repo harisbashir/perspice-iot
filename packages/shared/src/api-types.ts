@@ -1,3 +1,4 @@
+import type { CalculatedKey } from './expr.js';
 import type { DeviceLocationDto, LocationKeys, TripSettings } from './location.js';
 import type { Permission } from './permissions.js';
 import type { BuiltInRoleKey, RoleScope } from './roles.js';
@@ -69,6 +70,8 @@ export interface DeviceProfileDto {
   locationMode: 'none' | 'fixed' | 'reported';
   locationKeys: LocationKeys;
   trips: TripSettings;
+  /** Derived keys computed as data arrives. */
+  calculated: CalculatedKey[];
   defaultDashboardTemplateId: string | null;
   createdAt: string;
   updatedAt: string;

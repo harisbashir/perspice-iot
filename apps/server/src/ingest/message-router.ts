@@ -1,3 +1,4 @@
+import { CalculatedService } from './calculated';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AttributesPayload, CommandAck, KEY_PATTERN, parseTopic } from '@perspice/shared';
 import { eq, sql } from 'drizzle-orm';
@@ -57,6 +58,7 @@ export class MessageRouter {
     @Inject(ACK_HANDLER) private readonly acks: AckHandler,
     private readonly location: LocationService,
     private readonly ota: OtaService,
+    private readonly calculated: CalculatedService,
   ) {}
 
   /** Never throws: a bad message is logged against its device and the worker keeps running. */
@@ -110,6 +112,9 @@ export class MessageRouter {
       return result;
     }
     this.metrics.inc('ingest_messages_total', 1, { result: 'accepted' });
+    const calc = await this.calculated.apply(deviceId, meta.profileId, result.rows);
+    result.rows = calc.rows;
+    for (const issue of calc.issues) await this.debug.push(deviceId, { ts: now, kind: 'rejected', summary: issue });
     this.store.writer.enqueue(result.rows.map((r) => ({ ...r, deviceId })));
     const changed = await this.latest.update(deviceId, result.rows);
     const located = await this.location.report(deviceId, meta.profileId, result.rows);

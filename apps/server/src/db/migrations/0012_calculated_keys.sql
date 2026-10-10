@@ -1,0 +1,1 @@
+ALTER TABLE "device_profile" ADD COLUMN "calculated" jsonb DEFAULT '[]'::jsonb NOT NULL;

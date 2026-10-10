@@ -30,6 +30,7 @@ export const profile: DeviceProfileDto = {
   locationMode: 'none',
   locationKeys: { lat: 'lat', lng: 'lng', alt: 'alt', speed: 'speed', heading: 'heading', accuracy: 'acc' },
   trips: { enabled: false, minSpeedKmh: 5, minMoveM: 50, stopAfterS: 300 },
+  calculated: [],
   defaultDashboardTemplateId: null,
   createdAt: '',
   updatedAt: '',
