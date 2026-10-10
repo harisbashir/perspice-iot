@@ -21,6 +21,7 @@ const TITLES: Record<Kind, string> = {
   assign: 'Assign to a customer',
   command: 'Send a command',
   delete: 'Delete devices',
+  asset: 'Attach to an asset',
 };
 
 /** Actions on the selected devices (spec §11); each device reports its own outcome. */
@@ -101,6 +102,8 @@ function BulkDialog({ kind, deviceIds, customerId, onClose, onDone }: { kind: Ki
       }
       case 'delete':
         return { kind };
+      case 'asset':
+        return { kind, assetId: target || null };
     }
   }
 

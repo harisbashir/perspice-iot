@@ -29,6 +29,9 @@ export const PERMISSIONS = [
   'device.claim',
   'tariff.manage',
   'device.service',
+  'asset.read',
+  'asset.write',
+  'asset.type.manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

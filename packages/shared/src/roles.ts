@@ -55,15 +55,17 @@ export const BUILT_IN_ROLES: Record<BuiltInRoleKey, BuiltInRole> = {
       'device.claim',
       'tariff.manage',
       'device.service',
+      'asset.read',
+      'asset.write',
     ],
   },
   customer_operator: {
     scope: 'customer',
-    permissions: ['device.read', 'device.command', 'device.service', 'profile.read', 'telemetry.read', 'export.data', 'notification.read', 'alarm.read', 'alarm.ack', 'report.schedule'],
+    permissions: ['device.read', 'device.command', 'device.service', 'asset.read', 'profile.read', 'telemetry.read', 'export.data', 'notification.read', 'alarm.read', 'alarm.ack', 'report.schedule'],
   },
   customer_viewer: {
     scope: 'customer',
-    permissions: ['device.read', 'profile.read', 'telemetry.read', 'notification.read', 'alarm.read'],
+    permissions: ['device.read', 'asset.read', 'profile.read', 'telemetry.read', 'notification.read', 'alarm.read'],
   },
 };
 

@@ -42,6 +42,14 @@ export const DataSourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('currentDevice'), keys: Keys }),
   z.object({ kind: z.literal('device'), deviceId: z.string().uuid(), keys: Keys }),
   z.object({ kind: z.literal('devicesOfProfile'), profileId: z.string().uuid().nullable(), filter: DeviceFilter, keys: Keys }),
+  /** On an asset dashboard: the asset's devices (attached directly, or anywhere in its subtree). */
+  z.object({
+    kind: z.literal('currentAsset'),
+    depth: z.enum(['children', 'subtree']).default('subtree'),
+    profileId: z.string().uuid().nullable().default(null),
+    filter: DeviceFilter,
+    keys: Keys,
+  }),
   /** Alarms in the viewer's scope (on a device dashboard: optionally only that device's). */
   z.object({
     kind: z.literal('alarms'),
@@ -51,6 +59,8 @@ export const DataSourceSchema = z.discriminatedUnion('kind', [
         severity: z.array(z.enum(ALARM_SEVERITIES)).max(4).optional(),
         profileId: z.string().uuid().nullish(),
         currentDeviceOnly: z.boolean().optional(),
+        /** On an asset dashboard: only alarms of the asset's devices (subtree). */
+        currentAssetOnly: z.boolean().optional(),
       })
       .default({}),
     pageSize: z.number().int().min(1).max(100).default(10),
@@ -147,6 +157,8 @@ export type DataRequest = z.infer<typeof DataRequestSchema>;
 export const DataQuerySchema = z.object({
   /** The device a device dashboard was opened for (resolves `currentDevice`). */
   deviceId: z.string().uuid().optional(),
+  /** The asset an asset dashboard was opened for (resolves `currentAsset`). */
+  assetId: z.string().uuid().optional(),
   requests: z.array(DataRequestSchema).max(MAX_DATA_REQUESTS),
 });
 export type DataQuery = z.infer<typeof DataQuerySchema>;

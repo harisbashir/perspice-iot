@@ -8,6 +8,7 @@ const KIND_LABEL: Record<DataSource['kind'], string> = {
   currentDevice: 'The dashboard’s device',
   device: 'A specific device',
   devicesOfProfile: 'Devices of a profile',
+  currentAsset: 'The dashboard’s asset (its devices)',
   entityList: 'Device list',
   alarms: 'Alarms',
 };
@@ -70,6 +71,7 @@ export function DatasourceEditor({
     else if (kind === 'currentDevice') onChange({ kind, keys: currentKeys });
     else if (kind === 'device') onChange({ kind, deviceId: value.kind === 'device' ? value.deviceId : '', keys: currentKeys });
     else if (kind === 'devicesOfProfile') onChange({ kind, profileId: profile?.id ?? null, keys: currentKeys });
+    else if (kind === 'currentAsset') onChange({ kind, depth: 'subtree', profileId: profile?.id ?? null, keys: currentKeys });
     else if (kind === 'alarms') onChange({ kind, filter: { status: ['active', 'acknowledged'] }, pageSize: 10 });
     else onChange({ kind, profileId: profile?.id ?? null, columns: ['status', 'name', 'lastSeen'], pageSize: 25 });
   }

@@ -4,7 +4,7 @@ import { inArray } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CommandsService } from '../commands/commands.service';
-import { AppError, forbidden } from '../common/app-error';
+import { AppError, forbidden, validation } from '../common/app-error';
 import { DB } from '../db/db.module';
 import { scoped } from '../db/scoped-repo';
 import { device } from '../db/schema';
@@ -24,6 +24,7 @@ const NEEDS: Record<BulkAction['kind'], Permission> = {
   tags: 'device.write',
   command: 'device.command',
   delete: 'device.write',
+  asset: 'asset.write',
 };
 
 /**
@@ -99,6 +100,8 @@ export class BulkService {
       case 'delete':
         await this.devices.remove(actor, id);
         return;
+      case 'asset':
+        throw validation([], 'Attaching to assets is not available yet');
     }
   }
 }

@@ -13,3 +13,4 @@ export * from './location.js';
 export * from './fleet.js';
 export * from './expr.js';
 export * from './energy.js';
+export * from './assets.js';

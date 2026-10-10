@@ -204,6 +204,8 @@ export const BulkActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('tags'), add: z.array(z.string().regex(KEY_PATTERN)).max(20).default([]), remove: z.array(z.string().max(64)).max(20).default([]) }),
   z.object({ kind: z.literal('command'), name: z.string().max(64), params: z.record(z.unknown()).default({}) }),
   z.object({ kind: z.literal('delete') }),
+  /** Attach to an asset of the device's customer, or detach (null). */
+  z.object({ kind: z.literal('asset'), assetId: Uuid.nullable() }),
 ]);
 export type BulkAction = z.infer<typeof BulkActionSchema>;
 
