@@ -42,16 +42,26 @@ function parseVersion(v: string): [number, number, number] | null {
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
 
-/** A backup restores into the same major version when it is not newer; older ones run migrations. */
+/** The oldest release whose backups the migrations can bring forward. */
+export const OLDEST_RESTORABLE_VERSION = '0.1.0';
+
+const compareVersions = (a: [number, number, number], b: [number, number, number]) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+
+/**
+ * A backup restores when it isn't newer than the server and not older than the oldest release the
+ * migrations start from; older backups are migrated forward (across majors: 1.0 changed no schema).
+ */
 export function isCompatibleBackup(backup: string, current: string): { ok: true; migrate: boolean } | { ok: false; reason: string } {
   // The same build is always compatible, also with a non-release version (e.g. a test image tag).
   if (backup === current) return { ok: true, migrate: false };
   const b = parseVersion(backup);
   const c = parseVersion(current);
   if (!b || !c) return { ok: false, reason: `Unrecognised version "${backup}"` };
-  if (b[0] !== c[0]) return { ok: false, reason: `The backup is from version ${backup}; this server runs ${current} (a different major version)` };
-  const cmp = b[1] - c[1] || b[2] - c[2];
+  const cmp = compareVersions(b, c);
   if (cmp > 0) return { ok: false, reason: `The backup is from a newer version (${backup}) than this server (${current}); update first` };
+  if (compareVersions(b, parseVersion(OLDEST_RESTORABLE_VERSION)!) < 0) {
+    return { ok: false, reason: `The backup is from ${backup}, older than ${OLDEST_RESTORABLE_VERSION}, which this server can't migrate` };
+  }
   return { ok: true, migrate: cmp < 0 };
 }
 
