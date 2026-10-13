@@ -207,8 +207,10 @@ if [[ "$BUILD" == "1" ]]; then
   run_or_print docker build -t "ghcr.io/local/perspice-web:$VERSION" -f "$src/deploy/Dockerfile.web" "$src"
   run_or_print docker build -t "ghcr.io/local/perspice-renderer:$VERSION" -f "$src/deploy/Dockerfile.renderer" "$src"
 else
-  run_or_print compose pull --quiet
+  # cert-sync is built here, never published: pulling it would fail.
+  run_or_print compose pull --quiet --ignore-buildable
 fi
+run_or_print compose build cert-sync
 if [[ "$AWS_IOT" == "1" ]]; then
   # Endpoint, policies and the ingest certificate; the command prints the .env lines to add.
   run_or_print install -d -m 0700 -o 1000 -g 1000 "$PERSPICE_HOME/aws"

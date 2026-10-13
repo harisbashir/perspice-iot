@@ -106,3 +106,11 @@ setup() {
   grep -q "^PG_TUNE_MEMORY=${expected}$" "$PERSPICE_HOME/.env"
   grep -q 'TS_TUNE_MEMORY: ${PG_TUNE_MEMORY:-}' "$SCRIPTS/../deploy/docker-compose.yml"
 }
+
+@test "pulls the published images and builds the locally built cert-sync instead of pulling it" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pull --quiet --ignore-buildable"* ]]
+  [[ "$output" == *"build cert-sync"* ]]
+}

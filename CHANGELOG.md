@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Installs and updates from the published images failed: the installer pulled from a GitHub
+  owner that doesn't exist, and `docker compose pull` tried to pull `cert-sync`, which is built
+  on the server and never published. Images now come from `ghcr.io/harisbashir`, and `cert-sync`
+  is built during install and update.
+
 ## [1.0.0] - 2026-10-13
 
 The first stable release: every success criterion verified end to end

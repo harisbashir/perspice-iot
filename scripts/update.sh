@@ -147,8 +147,10 @@ if [[ -n "$SOURCE" ]]; then
     run_or_print docker build -t "ghcr.io/${owner:-perspice}/perspice-${image}:$TARGET" -f "$SOURCE/deploy/Dockerfile.${image}" "$SOURCE" || rollback
   done
 else
-  run_or_print compose pull --quiet || rollback
+  # cert-sync is built here, never published: pulling it would fail.
+  run_or_print compose pull --quiet --ignore-buildable || rollback
 fi
+run_or_print compose build cert-sync || rollback
 
 step "3/5 Migrating the database"
 MIGRATED=1
