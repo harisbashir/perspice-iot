@@ -96,6 +96,17 @@ The criterion still holds, but with almost no headroom: the extra rows cost Post
 CPU (peaks 134% and 97%), and the tail latency rises. Each calculated key adds a stored value per
 message, so size servers for the rows written, not only the messages received.
 
+### v1.0.0
+
+The release run, with the same settings as v0.7.0 (calculated keys on).
+
+| | result |
+| --- | --- |
+| sustained rate | 1000 messages/s (every minute 999.8–1000.2) |
+| sent / stored | 899,975 / 899,975 — **0 lost** |
+| latency, publish → websocket | p50 18 ms, **p95 95 ms**, p99 3,152 ms, max 3,468 ms |
+| whole stack CPU | 338% average, 422% peak of 400% |
+
 ## Bottlenecks found and fixed
 
 The first runs failed. What the test found, in order:
