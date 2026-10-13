@@ -73,6 +73,16 @@ info "$(date -u +%FT%TZ) update $CURRENT → $TARGET"
 SNAPSHOT=""
 MIGRATED=0
 
+# A real MQTT round trip, with a few tries while services settle after a restart.
+mqtt_healthy() {
+  local _
+  for _ in $(seq 1 "${PERSPICE_HEALTH_ATTEMPTS:-6}"); do
+    if run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip; then return 0; fi
+    sleep "${PERSPICE_HEALTH_DELAY_S:-10}"
+  done
+  return 1
+}
+
 rollback() {
   warn "Update failed; rolling back to $CURRENT."
   env_set PERSPICE_VERSION "$CURRENT"
@@ -85,6 +95,8 @@ rollback() {
   fi
   # The target may have added services (a renderer, say) that the rolled-back release doesn't have.
   compose up -d --remove-orphans || true
+  # The restarted API takes the broker a moment to reach again; report once devices can connect.
+  mqtt_healthy || warn "MQTT isn't answering yet after the rollback; check: perspice logs emqx"
   die "Update to $TARGET failed and was rolled back to $CURRENT. Details: $LOG" 1
 }
 
@@ -166,12 +178,7 @@ run_or_print compose up -d --remove-orphans || rollback
 
 step "5/5 Health check"
 # Freshly restarted, ingest may still be settling: a few tries before deciding it's broken.
-healthy=0
-for _ in $(seq 1 "${PERSPICE_HEALTH_ATTEMPTS:-6}"); do
-  if run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip; then healthy=1; break; fi
-  sleep "${PERSPICE_HEALTH_DELAY_S:-10}"
-done
-[[ "$healthy" == "1" ]] || rollback
+mqtt_healthy || rollback
 
 rm -f "$PERSPICE_HOME/docker-compose.yml.previous"
 ok "Perspice $TARGET is running."

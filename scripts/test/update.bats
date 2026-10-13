@@ -159,5 +159,14 @@ make_source() {
 @test "the health check is retried before an update is rolled back" {
   STUB_FAIL_ON="health --mqtt-roundtrip" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
   [ "$status" -eq 1 ]
-  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 6 ]
+  # Six tries for the update, then six more after the rollback (still failing in this stub).
+  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 12 ]
+}
+
+@test "a rollback waits for MQTT to work again before it reports" {
+  STUB_FAIL_ON="run --rm migrate" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rolled back to 0.1.0"* ]]
+  # After restoring and restarting, one successful round trip (the stub succeeds at once).
+  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 1 ]
 }
