@@ -3,7 +3,7 @@
 # shellcheck disable=SC2034  # variables here are used by the scripts that source this file
 
 PERSPICE_HOME="${PERSPICE_HOME:-/opt/perspice}"
-PERSPICE_REPO="${PERSPICE_REPO:-perspice/perspice-iot}"
+PERSPICE_REPO="${PERSPICE_REPO:-harisbashir/perspice-iot}"
 DRY_RUN="${DRY_RUN:-0}"
 
 if [[ -t 1 ]]; then

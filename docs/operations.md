@@ -57,7 +57,7 @@ The target version is the tree's `VERSION`. Source installs made **before 1.0** 
 without `--source`; run the new release's own updater once:
 
 ```bash
-git clone --branch v1.0.0 https://github.com/perspice/perspice-iot.git /tmp/perspice-1.0.0
+git clone --branch v1.0.0 https://github.com/harisbashir/perspice-iot.git /tmp/perspice-1.0.0
 sudo /tmp/perspice-1.0.0/scripts/update.sh --source /tmp/perspice-1.0.0
 ```
 
