@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Installs without DNS records: `install.sh --domain <IPv4>` serves the platform on the address's
+  sslip.io name (customer subdomains included) and, for private addresses, uses local
+  certificates.
+- `install.sh --local-certs` (`LOCAL_CERTS=true`): certificates from Caddy's own authority, for
+  servers the internet can't reach.
+- Plain HTTP to any other name, such as the server's IP, redirects to the platform's address.
+
 ### Fixed
 
 - Installs and updates from the published images failed: the installer pulled from a GitHub

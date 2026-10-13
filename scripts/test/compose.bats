@@ -32,3 +32,12 @@ setup() {
   [ "$(q "c['services']['api']['environment']['REDIS_URL']")" = "rediss://cache.example:6379" ]
   [ "$(q "c['services']['api']['environment']['DATABASE_URL']")" = "postgres://u:p@tsdb.example:5432/perspice" ]
 }
+
+@test "LOCAL_CERTS=true switches Caddy to its own certificate authority" {
+  LOCAL_CERTS=true run --separate-stderr docker compose -f "$DEPLOY/docker-compose.yml" config --format json
+  [ "$status" -eq 0 ]
+  [ "$(q "c['services']['caddy']['environment']['CADDY_LOCAL_CERTS']")" = "local_certs" ]
+  LOCAL_CERTS= run --separate-stderr docker compose -f "$DEPLOY/docker-compose.yml" config --format json
+  [ "$status" -eq 0 ]
+  [ "$(q "c['services']['caddy']['environment']['CADDY_LOCAL_CERTS']")" = "" ]
+}
