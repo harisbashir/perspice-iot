@@ -25,6 +25,10 @@ mkdir -p /opt/src
 tar -xzf /work/from.tar.gz -C /opt/src
 tar -xzf /work/current.tar.gz -C /opt/src
 NEW="$(tr -d '[:space:]' </opt/src/new/VERSION)"
+# The version of the tree being installed first (--from HEAD installs this checkout itself).
+FROM="$(tr -d '[:space:]' </opt/src/old/VERSION)"
+FRESH=0
+[[ "$FROM" == "$NEW" ]] && FRESH=1
 
 log "Installing $FROM with its own install.sh (images built from its source)"
 old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" 2>&1 | tee /work/install.log; }
@@ -64,13 +68,24 @@ device="$(jq -r .device.id <<<"$created")"
 device_token="$(jq -r .token <<<"$created")"
 publish() { mosquitto_pub -h localhost -p 1883 -q 1 -i "$device" -u "$device" -P "$device_token" -t "perspice/v1/$device/telemetry" -m "{\"values\":{\"temperature\":$1}}"; }
 latest_temp() { api -H "authorization: Bearer $1" "$BASE/api/devices/$device/telemetry/latest" | jq -r '.temperature.v // empty'; }
-# Installers before 1.0 restarted the API at the very end, so the broker may refuse devices for up
-# to a minute after they finish (1.0 waits for an MQTT round trip before reporting success).
-for _ in $(seq 1 24); do publish 21.5 2>/dev/null && break; sleep 5; done
-publish 21.5 || fail "publish before the update"
+if [[ "$FRESH" == "1" ]]; then
+  # The current installer only reports success once devices can connect.
+  publish 21.5 || fail "a device couldn't publish right after the install finished"
+else
+  # Installers before 1.0 restarted the API at the very end, so the broker may refuse devices for
+  # up to a minute after they finish.
+  for _ in $(seq 1 24); do publish 21.5 2>/dev/null && break; sleep 5; done
+  publish 21.5 || fail "publish before the update"
+fi
 for _ in $(seq 1 20); do [[ "$(latest_temp "$access")" == "21.5" ]] && break; sleep 0.5; done
 [[ "$(latest_temp "$access")" == "21.5" ]] || fail "telemetry not stored before the update"
+LAST_TEMP=21.5
 
+if [[ "$FRESH" == "1" ]]; then
+  log "Fresh install of $NEW: no upgrade to run"
+  access="$(login)"
+  auth=(-H "authorization: Bearer $access")
+else
 log "Updating $FROM → $NEW with update.sh --source"
 # Installs before 1.0 have an update.sh without --source: the new release's updater does it.
 bash /opt/src/new/scripts/update.sh --yes --source /opt/src/new 2>&1 | tee /work/update.log
@@ -85,10 +100,12 @@ auth=(-H "authorization: Bearer $access")
 publish 22.5 || fail "publish after the update (the old device token)"
 for _ in $(seq 1 20); do [[ "$(latest_temp "$access")" == "22.5" ]] && break; sleep 0.5; done
 [[ "$(latest_temp "$access")" == "22.5" ]] || fail "telemetry not stored after the update"
+LAST_TEMP=22.5
 api "${auth[@]}" "$BASE/api/asset-types" >/dev/null || fail "a v0.8 endpoint is missing after the update"
 "${COMPOSE[@]}" exec -T api node dist/cli.js health --mqtt-roundtrip || fail "health check after the update"
 grep -q -- '--source' /opt/perspice/scripts/update.sh || fail "the updater was not refreshed"
 perspice status >/dev/null 2>&1 || fail "perspice CLI"
+fi
 
 log "Updating to a broken build: it must roll back"
 cp -r /opt/src/new /opt/src/broken
@@ -113,7 +130,11 @@ for svc in api ingest rules scheduler; do
 done
 access="$(login)"
 [[ "$(api -H "authorization: Bearer $access" "$BASE/api/devices/$device" | jq -r .name)" == "survivor-2" ]] || fail "data changed by the rollback"
-[[ "$(latest_temp "$access")" == "22.5" ]] || fail "telemetry lost in the rollback"
+[[ "$(latest_temp "$access")" == "$LAST_TEMP" ]] || fail "telemetry lost in the rollback"
 "${COMPOSE[@]}" exec -T api node dist/cli.js health --mqtt-roundtrip || fail "health check after the rollback"
 
-log "INSTALL E2E OK: $FROM installed, updated to $NEW, and a failed update rolled back"
+if [[ "$FRESH" == "1" ]]; then
+  log "INSTALL E2E OK: $NEW installed fresh, and a failed update rolled back"
+else
+  log "INSTALL E2E OK: $FROM installed, updated to $NEW, and a failed update rolled back"
+fi

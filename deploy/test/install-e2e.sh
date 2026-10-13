@@ -4,7 +4,8 @@
 # --build, add data, update to this checkout with update.sh --source, check the data survived
 # and the new version works, then update to a deliberately broken build and check it rolls back
 # with the data intact.
-# Usage: deploy/test/install-e2e.sh [--from v0.1.0]   (needs docker and git; run from anywhere)
+# Usage: deploy/test/install-e2e.sh [--from v0.1.0 | --from HEAD]   (needs docker and git)
+#   --from HEAD installs this checkout with its own install.sh (no upgrade step).
 #   KEEP=1 leaves the container running (docker exec -it perspice-install-e2e bash).
 set -euo pipefail
 
@@ -46,4 +47,4 @@ DOCKERFILE
 # The inner daemon keeps its images on a volume (overlay2 can't sit on the container's own overlay).
 docker run -d --name "$NAME" --privileged -v "$NAME-docker:/var/lib/docker" -v "$WORK:/work" perspice-install-host sleep infinity >/dev/null
 
-docker exec -e FROM="${FROM#v}" "$NAME" bash /work/inner.sh
+docker exec "$NAME" bash /work/inner.sh
