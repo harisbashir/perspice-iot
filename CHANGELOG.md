@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-14
+
+### Added
+
+- Invite links to copy: after inviting a user, and from the menu of an invited user (which issues
+  a fresh link; earlier ones stop working). Users can be onboarded on servers without email.
+  API: the invite response carries `inviteLink`, and `POST /api/users/:id/invite-link` returns a
+  new one.
+
+### Fixed
+
+- Settings tabs other than *My profile* redirected in a loop and the page flickered: their links
+  were resolved under the current tab.
+
 ## [1.0.1] - 2026-10-13
 
 Installs from the published images work, and a server can be installed on its IP address
