@@ -18,7 +18,16 @@ export function grantableRoles(roles: RoleDto[], held: RoleDto['permissions'], s
   return roles.filter((r) => canGrant(held, r.permissions) && (scopeType === 'platform' || r.scope === 'customer'));
 }
 
-export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function InviteUserDialog({
+  open,
+  onOpenChange,
+  onInvited,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  /** Called with the new user's activation link, to show it for copying. */
+  onInvited?: (invite: { email: string; link: string }) => void;
+}) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: roles = [] } = useRoles();
@@ -40,7 +49,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
     e.preventDefault();
     setError(null);
     try {
-      await api('/users/invite', {
+      const created = await api<{ email: string; inviteLink: string }>('/users/invite', {
         body: {
           email,
           name,
@@ -51,6 +60,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
       });
       await qc.invalidateQueries({ queryKey: ['users'] });
       onOpenChange(false);
+      onInvited?.({ email: created.email, link: created.inviteLink });
       setEmail('');
       setName('');
       setRoleId('');
@@ -64,7 +74,7 @@ export function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpen
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite user</DialogTitle>
-          <DialogDescription>They'll get an email with a link to set their password (valid 72 hours).</DialogDescription>
+          <DialogDescription>They'll get a link to set their password (valid 72 hours), by email when it's set up; you can also copy it.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>

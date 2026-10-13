@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { InviteLinkDialog } from './InviteLinkDialog';
 import { InviteUserDialog } from './InviteUserDialog';
 
 const STATUS_VARIANT = { active: 'success', invited: 'secondary', disabled: 'warning' } as const;
@@ -24,13 +25,19 @@ export function UsersPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
   const [error, setError] = useState<unknown>(null);
   const canManage = hasPerm('user.manage');
   const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? '—';
 
-  async function act(u: UserDto, action: 'disable' | 'enable' | 'resend' | 'delete') {
+  async function act(u: UserDto, action: 'disable' | 'enable' | 'resend' | 'link' | 'delete') {
     setError(null);
     try {
+      if (action === 'link') {
+        const { link } = await api<{ link: string }>(`/users/${u.id}/invite-link`, { method: 'POST' });
+        setInvite({ email: u.email, link });
+        return;
+      }
       if (action === 'resend') await api(`/users/${u.id}/resend-invite`, { method: 'POST' });
       else if (action === 'delete') await api(`/users/${u.id}`, { method: 'DELETE' });
       else await api(`/users/${u.id}`, { method: 'PATCH', body: { status: action === 'disable' ? 'disabled' : 'active' } });
@@ -88,6 +95,7 @@ export function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {u.status === 'invited' && <DropdownMenuItem onSelect={() => void act(u, 'resend')}>Resend invite</DropdownMenuItem>}
+                        {u.status === 'invited' && <DropdownMenuItem onSelect={() => void act(u, 'link')}>Copy invite link</DropdownMenuItem>}
                         {u.status === 'active' && <DropdownMenuItem onSelect={() => void act(u, 'disable')}>Disable</DropdownMenuItem>}
                         {u.status === 'disabled' && <DropdownMenuItem onSelect={() => void act(u, 'enable')}>Enable</DropdownMenuItem>}
                         <DropdownMenuItem className="text-red-600" onSelect={() => void act(u, 'delete')}>
@@ -102,7 +110,8 @@ export function UsersPage() {
           </TableBody>
         </Table>
       )}
-      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onInvited={setInvite} />
+      <InviteLinkDialog invite={invite} onClose={() => setInvite(null)} />
     </div>
   );
 }

@@ -68,6 +68,13 @@ export class UsersController {
     await this.users.remove(actor, id);
   }
 
+  @Post(':id/invite-link')
+  @Require('user.manage')
+  @Audited('user.invite_link', 'user')
+  inviteLink(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    return this.users.newInviteLink(actor, id);
+  }
+
   @Post(':id/resend-invite')
   @HttpCode(204)
   @Require('user.manage')

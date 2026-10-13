@@ -99,10 +99,16 @@ test('creates customer acme with blue branding and invites its admin, who sees t
   await invite.getByLabel('Role', { exact: true }).selectOption({ label: 'Customer Admin (customer)' });
   await invite.getByLabel('Customer', { exact: true }).selectOption({ label: 'Acme' });
   await invite.getByRole('button', { name: 'Send invite' }).click();
+  // The link is also shown for copying, for servers without email.
+  const shared = platform.getByRole('dialog', { name: 'Share the invite' });
+  const shownLink = await shared.getByLabel('Invite link', { exact: true }).inputValue();
+  await platform.keyboard.press('Escape');
+  await expect(shared).toBeHidden();
   await expect(platform.getByRole('cell', { name: CUSTOMER_ADMIN, exact: true })).toBeVisible();
 
   const link = linkIn(await waitForEmail(CUSTOMER_ADMIN, 'invited'), '/activate?token');
   expect(link.startsWith(ACME)).toBe(true);
+  expect(shownLink).toBe(link);
   customerContext = await newContext(browser);
   customer = await customerContext.newPage();
   await customer.goto(link);

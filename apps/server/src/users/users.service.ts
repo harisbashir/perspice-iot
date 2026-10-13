@@ -89,7 +89,8 @@ export class UsersService {
     return toUserDto(await this.find(actor, id));
   }
 
-  async invite(actor: AuthUser, input: InviteInput): Promise<UserDto> {
+  /** The new user, with the activation link for admins to pass on themselves (email may not be set up). */
+  async invite(actor: AuthUser, input: InviteInput): Promise<UserDto & { inviteLink: string }> {
     const scope = await this.scopes.forUser(actor);
     const targetRole = await this.roles.get(actor, input.roleId);
     await this.assertCanGrant(actor, targetRole.permissions);
@@ -128,8 +129,9 @@ export class UsersService {
       if (isUniqueViolation(err)) throw conflict('A user with this email already exists');
       throw err;
     }
-    await this.sendInvite(created, actor);
-    return toUserDto(created);
+    const inviteLink = await this.inviteLink(created);
+    await this.sendInvite(created, actor, inviteLink);
+    return { ...toUserDto(created), inviteLink };
   }
 
   async update(
@@ -178,7 +180,15 @@ export class UsersService {
   async resendInvite(actor: AuthUser, id: string): Promise<void> {
     const target = await this.find(actor, id);
     if (target.status !== 'invited') throw conflict('User has already activated their account');
-    await this.sendInvite(target, actor);
+    await this.sendInvite(target, actor, await this.inviteLink(target));
+  }
+
+  /** A fresh activation link, without emailing it; earlier links stop working. */
+  async newInviteLink(actor: AuthUser, id: string): Promise<{ link: string }> {
+    const target = await this.find(actor, id);
+    if (target.status !== 'invited') throw conflict('User has already activated their account');
+    await this.assertCanGrant(actor, (await this.roles.get(actor, target.roleId)).permissions);
+    return { link: await this.inviteLink(target) };
   }
 
   private async find(actor: AuthUser, id: string): Promise<UserRow> {
@@ -202,19 +212,24 @@ export class UsersService {
     return groupId;
   }
 
-  private async sendInvite(target: UserRow, actor: AuthUser): Promise<void> {
+  /** Issues an invite token (replacing earlier ones) and returns its link on the user's own host. */
+  private async inviteLink(target: UserRow): Promise<string> {
     const token = await this.tokens.issue(target.id, 'invite');
     const slug = target.customerId
       ? ((await this.db.query.customer.findFirst({ where: eq(customer.id, target.customerId), columns: { slug: true } }))
           ?.slug ?? null)
       : null;
+    return `${this.auth.publicUrlFor(slug)}/activate?token=${token}`;
+  }
+
+  private async sendInvite(target: UserRow, actor: AuthUser, link: string): Promise<void> {
     await this.email.send(
       'user_invite',
       target.email,
       {
         name: target.name,
         inviterName: actor.name,
-        link: `${this.auth.publicUrlFor(slug)}/activate?token=${token}`,
+        link,
       },
       { customerId: target.customerId },
     );

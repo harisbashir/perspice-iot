@@ -73,6 +73,48 @@ describe('rbac', () => {
     expect((await login(t, email, 'activated-pass', { host: `${c.slug}.localhost` })).status).toBe(200);
   });
 
+  it('the invite returns its activation link, for admins to pass on when email is not set up', async () => {
+    const { c, auth } = await customerUser('customer_admin');
+    const email = unique('linked');
+    const res = await t.http
+      .post('/api/users/invite')
+      .set('Authorization', auth)
+      .send({ email, name: 'Linked', roleId: await roleId('customer_viewer') });
+    expect(res.status).toBe(201);
+    const link = res.body.inviteLink as string;
+    expect(link).toMatch(new RegExp(`^https?://${c.slug}\\.[^/]+/activate\\?token=[A-Za-z0-9_-]+$`));
+    const token = new URL(link).searchParams.get('token')!;
+    expect((await t.http.post('/api/auth/activate').send({ token, password: 'linked-pass-1' })).status).toBe(200);
+    expect((await login(t, email, 'linked-pass-1', { host: `${c.slug}.localhost` })).status).toBe(200);
+  });
+
+  it('a new invite link replaces the earlier ones, and is only given for invited users in scope', async () => {
+    const { c, auth } = await customerUser('customer_admin');
+    const email = unique('relink');
+    const invited = await t.http
+      .post('/api/users/invite')
+      .set('Authorization', auth)
+      .send({ email, name: 'Relink', roleId: await roleId('customer_viewer') });
+    const first = new URL(invited.body.inviteLink).searchParams.get('token')!;
+
+    const res = await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', auth);
+    expect(res.status).toBe(201);
+    expect(res.body.link).toMatch(new RegExp(`^https?://${c.slug}\\.`));
+    const second = new URL(res.body.link).searchParams.get('token')!;
+    expect(second).not.toBe(first);
+    expect((await t.http.post('/api/auth/activate').send({ token: first, password: 'relink-pass-1' })).status).toBe(400);
+
+    // Others can't mint links: a viewer, or an admin of another customer.
+    const viewer = await customerUser('customer_viewer', c.id);
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', viewer.auth)).status).toBe(403);
+    const other = await customerUser('customer_admin');
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', other.auth)).status).toBe(404);
+
+    expect((await t.http.post('/api/auth/activate').send({ token: second, password: 'relink-pass-1' })).status).toBe(200);
+    // Once active there is nothing to invite.
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', auth)).status).toBe(409);
+  });
+
   it('customer admin inviting platform_admin → 403', async () => {
     const { auth } = await customerUser('customer_admin');
     const res = await t.http
