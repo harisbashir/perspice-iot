@@ -7,6 +7,7 @@ import { SimDevice } from '../../../simulator/src/device.js';
 import { runSimulation } from '../../../simulator/src/run.js';
 import { device } from '../../src/db/schema';
 import { OtaService } from '../../src/firmware/ota.service';
+import { TelemetryStore } from '../../src/ingest/telemetry-store';
 import { tokenFor } from '../auth-helpers';
 import { createProfile, createUser } from '../factories';
 import { type TestApp, createTestApp } from '../harness';
@@ -70,13 +71,17 @@ describe('device simulator', () => {
     expect(report.perMinute[0]!.sent).toBe(report.sent);
     expect(report.endedAt - report.startedAt).toBeGreaterThanOrEqual(5000);
 
-    await new Promise((r) => setTimeout(r, 500));
     // No loss: every message sent is stored once, inside the reported window (the load test's check).
-    const res = await t.db.execute<{ devices: number; messages: number }>(
-      sql`SELECT count(DISTINCT device_id)::int AS devices, count(*)::int AS messages FROM telemetry
-          WHERE key = 'fuel_level' AND ts >= to_timestamp(${report.startedAt} / 1000.0) AND ts <= to_timestamp(${report.endedAt} / 1000.0)`,
-    );
-    expect(res.rows[0]).toEqual({ devices: 5, messages: report.sent });
+    // Writes are batched; under a busy test run they can land a little later, so wait for them.
+    const stored = async () => {
+      await t.app.get(TelemetryStore).writer.flush();
+      const res = await t.db.execute<{ devices: number; messages: number }>(
+        sql`SELECT count(DISTINCT device_id)::int AS devices, count(*)::int AS messages FROM telemetry
+            WHERE key = 'fuel_level' AND ts >= to_timestamp(${report.startedAt} / 1000.0) AND ts <= to_timestamp(${report.endedAt} / 1000.0)`,
+      );
+      return res.rows[0]!;
+    };
+    expect(await eventually(stored, (r) => r.messages >= report.sent, 10_000)).toEqual({ devices: 5, messages: report.sent });
   });
 
   it('mobile devices report positions that become device locations', async () => {

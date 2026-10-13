@@ -20,8 +20,12 @@ setup() {
   [ "$status" -eq 0 ]
   grep -q 'pg_dump' "$STUB_LOG"
   grep -q 'run --rm migrate' "$STUB_LOG"
-  order="$(grep -o 'up -d --no-deps [a-z]*' "$STUB_LOG" | awk '{print $4}' | paste -sd' ')"
-  [ "$order" = "ingest rules scheduler renderer api caddy" ]
+  order="$(grep -oE 'up -d (--force-recreate )?--no-deps [a-z-]+' "$STUB_LOG" | awk '{print $NF}' | paste -sd' ')"
+  # Infrastructure first (its configuration can change between releases), then the app.
+  [ "$order" = "redis postgres emqx cert-sync ingest rules scheduler renderer api caddy" ]
+  # Configuration rendered from files at start: recreated even when Compose sees no change.
+  grep -q 'up -d --force-recreate --no-deps emqx' "$STUB_LOG"
+  grep -q 'up -d --force-recreate --no-deps cert-sync' "$STUB_LOG"
   grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
   [ ! -e "$PERSPICE_HOME/docker-compose.yml.previous" ]
   grep -q '^PERSPICE_VERSION=0.2.0$' "$PERSPICE_HOME/.env"
@@ -78,4 +82,91 @@ setup() {
   ! grep -q 'pull' "$STUB_LOG"
   grep -q '^PERSPICE_VERSION=0.4.0$' "$PERSPICE_HOME/.env"
   [ -z "$(ls "$PERSPICE_HOME"/backups/*.pbk 2>/dev/null)" ]
+}
+
+# A minimal source tree of release $1 (what --source reads).
+make_source() {
+  local dir="$BATS_TEST_TMPDIR/src-$1"
+  mkdir -p "$dir/deploy" "$dir/scripts/lib"
+  echo "$1" >"$dir/VERSION"
+  cp -r "$SCRIPTS/../deploy/." "$dir/deploy/"
+  cp "$SCRIPTS/lib/common.sh" "$dir/scripts/lib/common.sh"
+  cp "$SCRIPTS/update.sh" "$dir/scripts/update.sh"
+  echo '# new updater' >>"$dir/scripts/update.sh"
+  echo "$dir"
+}
+
+@test "--source builds the target's images from the tree instead of pulling" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.0)"
+  run bash "$SCRIPTS/update.sh" --yes --source "$src"
+  [ "$status" -eq 0 ]
+  grep -q "build -t ghcr.io/perspice/perspice-server:0.9.0 -f $src/deploy/Dockerfile.server $src" "$STUB_LOG"
+  grep -q "build -t ghcr.io/perspice/perspice-web:0.9.0" "$STUB_LOG"
+  grep -q "build -t ghcr.io/perspice/perspice-renderer:0.9.0" "$STUB_LOG"
+  ! grep -q 'pull' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.9.0$' "$PERSPICE_HOME/.env"
+  # The deployment files and the updater itself come from the target.
+  grep -q '^  renderer:' "$PERSPICE_HOME/docker-compose.yml"
+  grep -q '# new updater' "$PERSPICE_HOME/scripts/update.sh"
+}
+
+@test "--source also takes a release tarball" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.1)"
+  tar -czf "$BATS_TEST_TMPDIR/perspice-0.9.1.tar.gz" -C "$(dirname "$src")" "$(basename "$src")"
+  run bash "$SCRIPTS/update.sh" --yes --source "$BATS_TEST_TMPDIR/perspice-0.9.1.tar.gz"
+  [ "$status" -eq 0 ]
+  grep -q 'build -t ghcr.io/perspice/perspice-server:0.9.1' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.9.1$' "$PERSPICE_HOME/.env"
+}
+
+@test "a failed build rolls back without touching the database" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.0)"
+  STUB_FAIL_ON="Dockerfile.web" run bash "$SCRIPTS/update.sh" --yes --source "$src"
+  [ "$status" -eq 1 ]
+  ! grep -q 'run --rm migrate' "$STUB_LOG"
+  ! grep -q 'pg_restore' "$STUB_LOG"
+  grep -q '^PERSPICE_VERSION=0.1.0$' "$PERSPICE_HOME/.env"
+}
+
+@test "--source without a VERSION file is refused" {
+  mkdir -p "$BATS_TEST_TMPDIR/empty"
+  run bash "$SCRIPTS/update.sh" --yes --source "$BATS_TEST_TMPDIR/empty"
+  [ "$status" -eq 64 ]
+  [[ "$output" == *"VERSION"* ]]
+}
+
+@test "a rollback to a release without some services restores and restarts only those it has" {
+  # The release rolled back to (e.g. 0.1.0) has no renderer.
+  STUB_SERVICES="postgres redis emqx cert-sync api ingest rules scheduler web caddy" STUB_FAIL_ON="health --mqtt-roundtrip" \
+    run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rolled back to 0.1.0"* ]]
+  [[ "$output" != *"Restoring the snapshot failed"* ]]
+  grep -q 'stop api ingest rules scheduler$' "$STUB_LOG"
+  grep -q 'start api ingest rules scheduler$' "$STUB_LOG"
+  grep -q 'up -d --remove-orphans' "$STUB_LOG"
+}
+
+@test "a failing restore is reported, not hidden" {
+  STUB_FAIL_ON="health --mqtt-roundtrip|pg_restore" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Restoring the snapshot failed"* ]]
+}
+
+@test "the health check is retried before an update is rolled back" {
+  STUB_FAIL_ON="health --mqtt-roundtrip" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  # Six tries for the update, then six more after the rollback (still failing in this stub).
+  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 12 ]
+}
+
+@test "a rollback waits for MQTT to work again before it reports" {
+  STUB_FAIL_ON="run --rm migrate" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"rolled back to 0.1.0"* ]]
+  # After restoring and restarting, one successful round trip (the stub succeeds at once).
+  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 1 ]
 }

@@ -19,7 +19,8 @@ The `perspice` command wraps Docker Compose for that directory.
 ## Updating
 
 ```bash
-sudo perspice update --version v0.2.0
+sudo perspice update                    # to the latest release
+sudo perspice update --version v1.0.0   # to a given one
 ```
 
 The update:
@@ -29,14 +30,49 @@ The update:
    to `backups/pre-update-<old version>-<time>.pbk` when the running version is v0.4.0 or later, and
    snapshots the database to `backups/pre-update-<old version>-<time>.dump` for the automatic
    rollback (only the newest of each is kept);
-3. installs the release's deployment files (`docker-compose.yml`, EMQX and cert-sync config), so
-   services added by a release (v0.2.0: `renderer`) appear, then pulls the new images and runs
-   migrations;
-4. restarts `ingest`, `rules`, `scheduler`, `renderer`, `api` (waiting for each to be healthy), then `caddy`;
-5. checks health with a real MQTT publish → ingest round trip.
+3. installs the release's deployment files (`docker-compose.yml`, EMQX and cert-sync
+   configuration) and its own `update.sh` and `perspice` CLI, then pulls the new images and runs
+   the migrations;
+4. restarts the infrastructure whose configuration changed (Redis, PostgreSQL), recreates EMQX and
+   cert-sync (their configuration comes from files Compose can't watch; devices reconnect within
+   seconds), then `ingest`, `rules`, `scheduler`, `renderer`, `api` and `caddy`, waiting for each
+   to be healthy, and starts any service the release adds;
+5. checks health with a real MQTT publish → ingest round trip (up to six tries, ten seconds
+   apart, while ingest settles).
 
 If any step fails it switches back to the previous version (and compose file) and, if migrations
-had run, restores the snapshot. Details go to `/opt/perspice/update.log`.
+had run, restores the snapshot; containers of services only the new release has are removed.
+Details go to `/opt/perspice/update.log`.
+
+### Installs built from source, and offline servers
+
+Installs made with `install.sh --build` (and servers without access to the image registry) update
+from a source tree or release tarball instead of pulling images:
+
+```bash
+sudo perspice update --source /path/to/perspice-iot-1.0.0      # or …/perspice-iot-1.0.0.tar.gz
+```
+
+The target version is the tree's `VERSION`. Source installs made **before 1.0** have an updater
+without `--source`; run the new release's own updater once:
+
+```bash
+git clone --branch v1.0.0 https://github.com/perspice/perspice-iot.git /tmp/perspice-1.0.0
+sudo /tmp/perspice-1.0.0/scripts/update.sh --source /tmp/perspice-1.0.0
+```
+
+### Upgrading to 1.0 from 0.x
+
+Every 0.x release upgrades directly to 1.0 (tested from v0.1.0 and v0.8.0 with real data,
+including an automatic rollback). Worth knowing:
+
+- Built-in roles are re-synced from code at start-up and gain the 0.6–0.8 permissions
+  (`device.claim`, `tariff.manage`, `device.service`, `asset.*`).
+- Custom roles keep exactly their permissions. From 1.0, dashboard widgets and live updates also
+  require the permissions of the data they show (`telemetry.read`, `alarm.read`): add them to
+  custom roles that should see values on dashboards.
+- Ingest now keeps one MQTT session across restarts (`INGEST_ID`); sessions left by earlier
+  releases are removed automatically on its first start.
 
 ## Backups and restores
 

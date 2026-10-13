@@ -64,13 +64,18 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: perspice
       TIMESCALEDB_TELEMETRY: 'off'
+      # First-boot tuning: the installer sets the machine's memory (empty: TimescaleDB probes cgroups).
+      TS_TUNE_MEMORY: ${PG_TUNE_MEMORY:-}
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U perspice -d perspice']
+      # Over TCP: while the image initialises a new database, a temporary server answers on the
+      # socket only, which must not count as ready. A slow first boot gets a grace period.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U perspice -d perspice']
       interval: 5s
       timeout: 5s
       retries: 30
+      start_period: 120s
     logging: *logging
 
   redis:
@@ -113,6 +118,8 @@ services:
     environment:
       <<: *server-env
       PERSPICE_ROLE: ingest
+      # A stable MQTT session across container restarts (set one per instance if you run several).
+      INGEST_ID: '1'
     depends_on:
       migrate: { condition: service_completed_successfully }
       emqx: { condition: service_healthy }

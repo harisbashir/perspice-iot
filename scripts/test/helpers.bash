@@ -5,6 +5,7 @@ setup_home() {
   export PERSPICE_HOME="$BATS_TEST_TMPDIR/home"
   export STUB_LOG="$BATS_TEST_TMPDIR/calls.log"
   export PERSPICE_SKIP_ROOT_CHECK=1
+  export PERSPICE_HEALTH_DELAY_S=0
   mkdir -p "$PERSPICE_HOME" "$BATS_TEST_TMPDIR/bin"
   : >"$STUB_LOG"
 }
@@ -21,18 +22,22 @@ path_without_docker() {
   echo "$dir"
 }
 
-# A docker stub that records every call. STUB_FAIL_ON=<pattern> makes matching calls fail.
+# A docker stub that records every call. STUB_FAIL_ON=<pattern>[|<pattern>…] makes matching calls fail.
 install_docker_stub() {
   cat >"$BATS_TEST_TMPDIR/bin/docker" <<'STUB'
 #!/usr/bin/env bash
 echo "$*" >>"$STUB_LOG"
-if [[ -n "${STUB_FAIL_ON:-}" && "$*" == *"$STUB_FAIL_ON"* ]]; then exit 1; fi
+if [[ -n "${STUB_FAIL_ON:-}" ]]; then
+  IFS='|' read -r -a patterns <<<"$STUB_FAIL_ON"
+  for p in "${patterns[@]}"; do [[ "$*" == *"$p"* ]] && exit 1; done
+fi
 case "$*" in
   *"ps -q"*) echo "cid-1" ;;
   *inspect*) echo "healthy" ;;
   *pg_dump*) echo "PGDMP fake dump" ;;
   *"backup --out -"*) echo "PSPBK1 fake backup" ;;
   "compose version"*) echo "Docker Compose version v2" ;;
+  *"config --services"*) printf '%s\n' ${STUB_SERVICES:-postgres redis emqx cert-sync api ingest rules scheduler renderer web caddy} ;;
 esac
 exit 0
 STUB

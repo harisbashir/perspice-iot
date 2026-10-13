@@ -104,8 +104,8 @@ describe('restore (Review Focus 3)', () => {
   it('refuses newer, foreign-key and damaged backups before touching anything', async () => {
     const before = (await t.db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM device`)).rows[0]!.n;
     const cases: [Buffer, RegExp][] = [
-      [await craft({ version: '0.99.0' }), /newer version/],
-      [await craft({ version: '7.0.0' }), /different major version/],
+      [await craft({ version: '9.0.0' }), /newer version/],
+      [await craft({ version: '0.0.9' }), /older than/],
       [await craft({ masterKeyFingerprint: 'ffffffffffffffff' }), /different MASTER_KEY/],
       [await craft({ files: [{ name: 'database.dump', size: 1, sha256: '0'.repeat(64) }] }), /checksum/],
       [Buffer.from('definitely not a backup'), /not a Perspice backup/],

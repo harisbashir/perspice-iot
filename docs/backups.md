@@ -53,7 +53,7 @@ The restore:
 
 The data is the backup's afterwards: anything recorded since the backup was made, including device messages that arrive during the restore, is not kept. Users sign in with the accounts and passwords in the backup.
 
-Which backups can be restored: from the **same major version**, and **not newer** than the server. A backup from v0.3.x restores on v0.4.0 (and is migrated); a v0.5.0 backup needs the server updated to v0.5.0 first.
+Which backups can be restored: any from v0.1.0 on that is **not newer** than the server. Older ones are migrated forward, across 0.x → 1.x too (a v0.8.0 backup restores on v1.0.0); a backup from a newer version needs the server updated first.
 
 ### On a new server
 

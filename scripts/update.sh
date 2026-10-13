@@ -9,19 +9,22 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: update.sh [--version vX.Y.Z] [--yes] [--allow-downgrade] [--dry-run]
+Usage: update.sh [--version vX.Y.Z | --source <dir|tar.gz>] [--yes] [--allow-downgrade] [--dry-run]
 
   --version          Target release (default: latest)
+  --source           Build the target from a source tree or release tarball instead of pulling
+                     images (installs made with --build, offline servers); its VERSION is the target
   --yes              Do not ask for confirmation
   --allow-downgrade  Permit installing an older version than the current one
   --dry-run          Show what would happen without changing anything
 USAGE
 }
 
-TARGET="" YES=0 ALLOW_DOWNGRADE=0
+TARGET="" SOURCE="" YES=0 ALLOW_DOWNGRADE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version) TARGET="$2"; shift 2 ;;
+    --source) SOURCE="$2"; shift 2 ;;
     --yes) YES=1; shift ;;
     --allow-downgrade) ALLOW_DOWNGRADE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -29,6 +32,18 @@ while [[ $# -gt 0 ]]; do
     *) usage >&2; die "Unknown option: $1" 64 ;;
   esac
 done
+
+# A source tree (or a release tarball, unpacked) to build from: its VERSION is the target.
+if [[ -n "$SOURCE" ]]; then
+  if [[ -f "$SOURCE" ]]; then
+    unpacked="$(mktemp -d)"
+    tar -xzf "$SOURCE" -C "$unpacked" --strip-components=1 || die "Could not unpack $SOURCE" 64
+    SOURCE="$unpacked"
+  fi
+  [[ -f "$SOURCE/VERSION" ]] || die "No VERSION file in $SOURCE: not a Perspice source tree." 64
+  [[ -n "$TARGET" ]] || TARGET="$(tr -d '[:space:]' <"$SOURCE/VERSION")"
+  export PERSPICE_SRC="$SOURCE"
+fi
 
 [[ -f "$PERSPICE_HOME/.env" ]] || die "No installation found in $PERSPICE_HOME." 2
 LOG="$PERSPICE_HOME/update.log"
@@ -58,6 +73,16 @@ info "$(date -u +%FT%TZ) update $CURRENT → $TARGET"
 SNAPSHOT=""
 MIGRATED=0
 
+# A real MQTT round trip, with a few tries while services settle after a restart.
+mqtt_healthy() {
+  local _
+  for _ in $(seq 1 "${PERSPICE_HEALTH_ATTEMPTS:-6}"); do
+    if run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip; then return 0; fi
+    sleep "${PERSPICE_HEALTH_DELAY_S:-10}"
+  done
+  return 1
+}
+
 rollback() {
   warn "Update failed; rolling back to $CURRENT."
   env_set PERSPICE_VERSION "$CURRENT"
@@ -68,7 +93,10 @@ rollback() {
     info "Restoring the pre-update database snapshot $SNAPSHOT"
     db_restore_from "$SNAPSHOT" || warn "Restoring the snapshot failed; restore it manually with: perspice db-restore $SNAPSHOT"
   fi
-  compose up -d || true
+  # The target may have added services (a renderer, say) that the rolled-back release doesn't have.
+  compose up -d --remove-orphans || true
+  # The restarted API takes the broker a moment to reach again; report once devices can connect.
+  mqtt_healthy || warn "MQTT isn't answering yet after the rollback; check: perspice logs emqx"
   die "Update to $TARGET failed and was rolled back to $CURRENT. Details: $LOG" 1
 }
 
@@ -108,27 +136,49 @@ else
   ok "$SNAPSHOT"
 fi
 
-step "2/5 Pulling $TARGET"
+step "2/5 $([[ -n "$SOURCE" ]] && echo Building || echo Pulling) $TARGET"
 # New releases can add services (v0.2.0: renderer), so the compose file comes from the target.
 [[ "$DRY_RUN" == "1" ]] || cp "$PERSPICE_HOME/docker-compose.yml" "$PERSPICE_HOME/docker-compose.yml.previous"
 run_or_print fetch_deploy_files "$TARGET" || rollback
 [[ "$DRY_RUN" == "1" ]] || env_set PERSPICE_VERSION "$TARGET"
-run_or_print compose pull --quiet || rollback
+if [[ -n "$SOURCE" ]]; then
+  owner="$(env_get PERSPICE_IMAGE_OWNER)"
+  for image in server web renderer; do
+    run_or_print docker build -t "ghcr.io/${owner:-perspice}/perspice-${image}:$TARGET" -f "$SOURCE/deploy/Dockerfile.${image}" "$SOURCE" || rollback
+  done
+else
+  run_or_print compose pull --quiet || rollback
+fi
 
 step "3/5 Migrating the database"
 MIGRATED=1
 run_or_print compose run --rm migrate || rollback
 
 step "4/5 Restarting services"
-for svc in ingest rules scheduler renderer api caddy; do
-  run_or_print compose up -d --no-deps "$svc" || rollback
-  [[ "$svc" == caddy ]] && continue
-  wait_healthy "$svc" 120 || rollback
+# Infrastructure first: its configuration changes between releases too (0.4.0 added the broker's
+# internal listener, 1.0 the database healthcheck), and the app services need the new one.
+# Compose only recreates a container whose configuration changed.
+if [[ "$DRY_RUN" == "1" ]]; then
+  services=(redis postgres emqx cert-sync ingest rules scheduler renderer api caddy)
+else
+  mapfile -t services < <(compose_services redis postgres emqx cert-sync ingest rules scheduler renderer api caddy)
+fi
+for svc in "${services[@]}"; do
+  # The broker and cert-sync render configuration files from the release when they start, and
+  # Compose can't see those files change: recreate them every time.
+  recreate=()
+  [[ "$svc" == emqx || "$svc" == cert-sync ]] && recreate=(--force-recreate)
+  run_or_print compose up -d "${recreate[@]}" --no-deps "$svc" || rollback
+  [[ "$svc" == caddy || "$svc" == cert-sync ]] && continue
+  wait_healthy "$svc" 180 || rollback
   ok "$svc"
 done
+# Services the new release adds that aren't in the list above.
+run_or_print compose up -d --remove-orphans || rollback
 
 step "5/5 Health check"
-run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip || rollback
+# Freshly restarted, ingest may still be settling: a few tries before deciding it's broken.
+mqtt_healthy || rollback
 
 rm -f "$PERSPICE_HOME/docker-compose.yml.previous"
 ok "Perspice $TARGET is running."

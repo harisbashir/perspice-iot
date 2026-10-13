@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-13
+
+The first stable release: every success criterion verified end to end
+([acceptance.md](docs/acceptance.md)), the install and update scripts tested for real on a clean
+Ubuntu (fresh installs, upgrades from v0.1.0 and v0.8.0, and automatic rollbacks), and a security
+review ([security.md](docs/security.md)).
+
+### Added
+
+- `update.sh --source <dir|tar.gz>`: update installs built from source, or offline servers, from a
+  source tree or release tarball. Updates also install the target's `update.sh` and CLI.
+- `deploy/test/install-e2e.sh`: the real install and update path on a clean Ubuntu 24.04 (fresh
+  install, upgrades from older releases, a failed update that must roll back); run for every
+  release tag.
+- `README.md`, upgrade notes for 0.x → 1.0 ([operations.md](docs/operations.md)), the acceptance
+  record and the security guide.
+
+### Fixed
+
+- **Ingest after restarts:** ingest's persistent MQTT session was named after its container, so
+  every update or restart left the old session behind for an hour and EMQX sent it about half of
+  all device messages, which were lost. Ingest now has a stable id (`INGEST_ID`) and removes stale
+  sessions on start-up.
+- **Telemetry buffer:** a device deleted while its messages were in flight failed the whole batch
+  (other devices' rows included), and its replay blocked the failover buffer for good. Rows of
+  deleted devices are skipped, and a batch the database refuses for good is dropped and counted
+  instead of blocking.
+- **Updates:** infrastructure whose configuration changed is restarted first (EMQX never got the
+  internal listener added in 0.4.0 when updating from older releases); EMQX and cert-sync are
+  recreated so their file-based configuration applies; the health check is retried while ingest
+  settles; rollbacks restore the database reliably (they acted on services the older release
+  didn't have, and hid a failing restore) and report only once devices can connect.
+- **Installs:** the installer no longer restarts the API at the very end (devices were refused for
+  up to a minute after "Done") and waits for an MQTT round trip before reporting success;
+  `--reinstall` keeps the secrets the existing data depends on (it replaced the database password,
+  `MASTER_KEY` and `BACKUP_PASSPHRASE`); PostgreSQL counts as ready only when it answers over TCP;
+  the database's first boot no longer depends on cgroup files (Docker inside LXC failed).
+- **Backups:** 0.x backups restore on 1.0 (they were refused across major versions); backups are
+  accepted back to v0.1.0 and migrated forward.
+- **Security:** dashboard data and live subscriptions now check the widget's permissions, not only
+  the viewer's scope (custom roles without `telemetry.read` or `alarm.read` could read through
+  them); js-yaml updated.
+- CI runs every e2e project and shellchecks every script; the simulator test no longer flakes
+  under load.
+
 ## [0.8.0] - 2026-10-10
 
 Asset hierarchy (sub-project 5d).

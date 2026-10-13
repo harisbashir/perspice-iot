@@ -4,7 +4,7 @@ import { REDIS } from '../common/redis.module';
 import type { Counter, Gauge } from 'prom-client';
 import { MetricsService } from '../system/metrics.service';
 
-export type IngestMetric = 'ingest_messages_total' | 'ingest_rows_total' | 'ingest_buffer_length';
+export type IngestMetric = 'ingest_messages_total' | 'ingest_rows_total' | 'ingest_batches_dropped_total' | 'ingest_buffer_length';
 
 /** Per-minute message counts shared by all ingest processes (for the System page). */
 export const messageRateKey = (minute: number) => `rate:messages:${minute}`;
@@ -14,7 +14,7 @@ export const messageRateKey = (minute: number) => `rate:messages:${minute}`;
 export class IngestMetrics implements OnModuleDestroy {
   private pending = 0;
   private readonly flushTimer: NodeJS.Timeout;
-  private readonly counters: Record<'ingest_messages_total' | 'ingest_rows_total', Counter>;
+  private readonly counters: Record<'ingest_messages_total' | 'ingest_rows_total' | 'ingest_batches_dropped_total', Counter>;
   private readonly bufferLength: Gauge;
 
   constructor(
@@ -25,6 +25,7 @@ export class IngestMetrics implements OnModuleDestroy {
     this.counters = {
       ingest_messages_total: metrics.counter('perspice_ingest_messages_total', 'Device messages received, by result', ['result']),
       ingest_rows_total: metrics.counter('perspice_ingest_rows_total', 'Telemetry rows written'),
+      ingest_batches_dropped_total: metrics.counter('perspice_ingest_batches_dropped_total', 'Buffered telemetry batches the database refused for good (dropped)'),
     };
     this.bufferLength = metrics.gauge('perspice_ingest_buffer_length', 'Telemetry rows waiting in the Redis failover buffer');
   }
