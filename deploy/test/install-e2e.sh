@@ -20,10 +20,12 @@ NAME="perspice-install-e2e"
 WORK="$(mktemp -d)"
 log() { printf '\n==> %s\n' "$*"; }
 cleanup() {
-  if [[ "${KEEP:-}" != "1" ]]; then
-    docker rm -f "$NAME" >/dev/null 2>&1 || true
-    docker volume rm "$NAME-docker" >/dev/null 2>&1 || true
+  if [[ "${KEEP:-}" == "1" ]]; then
+    echo "Kept: docker exec -it $NAME bash (its /work is $WORK)"
+    return
   fi
+  docker rm -f "$NAME" >/dev/null 2>&1 || true
+  docker volume rm "$NAME-docker" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT

@@ -155,3 +155,9 @@ make_source() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"Restoring the snapshot failed"* ]]
 }
+
+@test "the health check is retried before an update is rolled back" {
+  STUB_FAIL_ON="health --mqtt-roundtrip" run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 1 ]
+  [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 6 ]
+}

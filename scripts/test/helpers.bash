@@ -5,6 +5,7 @@ setup_home() {
   export PERSPICE_HOME="$BATS_TEST_TMPDIR/home"
   export STUB_LOG="$BATS_TEST_TMPDIR/calls.log"
   export PERSPICE_SKIP_ROOT_CHECK=1
+  export PERSPICE_HEALTH_DELAY_S=0
   mkdir -p "$PERSPICE_HOME" "$BATS_TEST_TMPDIR/bin"
   : >"$STUB_LOG"
 }

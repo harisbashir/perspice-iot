@@ -165,7 +165,13 @@ done
 run_or_print compose up -d --remove-orphans || rollback
 
 step "5/5 Health check"
-run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip || rollback
+# Freshly restarted, ingest may still be settling: a few tries before deciding it's broken.
+healthy=0
+for _ in $(seq 1 "${PERSPICE_HEALTH_ATTEMPTS:-6}"); do
+  if run_or_print compose exec -T api node dist/cli.js health --mqtt-roundtrip; then healthy=1; break; fi
+  sleep "${PERSPICE_HEALTH_DELAY_S:-10}"
+done
+[[ "$healthy" == "1" ]] || rollback
 
 rm -f "$PERSPICE_HOME/docker-compose.yml.previous"
 ok "Perspice $TARGET is running."
