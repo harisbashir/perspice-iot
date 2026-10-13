@@ -32,7 +32,9 @@ export function SettingsPage() {
         {tabs.map((t) => (
           <NavLink
             key={t.to}
-            to={t.to}
+            // Absolute: inside this splat route a relative link resolves against the current tab
+            // (/settings/profile/maps), which fell through to the catch-all redirect in a loop.
+            to={`/settings/${t.to}`}
             className={({ isActive }) =>
               cn(
                 '-mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300',
@@ -45,7 +47,7 @@ export function SettingsPage() {
         ))}
       </nav>
       <Routes>
-        <Route index element={<Navigate to="profile" replace />} />
+        <Route index element={<Navigate to="/settings/profile" replace />} />
         <Route path="profile" element={<ProfileSettings />} />
         <Route path="notifications" element={<NotificationSettings />} />
         {hasPerm('branding.edit') && <Route path="branding" element={<BrandingSettings />} />}
@@ -55,7 +57,7 @@ export function SettingsPage() {
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}
         {hasPerm('system.settings') && <Route path="security" element={<SecuritySettings />} />}
         {hasPerm('system.settings') && <Route path="maps" element={<MapSettings />} />}
-        <Route path="*" element={<Navigate to="profile" replace />} />
+        <Route path="*" element={<Navigate to="/settings/profile" replace />} />
       </Routes>
     </div>
   );
