@@ -18,6 +18,13 @@ COMPOSE=(docker compose -p perspice -f /opt/perspice/docker-compose.yml --env-fi
 version() { sed -n 's/^PERSPICE_VERSION=//p' /opt/perspice/.env; }
 
 log "Starting Docker"
+# Delegate cgroup v2 controllers to the inner daemon (as the official docker:dind image does), so
+# its containers see their memory limits like on a real host.
+if [[ -f /sys/fs/cgroup/cgroup.controllers ]]; then
+  mkdir -p /sys/fs/cgroup/init
+  xargs -rn1 </sys/fs/cgroup/cgroup.procs >/sys/fs/cgroup/init/cgroup.procs 2>/dev/null || true
+  sed -e 's/ / +/g' -e 's/^/+/' </sys/fs/cgroup/cgroup.controllers >/sys/fs/cgroup/cgroup.subtree_control || true
+fi
 dockerd >/var/log/dockerd.log 2>&1 &
 for _ in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done
 docker info >/dev/null 2>&1 || fail "dockerd did not start"
