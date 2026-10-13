@@ -40,9 +40,23 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
+  # The real scripts on a clean Ubuntu: a fresh install of this release, and upgrades from the
+  # first and the previous releases, each followed by a failed update that must roll back.
+  install-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        from: [HEAD, v0.1.0, v0.8.0]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash deploy/test/install-e2e.sh --from ${{ matrix.from }}
+
   release:
     runs-on: ubuntu-latest
-    needs: images
+    needs: [images, install-e2e]
     steps:
       - uses: actions/checkout@v4
       - name: Release notes from CHANGELOG.md
