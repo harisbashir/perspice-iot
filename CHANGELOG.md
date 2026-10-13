@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-13
+
+Installs from the published images work, and a server can be installed on its IP address
+without DNS records.
+
 ### Added
 
 - Installs without DNS records: `install.sh --domain <IPv4>` serves the platform on the address's
