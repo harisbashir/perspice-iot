@@ -12,6 +12,8 @@ const ConfigSchema = z.object({
   REDIS_URL: z.string().url(),
   MQTT_URL: z.string().url().default('mqtt://localhost:1883'),
   MQTT_INGEST_USERNAME: z.string().min(1).default('perspice-ingest'),
+  /** A stable name for this ingest process, so a restarted container resumes its own MQTT session (set per instance when running several). */
+  INGEST_ID: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/).optional(),
   MQTT_INGEST_PASSWORD: z.string().default(''),
   EMQX_API_URL: z.string().url().default('http://localhost:18083'),
   EMQX_API_KEY: z.string().default(''),

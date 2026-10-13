@@ -116,6 +116,8 @@ services:
     environment:
       <<: *server-env
       PERSPICE_ROLE: ingest
+      # A stable MQTT session across container restarts (set one per instance if you run several).
+      INGEST_ID: '1'
     depends_on:
       migrate: { condition: service_completed_successfully }
       emqx: { condition: service_healthy }

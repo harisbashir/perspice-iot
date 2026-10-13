@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { CONFIG, type Config } from '../config/config';
 import { ManagedMqtt } from './managed-mqtt';
+import { EmqxClient } from '../emqx/emqx.client';
 import { MessageRouter } from './message-router';
 
 /** On AWS IoT Core: the same device topics, and lifecycle events for presence. */
@@ -30,11 +31,19 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
   private readyResolve!: () => void;
   private readonly readyPromise = new Promise<void>((resolve) => (this.readyResolve = resolve));
 
-  constructor(@Inject(CONFIG) config: Config, router: MessageRouter) {
+  private readonly clientId: string;
+
+  constructor(
+    @Inject(CONFIG) private readonly config: Config,
+    router: MessageRouter,
+    private readonly emqx: EmqxClient,
+  ) {
     const aws = config.MQTT_TRANSPORT === 'aws-iot';
     this.subscriptions = aws ? AWS_INGEST_SUBSCRIPTIONS : INGEST_SUBSCRIPTIONS;
+    // Stable across container restarts (INGEST_ID), so a new container resumes the same session.
+    this.clientId = `perspice-ingest-${config.INGEST_ID ?? `${hostname()}-${process.pid}`}`;
     const common: IClientOptions = {
-      clientId: `perspice-ingest-${hostname()}-${process.pid}`,
+      clientId: this.clientId,
       protocolVersion: 5,
       clean: false,
       properties: { sessionExpiryInterval: 3600 },
@@ -85,6 +94,25 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
   }
 
   /**
+   * Removes other ingest sessions that are no longer connected. Ingest shares its subscriptions,
+   * so a persistent session left by a previous container (older releases named it after the
+   * container) would be sent its share of the messages, which nobody reads.
+   */
+  async removeStaleSessions(): Promise<void> {
+    if (this.config.MQTT_TRANSPORT === 'aws-iot') return;
+    for (let page = 1; page <= 50; page++) {
+      const { data } = await this.emqx.listClients(page, 100);
+      for (const c of data) {
+        if (c.clientid !== this.clientId && c.clientid.startsWith('perspice-ingest-') && c.username === this.config.MQTT_INGEST_USERNAME && !c.connected) {
+          await this.emqx.kick(c.clientid);
+          this.logger.log(`Removed the stale ingest session ${c.clientid}`);
+        }
+      }
+      if (data.length < 100) break;
+    }
+  }
+
+  /**
    * Right after EMQX boots, or while the API restarts, its ACL hook can fail and the broker
    * refuses the subscription. EMQX caches that denial for the connection, so reconnect.
    */
@@ -97,6 +125,7 @@ export class MqttIngestClient implements OnModuleInit, OnApplicationShutdown {
       }
       this.logger.log('Ingest subscribed');
       this.readyResolve();
+      void this.removeStaleSessions().catch((e: Error) => this.logger.warn(`Could not check for stale ingest sessions: ${e.message}`));
     });
   }
 }
