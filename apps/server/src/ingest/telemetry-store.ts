@@ -29,9 +29,30 @@ function columns(rows: WriteRow[]) {
   };
 }
 
+/**
+ * The rows as a relation, keeping only devices that still exist: a device deleted while its
+ * messages were in flight must not fail the other devices' rows in the same batch.
+ */
 const unnestRows = (c: ReturnType<typeof columns>) =>
   // sql.param binds each array as one parameter (a bare array would be expanded into a list).
-  sql`SELECT * FROM unnest(${sql.param(c.deviceIds)}::uuid[], ${sql.param(c.keys)}::text[], ${sql.param(c.ts)}::timestamptz[], ${sql.param(c.nums)}::float8[], ${sql.param(c.strs)}::text[], ${sql.param(c.bools)}::boolean[], ${sql.param(c.jsons)}::jsonb[])`;
+  sql`SELECT u.* FROM unnest(${sql.param(c.deviceIds)}::uuid[], ${sql.param(c.keys)}::text[], ${sql.param(c.ts)}::timestamptz[], ${sql.param(c.nums)}::float8[], ${sql.param(c.strs)}::text[], ${sql.param(c.bools)}::boolean[], ${sql.param(c.jsons)}::jsonb[])
+    AS u(device_id, key, ts, value_num, value_str, value_bool, value_json)
+    WHERE EXISTS (SELECT 1 FROM device d WHERE d.id = u.device_id)`;
+
+/**
+ * Whether a failed write is worth retrying: the database is down, unreachable or overloaded. Any
+ * other error (bad data, a violated constraint) would fail the same way every time.
+ */
+const isTransient = (err: unknown): boolean => {
+  const e = err as { code?: unknown; message?: unknown; cause?: { code?: unknown; message?: unknown } };
+  const code = String(e.cause?.code ?? e.code ?? '');
+  const message = String(e.cause?.message ?? e.message ?? '');
+  return (
+    /^(08|53|57|58)/.test(code) || // connection, resources, operator intervention, system
+    ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EPIPE', 'EAI_AGAIN'].includes(code) ||
+    /Connection terminated|timeout|connect/i.test(message)
+  );
+};
 
 /** Newest row per (device, key): an upsert may not touch the same row twice in one statement. */
 function newestPerKey(rows: WriteRow[]): WriteRow[] {
@@ -122,7 +143,14 @@ export class TelemetryStore implements TelemetrySink, FailoverBuffer, OnModuleIn
           const entries = await this.redis.xrange(INGEST_BUFFER_STREAM, '-', '+', 'COUNT', 50);
           if (!entries.length) break;
           for (const [id, fields] of entries) {
-            await this.write(JSON.parse(fields[1]!) as WriteRow[]);
+            try {
+              await this.write(JSON.parse(fields[1]!) as WriteRow[]);
+            } catch (err) {
+              // One batch the database will never accept must not hold up everything behind it.
+              if (isTransient(err)) throw err;
+              this.metrics.inc('ingest_batches_dropped_total', 1);
+              this.logger.error(`Dropped a buffered batch the database refuses: ${(err as Error).message.slice(0, 300)}`);
+            }
             await this.redis.xdel(INGEST_BUFFER_STREAM, id);
           }
         }
