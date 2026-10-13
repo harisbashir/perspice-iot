@@ -14,7 +14,7 @@ On an Ubuntu 22.04+ or Debian 12+ server with DNS for `iot.example.com`, `*.iot.
 `mqtt.iot.example.com` pointing at it:
 
 ```bash
-git clone https://github.com/perspice/perspice-iot.git
+git clone https://github.com/harisbashir/perspice-iot.git
 cd perspice-iot
 sudo scripts/install.sh --domain iot.example.com --admin-email you@example.com
 ```

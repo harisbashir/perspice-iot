@@ -31,7 +31,7 @@ The installer opens these in `ufw` when it is active; open them in any cloud fir
 ## Install
 
 ```bash
-git clone https://github.com/perspice/perspice-iot.git
+git clone https://github.com/harisbashir/perspice-iot.git
 cd perspice-iot
 sudo scripts/install.sh --domain iot.example.com --admin-email you@example.com
 ```
