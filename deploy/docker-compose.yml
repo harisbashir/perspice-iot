@@ -64,6 +64,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: perspice
       TIMESCALEDB_TELEMETRY: 'off'
+      # First-boot tuning: the installer sets the machine's memory (empty: TimescaleDB probes cgroups).
+      TS_TUNE_MEMORY: ${PG_TUNE_MEMORY:-}
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:

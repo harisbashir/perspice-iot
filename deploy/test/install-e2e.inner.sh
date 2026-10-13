@@ -37,6 +37,8 @@ old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive -
 # can't recover (it replaced the database password; fixed in 1.0), so start over, as a user would
 # after a failed first install.
 if ! old_install; then
+  # Only older installers get a second chance: the current one must work the first time.
+  [[ "$FRESH" == "1" ]] && fail "the install of this checkout failed"
   log "The $FROM install failed; removing it and installing again"
   "${COMPOSE[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
   rm -f /opt/perspice/.env

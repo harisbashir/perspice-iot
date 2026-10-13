@@ -98,3 +98,11 @@ setup() {
   [ "$(grep -c '^VAPID_PUBLIC_KEY=pub-1$' "$PERSPICE_HOME/.env")" = "1" ]
   [[ "$output" != *"vapid-keys"* ]]
 }
+
+@test "the database is tuned for this machine's memory without relying on cgroup files" {
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.1.0
+  [ "$status" -eq 0 ]
+  expected="$(awk '/MemTotal/ { print int($2 / 1024) "MB" }' /proc/meminfo)"
+  grep -q "^PG_TUNE_MEMORY=${expected}$" "$PERSPICE_HOME/.env"
+  grep -q 'TS_TUNE_MEMORY: ${PG_TUNE_MEMORY:-}' "$SCRIPTS/../deploy/docker-compose.yml"
+}

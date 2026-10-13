@@ -163,6 +163,9 @@ EMQX_DASHBOARD_PASSWORD=$(secret EMQX_DASHBOARD_PASSWORD gen_secret 18)
 BACKUP_PASSPHRASE=$(secret BACKUP_PASSPHRASE gen_secret 32)
 MQTT_PLAIN_ENABLED=$MQTT_PLAIN
 LOG_LEVEL=info
+# TimescaleDB tunes itself on first boot; told the memory, it doesn't probe cgroup files that some
+# hosts (Docker inside LXC or another container) don't have, which aborted the database's setup.
+PG_TUNE_MEMORY=$(awk '/MemTotal/ { print int($2 / 1024) "MB" }' /proc/meminfo)
 VAPID_PUBLIC_KEY=$(secret VAPID_PUBLIC_KEY true)
 VAPID_PRIVATE_KEY=$(secret VAPID_PRIVATE_KEY true)
 VAPID_SUBJECT=mailto:$ADMIN_EMAIL
