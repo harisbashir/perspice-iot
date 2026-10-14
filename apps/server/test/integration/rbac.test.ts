@@ -23,7 +23,7 @@ describe('rbac', () => {
     await t?.close();
   });
 
-  async function customerUser(roleKey: 'customer_admin' | 'customer_viewer', customerId?: string) {
+  async function customerUser(roleKey: 'customer_admin' | 'customer_operator' | 'customer_viewer', customerId?: string) {
     const c = customerId
       ? (await t.db.query.customer.findFirst({ where: eq(customer.id, customerId) }))!
       : await createCustomer(t.db);
@@ -299,6 +299,31 @@ describe('rbac', () => {
       expect(JSON.stringify(list.body)).not.toContain(created.body.key);
       expect((await t.http.delete(`/api/api-keys/${created.body.id}`).set('Authorization', auth)).status).toBe(204);
       expect((await t.http.get('/api/users').set('Authorization', `Bearer ${created.body.key}`)).status).toBe(401);
+    });
+
+    it('admins see and revoke every key in their organisation, never another one’s', async () => {
+      const admin = await customerUser('customer_admin');
+      const colleague = await customerUser('customer_operator', admin.c.id);
+      const theirs = await t.http.post('/api/api-keys').set('Authorization', colleague.auth).send({ name: 'ERP sync', permissions: ['device.read'] });
+      const outsider = await customerUser('customer_admin');
+      const foreign = await t.http.post('/api/api-keys').set('Authorization', outsider.auth).send({ name: 'Other org', permissions: [] });
+
+      // Their own list is only theirs; the organisation's is for user managers.
+      expect((await t.http.get('/api/api-keys').set('Authorization', admin.auth)).body).toEqual([]);
+      const org = await t.http.get('/api/api-keys?scope=organisation').set('Authorization', admin.auth);
+      expect(org.status).toBe(200);
+      expect(org.body.map((k: { id: string }) => k.id)).toEqual([theirs.body.id]);
+      expect(org.body[0]).toMatchObject({ name: 'ERP sync', createdBy: { id: colleague.u.id, email: colleague.u.email } });
+      expect((await t.http.get('/api/api-keys?scope=organisation').set('Authorization', colleague.auth)).status).toBe(403);
+
+      expect((await t.http.delete(`/api/api-keys/${foreign.body.id}`).set('Authorization', admin.auth)).status).toBe(404);
+      expect((await t.http.delete(`/api/api-keys/${theirs.body.id}`).set('Authorization', colleague.auth.replace(/.$/, 'x'))).status).toBe(401);
+      expect((await t.http.delete(`/api/api-keys/${theirs.body.id}`).set('Authorization', admin.auth)).status).toBe(204);
+      expect((await t.http.get('/api/devices').set('Authorization', `Bearer ${theirs.body.key}`)).status).toBe(401);
+
+      // Platform admins see every organisation's keys.
+      const all = await t.http.get('/api/api-keys?scope=organisation').set('Authorization', platformAuth);
+      expect(all.body.map((k: { id: string }) => k.id)).toContain(foreign.body.id);
     });
   });
 });

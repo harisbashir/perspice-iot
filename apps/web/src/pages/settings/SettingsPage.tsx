@@ -2,6 +2,7 @@ import { NavLink, Navigate, Route, Routes } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
+import { ApiKeySettings } from './ApiKeySettings';
 import { BrandingSettings } from './BrandingSettings';
 import { DeliveryLogSettings } from './DeliveryLogSettings';
 import { EmailSettings } from './EmailSettings';
@@ -19,6 +20,7 @@ export function SettingsPage() {
     { to: 'notifications', label: 'Notifications', show: true },
     { to: 'branding', label: 'Branding', show: hasPerm('branding.edit') },
     { to: 'webhooks', label: 'Webhooks', show: hasPerm('webhook.manage') },
+    { to: 'api-keys', label: 'API keys', show: true },
     { to: 'tariff', label: 'Energy tariff', show: hasPerm('tariff.manage') },
     { to: 'deliveries', label: 'Delivery log', show: hasPerm('audit.read') },
     { to: 'email', label: 'Email', show: hasPerm('system.settings') },
@@ -52,6 +54,7 @@ export function SettingsPage() {
         <Route path="notifications" element={<NotificationSettings />} />
         {hasPerm('branding.edit') && <Route path="branding" element={<BrandingSettings />} />}
         {hasPerm('webhook.manage') && <Route path="webhooks" element={<WebhookSettings />} />}
+        <Route path="api-keys" element={<ApiKeySettings />} />
         {hasPerm('tariff.manage') && <Route path="tariff" element={<TariffSettings />} />}
         {hasPerm('audit.read') && <Route path="deliveries" element={<DeliveryLogSettings />} />}
         {hasPerm('system.settings') && <Route path="email" element={<EmailSettings />} />}

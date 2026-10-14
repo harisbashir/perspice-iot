@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type Permission, canGrant } from '@perspice/shared';
-import { and, desc, eq } from 'drizzle-orm';
+import { type SQL, and, desc, eq } from 'drizzle-orm';
 import type { AuthUser } from '../auth/auth.types';
 import { forbidden, notFound, validation } from '../common/app-error';
 import { randomToken, sha256Hex } from '../common/crypto';
 import { DB } from '../db/db.module';
 import { isUuid } from '../db/scoped-repo';
-import { apiKey } from '../db/schema';
+import { apiKey, user } from '../db/schema';
 
 type ApiKeyRow = typeof apiKey.$inferSelect;
 
@@ -32,6 +32,23 @@ export class ApiKeysService {
       .where(eq(apiKey.createdBy, actor.id))
       .orderBy(desc(apiKey.createdAt));
     return rows.map(toDto);
+  }
+
+  /** Every key in the actor's scope, with its creator: for admins revoking a leaver's or leaked key. */
+  async listOrganisation(actor: AuthUser) {
+    if (!actor.permissions.includes('user.manage')) throw forbidden('Missing permission');
+    const rows = await this.db
+      .select({ key: apiKey, creator: { id: user.id, name: user.name, email: user.email } })
+      .from(apiKey)
+      .innerJoin(user, eq(user.id, apiKey.createdBy))
+      .where(this.inScope(actor))
+      .orderBy(desc(apiKey.createdAt));
+    return rows.map((r) => ({ ...toDto(r.key), createdBy: r.creator }));
+  }
+
+  /** Platform admins: every key; customer admins: their customer's. */
+  private inScope(actor: AuthUser): SQL | undefined {
+    return actor.scopeType === 'platform' ? undefined : eq(apiKey.customerId, actor.customerId!);
   }
 
   /** Keys inherit the creator's scope and may only carry permissions the creator holds. */
@@ -60,10 +77,10 @@ export class ApiKeysService {
 
   async remove(actor: AuthUser, id: string): Promise<void> {
     if (!isUuid(id)) throw notFound();
-    const [row] = await this.db
-      .delete(apiKey)
-      .where(and(eq(apiKey.id, id), eq(apiKey.createdBy, actor.id)))
-      .returning({ id: apiKey.id });
+    // Your own keys, or (with user.manage) any key in your scope.
+    const mine = eq(apiKey.createdBy, actor.id);
+    const where = actor.permissions.includes('user.manage') ? and(eq(apiKey.id, id), this.inScope(actor)) : and(eq(apiKey.id, id), mine);
+    const [row] = await this.db.delete(apiKey).where(where).returning({ id: apiKey.id });
     if (!row) throw notFound();
   }
 }
