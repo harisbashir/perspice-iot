@@ -18,13 +18,15 @@ export interface DashboardEditorProps {
   previewDevice?: DeviceDto | null;
   /** Asset templates: the asset to preview with. */
   previewAssetId?: string;
+  /** No device or asset to preview with: widgets of the dashboard's own show made-up data. */
+  sample?: boolean;
   onSave: (def: DashboardDefinition) => Promise<void>;
   /** Extra toolbar content (preview device picker, version…). */
   toolbar?: ReactNode;
 }
 
 /** Drag-and-drop editor for a dashboard definition, with a live preview of real data. */
-export function DashboardEditor({ initial, profile, previewDevice = null, previewAssetId, onSave, toolbar }: DashboardEditorProps) {
+export function DashboardEditor({ initial, profile, previewDevice = null, previewAssetId, sample = false, onSave, toolbar }: DashboardEditorProps) {
   const [def, setDef] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [stateId, setStateId] = useState(initial.states[0]!.id);
@@ -101,6 +103,12 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
       </div>
       {invalid && dirty && <p className="text-sm text-amber-700 dark:text-amber-400">{invalid}</p>}
       <ErrorText error={error} />
+      {sample && (
+        <p role="status" className="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+          Previewing with sample data: widgets of the dashboard's own device or asset show made-up values so you can see the
+          layout. Real data appears once the dashboard is opened for one.
+        </p>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <DashboardGrid
           state={state}
@@ -108,6 +116,7 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
           refreshS={0}
           device={previewDevice}
           assetId={previewAssetId}
+          sample={sample}
           profile={profile}
           edit={{ selectedId: selected, onSelect: setSelected, onLayoutChange: (layout) => {
             // react-grid-layout reports the initial layout too; only count real changes as edits.

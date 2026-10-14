@@ -9,6 +9,7 @@ import { ApiError, api } from '@/api/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { WidgetFrame } from './WidgetFrame';
+import { sampleDevice } from './sample-data';
 import { useDashboardData } from './useDashboardData';
 import { loadGeofences, loadMapTiles, loadRoute, loadTrips } from './map-services';
 
@@ -33,15 +34,18 @@ export interface DashboardGridProps {
   widgetActions?: (w: WidgetConfig) => ReactNode;
   /** Asset dashboards: the asset `currentAsset` sources read. */
   assetId?: string;
+  /** Template previews without a device or asset: their widgets show made-up data. */
+  sample?: boolean;
 }
 
 const errorText = (err: unknown) => (err instanceof ApiError ? err.message : 'Request failed');
 
 /** Renders one dashboard state with live data; in edit mode widgets can be moved, resized and selected. */
-export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, assetId, edit, widgetActions }: DashboardGridProps) {
+export function DashboardGrid({ state, timewindow, refreshS, device = null, profile = null, assetId, edit, widgetActions, sample = false }: DashboardGridProps) {
   const { user, hasPerm } = useAuth();
   const navigate = useNavigate();
-  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS, assetId);
+  const sampleKeys = useMemo(() => (sample ? (profile?.telemetrySchema ?? []) : null), [sample, profile]);
+  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS, assetId, sampleKeys);
 
   const actionsFor = useMemo(
     () =>
@@ -85,7 +89,9 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
     [device?.id, navigate, setQuery],
   );
 
-  const summary = device
+  const summary = sample
+    ? sampleDevice()
+    : device
     ? { id: device.id, name: device.name, status: device.status, lastSeen: device.lastSeen, profileId: device.profileId, customerId: device.customerId }
     : null;
 
