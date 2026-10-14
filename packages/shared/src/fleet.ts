@@ -154,6 +154,66 @@ export const ClaimRequestSchema = z.object({
   groupId: Uuid.nullish(),
 });
 
+// ── Provisioning ─────────────────────────────────────────────────────────────────────────────
+
+/** A device's own identifier (MAC, serial number): letters, digits and `. _ : -`, up to 64. */
+export const SERIAL_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
+export const SerialSchema = z.string().trim().regex(SERIAL_PATTERN, 'Use letters, digits, ".", "_", ":" or "-" (up to 64)');
+
+export const PROVISIONING_MODES = ['create', 'preregistered'] as const;
+export type ProvisioningMode = (typeof PROVISIONING_MODES)[number];
+
+export const ProvisioningKeyInputSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  mode: z.enum(PROVISIONING_MODES),
+  customerId: z.string().uuid().nullable().default(null),
+  groupId: z.string().uuid().nullable().default(null),
+  tags: z.array(z.string().regex(KEY_PATTERN)).max(20).default([]),
+  issueClaimCodes: z.boolean().default(false),
+  allowReprovision: z.boolean().default(false),
+  maxDevices: z.number().int().min(1).max(1_000_000).nullable().default(null),
+  expiresAt: z.number().int().nullable().default(null),
+});
+export type ProvisioningKeyInput = z.infer<typeof ProvisioningKeyInputSchema>;
+
+export interface ProvisioningKeyDto {
+  id: string;
+  profileId: string;
+  name: string;
+  mode: ProvisioningMode;
+  customerId: string | null;
+  groupId: string | null;
+  tags: string[];
+  issueClaimCodes: boolean;
+  allowReprovision: boolean;
+  maxDevices: number | null;
+  provisionedCount: number;
+  expiresAt: number | null;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+  createdAt: number;
+}
+
+/** `POST /api/v1/device/provision`: sent by a device on first boot. */
+export const ProvisionRequestSchema = z.object({
+  key: z.string().min(10).max(200),
+  serial: SerialSchema,
+  /** The name for a new device (default: "<profile> <serial>"). */
+  name: z.string().trim().min(1).max(200).optional(),
+  /** Client attributes to record straight away, e.g. `{ "fw": "1.0.0" }`. */
+  attributes: z.record(z.unknown()).optional(),
+});
+export type ProvisionRequest = z.infer<typeof ProvisionRequestSchema>;
+
+export interface ProvisionResponse {
+  deviceId: string;
+  token: string;
+  /** Where to connect: the platform's broker. */
+  mqtt: { host: string; port: number; tls: boolean };
+  /** Unassigned devices of a key that issues them: for the label. */
+  claimCode: string | null;
+}
+
 // ── CSV import ───────────────────────────────────────────────────────────────────────────────
 
 const optionalNumber = z
@@ -180,11 +240,16 @@ export const ImportRowSchema = z
       .string()
       .optional()
       .transform((s) => /^(y|yes|true|1)$/i.test((s ?? '').trim())),
+    serial: z
+      .string()
+      .optional()
+      .transform((s) => (s ?? '').trim() || undefined)
+      .pipe(z.string().regex(SERIAL_PATTERN, 'Use letters, digits, ".", "_", ":" or "-" (up to 64)').optional()),
   })
   .refine((r) => (r.lat === undefined) === (r.lng === undefined), { message: 'Give both lat and lng, or neither', path: ['lat'] });
 export type ImportRow = z.infer<typeof ImportRowSchema>;
 
-export const IMPORT_COLUMNS = ['name', 'profile', 'customer', 'group', 'tags', 'lat', 'lng', 'claim'] as const;
+export const IMPORT_COLUMNS = ['name', 'profile', 'customer', 'group', 'tags', 'lat', 'lng', 'claim', 'serial'] as const;
 export const IMPORT_MAX_ROWS = 5000;
 
 export interface ImportReport {

@@ -1,3 +1,4 @@
+import { SerialSchema } from '@perspice/shared';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -22,6 +23,7 @@ const CreateDevice = z.object({
   tags: Tags.optional(),
   offlineTimeoutS: Timeout.optional(),
   deadTimeoutS: Timeout.optional(),
+  serial: SerialSchema.nullish(),
 });
 
 const CreateWithClaim = CreateDevice.extend({ withClaimCode: z.boolean().default(false) });

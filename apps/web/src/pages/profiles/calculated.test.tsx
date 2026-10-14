@@ -43,6 +43,8 @@ const device = (overrides: Partial<DeviceDto> = {}): DeviceDto => ({
   status: 'online',
   lastSeen: Date.now(),
   firmwareVersion: null,
+  serial: null,
+  provisionedAt: null,
   location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,
