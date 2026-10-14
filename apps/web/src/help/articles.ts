@@ -34,7 +34,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   { slug: 'energy', title: 'Energy, tariffs and maintenance', summary: 'Consumption and cost, time-of-use tariffs, run hours and service reminders.', section: 'use', audience: 'everyone', paths: ['/settings/tariff'] },
   { slug: 'reports-exports', title: 'Reports and exports', summary: 'Downloading data, PDF reports of dashboards, and reports emailed on a schedule.', section: 'use', audience: 'everyone', paths: ['/reports', '/exports'] },
   { slug: 'users-roles', title: 'Users, roles and permissions', summary: 'Inviting people, what each role may do, and custom roles.', section: 'use', audience: 'everyone', perm: 'user.read', paths: ['/users', '/roles'] },
-  { slug: 'account', title: 'Your account', summary: 'Your profile, password, two-factor authentication and sessions.', section: 'use', audience: 'everyone', paths: ['/settings/profile', '/settings'] },
+  { slug: 'account', title: 'Your account', summary: 'Your profile, password, two-factor authentication, sessions and API keys.', section: 'use', audience: 'everyone', paths: ['/settings/profile', '/settings'] },
   { slug: 'branding-webhooks', title: 'Branding and webhooks', summary: 'Your logo and colours, and sending events to other systems.', section: 'use', audience: 'everyone', paths: ['/settings/branding', '/settings/webhooks'] },
   { slug: 'audit', title: 'Audit log', summary: 'Who changed what, and when.', section: 'use', audience: 'everyone', perm: 'audit.read', paths: ['/audit'] },
   { slug: 'device-profiles', title: 'Device profiles', summary: 'Telemetry keys, commands, presence, locations and calculated keys: how a kind of device is described.', section: 'admin', audience: 'platform', perm: 'profile.write', paths: ['/profiles'] },

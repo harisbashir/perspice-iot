@@ -24,7 +24,7 @@ A profile has at most one **profile default** template; every device of the prof
 - **Add widget** opens the widget library. Drag widgets by their handle; resize from the corner. The grid is 12 columns wide.
 - **Click a widget** to edit its title, **data source**, keys and options in the side panel.
 - **Views** are tabs within one dashboard (e.g. *Main*, *Energy*, *Maintenance*); add, rename and delete them. Up to 60 widgets per view.
-- The default **time window** (last 24 hours unless changed) and refresh interval are stored in the template's JSON; there's no form for them in the builder yet, so to change them, edit an exported file (**Export JSON**) and **Import** it as a new template. Viewers pick other windows with the time picker.
+- **Default time window** (last hour to last 90 days) and **Refresh** (off, or every 10 seconds to 15 minutes) set what the dashboard opens with. Values update live either way; refreshing also re-reads charts and tables. Viewers pick other windows with the time picker.
 - **Save** stores a new version. Customers who haven't customised see it at once.
 
 ### Previewing while you build

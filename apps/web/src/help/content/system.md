@@ -9,7 +9,13 @@ The **System** page and the system settings are for super admins (`system.settin
 - **Queues**: background work **waiting**, **active** and **failed** (emails, notifications, webhooks, exports, reports, backups);
 - **Database** and **Storage** usage.
 
+**Run check** (under *Checks and setup*) connects a temporary device to the broker, sends a value and waits for it to be stored: if it works, devices can connect and their data arrives. It is the same check as `perspice cli health --mqtt-roundtrip`.
+
 On the server, `perspice status` lists the containers and their health, and `perspice logs <service>` follows one service's log.
+
+## Push notifications
+
+If the server configuration has no push (VAPID) keys, **Set up push notifications** creates them and stores them encrypted. People can then turn on push under **Settings → Notifications**. It can only be done once: new keys would cut off every browser already subscribed.
 
 ## Backups
 
@@ -40,7 +46,7 @@ Sign-in is rate-limited and accounts lock after 5 wrong passwords. Web pages are
 
 ## Updating the server
 
-On the server:
+When a newer release is published, the System page says so, with a link to what's new and the command to copy. (It asks GitHub every few hours; offline servers show nothing.) On the server:
 
 ```bash
 sudo perspice update                    # the latest release

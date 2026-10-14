@@ -2,14 +2,14 @@ Everything the web app does goes through a REST API, so other systems can do it 
 
 ## Authentication
 
-- **API keys** (`pk_…`) for integrations: send `Authorization: Bearer pk_…`. A key acts with the permissions it was given, never more than its creator's, within its creator's customer, and can expire (`expiresAt`, milliseconds since 1970). Keys are managed through the API (there is no screen for them yet):
+- **API keys** (`pk_…`) for integrations: send `Authorization: Bearer pk_…`. A key acts with the permissions it was given, never more than its creator's, within its creator's customer, can expire, and stops working when its creator is disabled. Create and revoke them under **Settings → API keys** (the key is shown once). Admins (`user.manage`) also see everyone else's keys in their organisation there, with who created them, and can revoke them. Through the API:
 
 ```bash
 # Create (the key is shown once)
 curl -X POST https://iot.example.com/api/api-keys \
   -H "Authorization: Bearer <session or key>" -H "content-type: application/json" \
   -d '{"name":"ERP sync","permissions":["device.read","telemetry.read"],"expiresAt":1798761600000}'
-# List (without secrets) and delete
+# List yours (without secrets), or everyone's in your organisation (?scope=organisation), and delete
 curl https://iot.example.com/api/api-keys -H "Authorization: Bearer …"
 curl -X DELETE https://iot.example.com/api/api-keys/<id> -H "Authorization: Bearer …"
 ```

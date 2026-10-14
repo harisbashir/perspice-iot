@@ -19,6 +19,12 @@ Two-factor authentication asks for a 6-digit code from an app on your phone, as 
 
 To turn it off, enter a current code under **Code to turn it off**. If you lose your phone, ask an admin in your organisation to help you regain access.
 
+## API keys
+
+Other systems (your ERP, a reporting tool, a script) can read data or act through the API with an **API key**. Under **Settings → API keys → New API key**, give it a name, the permissions it needs (only ones you have, e.g. `device.read` and `telemetry.read` to read data) and an expiry. The key is shown once: copy it into the other system, which sends it as `Authorization: Bearer pk_…`.
+
+A key stops working when it expires, when you revoke it, or when your account is disabled. Admins can see and revoke everyone's keys in your organisation, for example when someone leaves.
+
 ## Appearance
 
 The sun/moon button in the top bar switches between light and dark themes.

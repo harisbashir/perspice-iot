@@ -31,7 +31,7 @@ A device page has a header with its status, tags and **asset** (**Asset: … Cha
 - **Attributes**: details stored about the device. *Client* attributes are reported by the device (firmware version, serial number). *Shared* attributes are configuration pushed to the device. *Server* attributes are notes kept on the platform and never sent to the device.
 - **Maintenance**: run hours and the service history; **Log a service** after maintenance. See [Energy, tariffs and maintenance](/help/energy).
 - **Firmware**: the device's firmware updates and their progress.
-- **Credentials**: what the device needs to connect.
+- **Credentials**: what the device needs to connect, its serial, and whether it fetched its credentials itself (provisioning).
 - **Debug**: recent messages the platform rejected or corrected, with the reason. Look here first when values don't appear.
 
 ## Selecting many devices
@@ -48,7 +48,7 @@ The result lists any device that failed and why; the others are done.
 
 ## Adding a device
 
-Admins can add devices with **New device**: a **name**, its **profile** (the kind of device) and optional **tags**. The device's **token** is shown once: copy it straight into the device's configuration along with the details on its **Credentials** tab. If it is lost, ask your platform provider to regenerate it.
+Admins can add devices with **New device**: a **name**, its **profile** (the kind of device), optional **tags** and an optional **serial** (the unit's own serial number or MAC address, used when devices fetch their own credentials). The device's **token** is shown once: copy it straight into the device's configuration along with the details on its **Credentials** tab. If it is lost, ask your platform provider to regenerate it.
 
 ## Adding a device with a claim code
 

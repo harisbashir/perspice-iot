@@ -6,7 +6,7 @@ Customers can see profiles (read-only); only platform users with `profile.write`
 
 - **Name** and **Description**.
 - **Transport**: **MQTT** (recommended: live commands, instant presence) or **HTTP** (devices that only make web requests; commands are long-polled). On AWS IoT Core installs, MQTT devices connect to IoT Core.
-- **History retention (days)**: how long this profile's history is meant to be kept. It is recorded on the profile, but this version doesn't delete older data automatically yet: all history is kept.
+- **History retention (days)**: how long individual readings are kept (at least 4 days). Older ones are deleted every 6 hours; minute, hourly and daily averages are kept for good, so long-range charts and energy figures still work.
 
 ## Telemetry keys
 
@@ -45,6 +45,10 @@ Notify customer and platform admins (by email and in-app) when this profile's de
 ## Calculated keys
 
 Values computed from the device's data as it arrives: formulas (`v * i`), energy used from a meter counter, run time, fuel used. They behave like ordinary keys everywhere. See [Energy, tariffs and maintenance](/help/energy).
+
+## Provisioning
+
+For devices made in quantity, **Provisioning → New provisioning key** creates one secret for the firmware of every unit. On first boot each unit sends it with its serial number (an ESP32 uses its MAC address) and receives its own device id and token, which it keeps across restarts and firmware updates. No unit needs credentials typed in or flashed individually. See [Connecting devices](/help/connecting-devices) for the options and the firmware side.
 
 ## Changing a profile
 

@@ -27,7 +27,7 @@ Under **This browser**, turn push on. The browser asks for permission; allow it.
 ## For platform users
 
 - Email needs **Settings → Email** (SMTP or Amazon SES). Without it, email deliveries fail with "Email is not configured".
-- Push needs a VAPID key pair on the server: `perspice cli vapid-keys`, add the output and `VAPID_SUBJECT=mailto:…` to `/opt/perspice/.env`, then `perspice restart`. The installer generates the keys. Without them, push is hidden ("Push notifications are not set up on this server").
+- Push needs a VAPID key pair. The installer generates one; otherwise **System → Set up push notifications** creates it. Without one, push is hidden ("Push notifications are not set up on this server").
 - Device status notifications (offline, dead, back online) are configured per profile under **Status notifications** in the profile editor.
 - Deliveries run on a queue with exponential back-off starting at 30 s; dead letters stay in the log for retry.
 :::

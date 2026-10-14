@@ -34,6 +34,8 @@ void loop() {
 - Telemetry is buffered while offline (64 messages on ESP32, 8 on AVR by default) and sent
   oldest-first in batches of up to 10. Define `PERSPICE_BUFFER_FLASH` on ESP32 to keep the buffer
   in LittleFS across `sleepCycle()` deep sleeps.
+- With `cfg.apiHost` and `cfg.provisionKey` instead of an id, token and host, an ESP32 fetches its
+  own credentials on first boot and keeps them in NVS ([provisioning.md](provisioning.md)).
 - Unknown commands are answered with `failed` and `{"error":"unknown_command"}`.
 - On ESP32, firmware updates from the platform are applied from `loop()` (`otaEnabled`, on by
   default): HTTPS download into the inactive partition, SHA-256 check, progress reports, restart.
@@ -47,6 +49,7 @@ void loop() {
 | `GeneratorController` | ESP32 (Wi-Fi, TLS) | `gen_start` / `gen_stop` commands driving a relay, shared config |
 | `DeepSleepSensor` | ESP32 (Wi-Fi) | wake → send → deep sleep (use a *sleepy* profile) |
 | `OtaUpdate` | ESP32 (Wi-Fi) | firmware updates from the platform: HTTPS download, SHA-256 check, restart, version reported ([fleet.md](fleet.md)) |
+| `MassProduction` | ESP32 (Wi-Fi, TLS) | one image for every unit: provisions itself with a provisioning key ([provisioning.md](provisioning.md)) |
 | `GpsTracker` | ESP32 + serial GPS (NEO-6M/7M/8M), library `TinyGPSPlus` | position every 10 s, ignition input for trips ([location.md](location.md)) |
 
 CI compiles every example for `esp32:esp32:esp32` and `BasicSensor` for `arduino:avr:mega`,

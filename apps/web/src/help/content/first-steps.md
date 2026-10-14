@@ -21,7 +21,7 @@ Under **Dashboards → Generate from profile**, choose the profile: this creates
 
 ## 4. Connect a test device
 
-Under **Devices → New device**, choose the profile and leave the customer empty. Copy the device id and token from the **Credentials** tab into the firmware (or the simulator), and watch the device come **online** and its dashboard fill. Problems show in the device's **Debug** tab. See [Connecting devices](/help/connecting-devices).
+Under **Devices → New device**, choose the profile and leave the customer empty. Copy the device id and token from the **Credentials** tab into the firmware (or the simulator), and watch the device come **online** and its dashboard fill. For production units made in quantity, use a **provisioning key** instead, so every unit runs the same firmware and fetches its own credentials. Problems show in the device's **Debug** tab. See [Connecting devices](/help/connecting-devices).
 
 ## 5. Add alarm rules
 

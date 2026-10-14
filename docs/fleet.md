@@ -67,6 +67,9 @@ The simulator takes updates too: `perspice-sim … --fw 1.0.0 --ota`.
 
 ## Adding devices
 
+For units made in quantity, see [provisioning.md](provisioning.md): one provisioning key in the
+firmware lets every unit fetch its own credentials on first boot.
+
 ### CSV import
 
 Platform admins import up to 5,000 devices from **Devices → Import**
@@ -81,6 +84,7 @@ Platform admins import up to 5,000 devices from **Devices → Import**
 | `tags` | separated by `;` |
 | `lat`, `lng` | a fixed location (profiles that use locations) |
 | `claim` | `yes` gives an unassigned device a claim code |
+| `serial` | the unit's serial (unique within the profile), for provisioning keys |
 
 **Check** reports every problem by row and field; a file with any error imports nothing. A clean
 file is created in one transaction, and the **credentials CSV** (id, name, token, claim code) is

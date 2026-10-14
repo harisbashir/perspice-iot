@@ -4,6 +4,30 @@ Devices talk to the platform with a small JSON protocol over **MQTT** (recommend
 
 Each device has an **id** (a UUID) and a **token** (`pdt_…`), on its **Credentials** tab. The token is shown only when the device is created or the token regenerated; the platform stores only a hash. **Regenerate token** disconnects the device and invalidates the old one.
 
+## Devices made in quantity
+
+Typing an id and token into each unit doesn't scale, and a different image per unit rules out over-the-air updates. Instead, put one **provisioning key** in the firmware of every unit:
+
+1. On the device profile, **Provisioning → New provisioning key**. Choose what it accepts:
+   - **Any serial**: a unit with an unknown serial becomes a new device;
+   - **Only registered serials**: register serials first (New device with a serial, or a CSV import with a `serial` column). Safest: a leaked key can't create devices.
+   Optionally: the customer (and group) new devices go to, tags, a device limit, an expiry date, claim codes for unassigned devices (returned to the unit, e.g. for the test jig to print on the label), and re-provisioning.
+2. Build the key into the firmware. With the library:
+
+```cpp
+PerspiceConfig cfg;
+cfg.apiHost = "iot.example.com";   // the platform's web address
+cfg.provisionKey = "pps_…";        // the same in every unit
+cfg.apiCaCert = rootCa;            // verify the platform (ISRG Root X1 for Let's Encrypt)
+cfg.port = 8883;                   // with a WiFiClientSecure
+cfg.firmwareVersion = "1.0.0";
+perspice.begin(cfg);               // no deviceId, token or host
+```
+
+3. On first boot the unit calls `POST /api/v1/device/provision` with `{"key", "serial"}` and gets `{"deviceId", "token", "mqtt": {"host"}, "claimCode"}`. It keeps them in NVS, which firmware updates don't touch, so the same image can later be updated over the air.
+
+A serial that already has credentials is refused (`409`) unless the key allows re-provisioning: with it on, anyone holding the key and a unit's serial could take that unit's identity. Failed attempts are limited per address; successful ones aren't, so a factory behind one internet connection can provision any number. **Revoke** a key to stop it (its devices keep working), and give each batch its own key so a leak stays contained. The **Credentials** tab shows each device's serial and whether it provisioned itself; the audit log records each provisioning.
+
 ## MQTT
 
 | Setting | Value |
