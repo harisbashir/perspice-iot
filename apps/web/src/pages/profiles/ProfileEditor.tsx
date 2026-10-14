@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useProfile } from '../devices/hooks';
 import { CalculatedKeysEditor } from './CalculatedKeysEditor';
 import { CommandsEditor } from './CommandsEditor';
+import { ProvisioningKeys } from './ProvisioningKeys';
 import { TelemetryKeysEditor } from './TelemetryKeysEditor';
 
 type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt' | 'defaultDashboardTemplateId'>;
@@ -83,7 +84,7 @@ export function ProfileEditor() {
     }
   }
 
-  return (
+  const form = (
     <form onSubmit={submit}>
       <PageHeader title={isNew ? 'New device profile' : draft.name || 'Device profile'} actions={<Button type="submit">Save profile</Button>} />
       <div className="grid gap-6">
@@ -254,5 +255,16 @@ export function ProfileEditor() {
         <ErrorText error={error} />
       </div>
     </form>
+  );
+  // Outside the profile form: keys are saved on their own, and a dialog's form can't nest in it.
+  return !isNew && id && draft.transport !== 'aws-iot' ? (
+    <>
+      {form}
+      <div className="mt-4">
+        <ProvisioningKeys profileId={id} />
+      </div>
+    </>
+  ) : (
+    form
   );
 }
