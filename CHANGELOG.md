@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Help: articles for every page, opened from the Help button in the top bar. Customers get
+  explanations of how the system works; platform users also get technical guides (device
+  profiles, dashboard design, asset types, the device protocol, firmware, system and API) and
+  boxed platform notes inside articles.
+- Dashboard templates preview with sample data when no device (or asset) can fill them, instead
+  of "This widget needs the dashboard to be opened for a device"; **Preview with** also offers
+  *Sample data* next to real devices.
+
 - Invite links to copy: after inviting a user, and from the menu of an invited user (which issues
   a fresh link; earlier ones stop working). Users can be onboarded on servers without email.
   API: the invite response carries `inviteLink`, and `POST /api/users/:id/invite-link` returns a
