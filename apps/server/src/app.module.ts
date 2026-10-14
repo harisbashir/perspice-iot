@@ -32,6 +32,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { DocsModule } from './openapi';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { RetentionModule } from './telemetry/retention';
 import { EmailModule } from './email/email.module';
 import { SettingsModule } from './settings/settings.module';
 import { SystemModule } from './system/system.module';
@@ -72,6 +73,7 @@ export class AppModule {
         EmqxModule.forRoot({ api: runsRole(role, 'api'), emqx: config.MQTT_TRANSPORT === 'emqx' }),
         SchedulerModule,
         PresenceModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
+        RetentionModule.forRoot({ scheduler: runsRole(role, 'scheduler') }),
         CommandsModule.forRoot({ api: runsRole(role, 'api'), scheduler: runsRole(role, 'scheduler') }),
         TelemetryModule,
         EnergyModule.forRoot({ api: runsRole(role, 'api') }),

@@ -103,8 +103,8 @@ export function ProfileEditor() {
               )}
             </Field>
             <Field label="Description">{(fid) => <Input id={fid} value={draft.description ?? ''} onChange={(e) => set('description', e.target.value || null)} />}</Field>
-            <Field label="History retention (days)">
-              {(fid) => <Input id={fid} type="number" min={1} value={draft.retentionDays} onChange={(e) => set('retentionDays', Number(e.target.value))} />}
+            <Field label="History retention (days)" help="Individual readings older than this are deleted (at least 4 days are kept). Minute, hourly and daily averages are kept for good, so long-range charts still work.">
+              {(fid, d) => <Input id={fid} aria-describedby={d} type="number" min={1} value={draft.retentionDays} onChange={(e) => set('retentionDays', Number(e.target.value))} />}
             </Field>
           </CardContent>
         </Card>
