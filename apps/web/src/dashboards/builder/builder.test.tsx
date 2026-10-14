@@ -141,6 +141,29 @@ describe('dashboard builder', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/sample data/i);
   });
 
+  it('sets the default time window and refresh interval', async () => {
+    let saved: { definition: DashboardDefinition } | undefined;
+    server.use(
+      ...common,
+      http.get('*/api/dashboard-templates/t1', () =>
+        HttpResponse.json({ id: 't1', name: 'RMS', kind: 'device', profileId: PROFILE_ID, definition: definition(), version: 3, builtIn: false, createdAt: '', updatedAt: '' }),
+      ),
+      http.get('*/api/devices', () => HttpResponse.json({ items: [], nextCursor: null })),
+      http.patch('*/api/dashboard-templates/t1', async ({ request }) => {
+        saved = (await request.json()) as { definition: DashboardDefinition };
+        return HttpResponse.json({ id: 't1', name: 'RMS', kind: 'device', profileId: PROFILE_ID, definition: saved.definition, version: 4, builtIn: false, createdAt: '', updatedAt: '' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp('/dashboards/t1/edit', { user: makeUser({ permissions: ['dashboard.edit', 'device.read', 'profile.read'] }) });
+    const windowSelect = await screen.findByLabelText('Default time window');
+    expect(windowSelect).toHaveValue(String(86_400_000));
+    await user.selectOptions(windowSelect, String(7 * 86_400_000));
+    await user.selectOptions(screen.getByLabelText('Refresh'), '60');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(saved?.definition.settings).toEqual({ timewindow: { kind: 'relative', lastMs: 7 * 86_400_000 }, refreshS: 60 }));
+  });
+
   it('the clone dialog asks to map keys the target profile lacks', async () => {
     const other = { ...profile, id: 'p2', name: 'Other', telemetrySchema: [{ key: 'tank_pct', label: 'Tank', type: 'number' }] } as DeviceProfileDto;
     expect(unmatchedKeys(definition(), other)).toEqual(['fuel_level']);
