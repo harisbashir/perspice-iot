@@ -212,3 +212,35 @@ test('a template for a profile without devices previews with sample data', async
   await expect(platform.getByRole('region', { name: 'Temperature' }).first()).toContainText('°C');
   await expect(platform.getByText(/needs the dashboard to be opened/)).toHaveCount(0);
 });
+
+test('a mass-produced device provisions itself with the profile key and its data arrives', async () => {
+  const token = await apiToken();
+  const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const profile = (await (
+    await fetch(`${BASE}/api/device-profiles`, {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ name: 'Fleet sensor', telemetrySchema: [{ key: 'level', label: 'Level', unit: '%', type: 'number' }] }),
+    })
+  ).json()) as { id: string };
+  const key = (await (
+    await fetch(`${BASE}/api/device-profiles/${profile.id}/provisioning-keys`, { method: 'POST', headers: auth, body: JSON.stringify({ name: 'Line 1', mode: 'create' }) })
+  ).json()) as { secret: string };
+
+  // What the firmware does on first boot: the same key in every unit, its own serial.
+  const res = await fetch(`${BASE}/api/v1/device/provision`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ key: key.secret, serial: 'E2E:00:00:00:00:01', attributes: { fw: '1.0.0' } }),
+  });
+  expect(res.status).toBe(201);
+  const creds = (await res.json()) as { deviceId: string; token: string; mqtt: { host: string } };
+  expect(creds.mqtt.host).toBe('mqtt.localhost');
+
+  const unit = await connectDevice(creds.deviceId, creds.token);
+  await unit.publish({ level: 73 });
+  await expect
+    .poll(async () => ((await (await fetch(`${BASE}/api/devices/${creds.deviceId}`, { headers: auth })).json()) as { latest: { level?: { v: number } } }).latest.level?.v)
+    .toBe(73);
+  await unit.client.endAsync(true);
+});
