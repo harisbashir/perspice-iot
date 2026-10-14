@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-14
+
+Devices made in quantity provision themselves, API keys get a screen, history retention is enforced,
+and the System page does what needed the server's command line.
+
+### Added
+
+- **Provisioning keys** ([provisioning.md](docs/provisioning.md)): one secret per device profile goes
+  into the firmware of every unit; on first boot each unit sends it with its serial to
+  `POST /api/v1/device/provision` and receives its own device id and token, which it keeps across
+  restarts and OTA updates. Keys accept any serial or only registered ones, can place devices in a
+  customer and group with tags, issue claim codes for labels, cap the number of devices, expire,
+  allow re-provisioning, and be revoked. Failed attempts are limited per address.
+- Devices have a **serial** (New device, CSV import column `serial`, search, Credentials tab).
+- PerspiceClient (ESP32): `apiHost` and `provisionKey` instead of an id and token; credentials in
+  NVS; `clearCredentials()`, `claimCode()`, `lastProvisionStatus()`; the `MassProduction` example.
+- **Settings → API keys**: create keys with chosen permissions and an expiry (shown once), list and
+  revoke them; admins see and revoke everyone's keys in their organisation
+  (`GET /api/api-keys?scope=organisation`).
+- The dashboard builder sets the **default time window** and **refresh interval**.
+- **System**: *Run check* (the MQTT round trip of `perspice cli health --mqtt-roundtrip`), *Set up
+  push notifications* (VAPID keys stored encrypted, no restart), and a notice with the update
+  command when a newer release is published (`UPDATE_REPO`, checked every 6 hours).
+
+### Changed
+
+- **History retention is enforced**: raw readings older than the profile's retention (at least 4
+  days) are deleted every 6 hours; minute, hourly and daily summaries are kept, and history further
+  back than the retention is read from them. Installations upgraded from earlier versions delete
+  readings older than 365 days (the default) on the first run; raise a profile's retention first
+  to keep more.
+
+### Fixed
+
+- The top bar's help button was named after the page's article ("Help: Alarms and alarm rules"),
+  so it clashed with links of the same name on the page; it is now "Help for this page".
+
 ## [1.0.2] - 2026-10-14
 
 ### Added
