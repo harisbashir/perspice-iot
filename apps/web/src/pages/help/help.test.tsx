@@ -49,7 +49,7 @@ describe('help', () => {
     server.use(http.get('*/api/devices', () => HttpResponse.json({ items: [], nextCursor: null })), http.get('*/api/device-profiles', () => HttpResponse.json([])));
     const user = userEvent.setup();
     renderApp('/devices', { user: customerViewer });
-    await user.click(await screen.findByRole('link', { name: 'Help: Devices' }));
+    await user.click(await screen.findByRole('link', { name: 'Help for this page' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Devices' })).toBeInTheDocument();
   });
 });

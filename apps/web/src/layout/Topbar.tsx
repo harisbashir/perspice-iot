@@ -30,7 +30,8 @@ export function Topbar({ onMenu, actions }: { onMenu: () => void; actions?: Reac
       <div className="flex-1" />
       {actions}
       <Button variant="ghost" size="icon" asChild>
-        <Link to={article ? `/help/${article.slug}` : '/help'} aria-label={article ? `Help: ${article.title}` : 'Help'} title="Help for this page">
+        {/* One fixed name: a page-dependent one ("Help: Alarm rules") would clash with the page's own links. */}
+        <Link to={article ? `/help/${article.slug}` : '/help'} aria-label="Help for this page" title={article ? `Help: ${article.title}` : 'Help'}>
           <CircleHelp className="h-5 w-5" />
         </Link>
       </Button>

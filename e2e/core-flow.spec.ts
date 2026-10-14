@@ -182,7 +182,7 @@ test("customer admin cannot open another customer's device", async () => {
 
 test('the Help button explains the page, to customers without the platform notes', async () => {
   await customer.goto(`${ACME}/devices`);
-  await customer.getByRole('link', { name: 'Help: Devices' }).click();
+  await customer.getByRole('link', { name: 'Help for this page' }).click();
   await expect(customer.getByRole('heading', { level: 1, name: 'Devices' })).toBeVisible();
   await expect(customer.getByRole('heading', { name: 'Inside a device' })).toBeVisible();
   await expect(customer.getByRole('complementary', { name: 'For platform administrators' })).toHaveCount(0);
