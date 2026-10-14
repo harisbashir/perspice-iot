@@ -33,6 +33,8 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { UsersPage } from './pages/users/UsersPage';
 
 // Leaflet loads with the page.
+const HelpPage = lazy(() => import('./pages/help/HelpPage').then((m) => ({ default: m.HelpPage })));
+const HelpArticlePage = lazy(() => import('./pages/help/HelpArticlePage').then((m) => ({ default: m.HelpArticlePage })));
 const GeofencesPage = lazy(() => import('./pages/geofences/GeofencesPage').then((m) => ({ default: m.GeofencesPage })));
 
 export const routes: RouteObject[] = [
@@ -76,6 +78,8 @@ export const routes: RouteObject[] = [
       { path: 'exports/:id', element: <RequirePermission perm="export.data"><ExportPage /></RequirePermission> },
       { path: 'audit', element: <RequirePermission perm="audit.read"><AuditPage /></RequirePermission> },
       { path: 'settings/*', element: <SettingsPage /> },
+      { path: 'help', element: <Suspense fallback={null}><HelpPage /></Suspense> },
+      { path: 'help/:slug', element: <Suspense fallback={null}><HelpArticlePage /></Suspense> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

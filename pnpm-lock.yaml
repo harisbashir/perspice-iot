@@ -289,6 +289,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dompurify:
+        specifier: ^3.4.16
+        version: 3.4.16
       echarts:
         specifier: ^5
         version: 5.6.0
@@ -301,6 +304,9 @@ importers:
       lucide-react:
         specifier: ^1.53.0
         version: 1.53.0(@types/react@18.3.31)(react@18.3.1)
+      marked:
+        specifier: ^18.1.0
+        version: 18.1.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
