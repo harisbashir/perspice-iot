@@ -1,9 +1,7 @@
 import 'reflect-metadata';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, sql } from 'drizzle-orm';
-import mqtt from 'mqtt';
 import { generateKeyPairSync } from 'node:crypto';
-import { randomToken, sha256Hex } from './common/crypto';
 import Redis from 'ioredis';
 import { Pool } from 'pg';
 import { TokenService } from './auth/token.service';
@@ -19,6 +17,7 @@ import { seed } from './db/seed';
 import { EmailService } from './email/email.service';
 import { seedRoles } from './rbac/seed-roles';
 import { SettingsService } from './settings/settings.service';
+import { mqttRoundtrip } from './system/roundtrip';
 
 export interface CliIo {
   env: NodeJS.ProcessEnv;
@@ -110,54 +109,14 @@ async function createAdmin(config: Config, f: Record<string, string | true>, io:
   });
 }
 
-/**
- * Creates a temporary device, publishes one value over MQTT and waits for it in the latest-value
- * cache (i.e. EMQX auth → ingest → Redis all work), then removes the device again.
- */
-async function mqttRoundtrip(config: Config, io: CliIo): Promise<boolean> {
+async function cliRoundtrip(config: Config, io: CliIo): Promise<boolean> {
   return withDb(config, async (db) => {
-    const [profile] = await db
-      .insert(schema.deviceProfile)
-      .values({ name: `health-check-${Date.now()}` })
-      .returning();
-    const token = randomToken('pdt_');
-    const [dev] = await db
-      .insert(schema.device)
-      .values({ name: 'health-check', profileId: profile!.id, credentialsHash: sha256Hex(token) })
-      .returning();
     const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 1 });
-    const client = mqtt.connect(config.MQTT_URL, {
-      clientId: dev!.id,
-      username: dev!.id,
-      password: token,
-      reconnectPeriod: 0,
-      connectTimeout: 10_000,
-    });
     try {
-      await new Promise<void>((resolve, reject) => {
-        client.once('connect', () => resolve());
-        client.once('error', reject);
-      });
-      const value = Math.round(Math.random() * 1e6);
-      await client.publishAsync(`perspice/v1/${dev!.id}/telemetry`, JSON.stringify({ values: { health: value } }), { qos: 1 });
-      for (let i = 0; i < 40; i++) {
-        const cached = await redis.hget(`latest:${dev!.id}`, 'health');
-        if (cached && (JSON.parse(cached) as { v: number }).v === value) {
-          io.out('mqtt roundtrip: ok');
-          return true;
-        }
-        await new Promise((r) => setTimeout(r, 250));
-      }
-      io.out('mqtt roundtrip: FAILED (value not ingested within 10 s)');
-      return false;
-    } catch (e) {
-      io.out(`mqtt roundtrip: FAILED (${(e as Error).message})`);
-      return false;
+      const r = await mqttRoundtrip(db, redis, config.MQTT_URL);
+      io.out(r.ok ? 'mqtt roundtrip: ok' : `mqtt roundtrip: FAILED (${r.message})`);
+      return r.ok;
     } finally {
-      client.end(true);
-      await db.delete(schema.device).where(eq(schema.device.id, dev!.id));
-      await db.delete(schema.deviceProfile).where(eq(schema.deviceProfile.id, profile!.id));
-      await redis.del(`latest:${dev!.id}`, `devmeta:${dev!.id}`, `devtok:${dev!.id}`);
       redis.disconnect();
     }
   });
@@ -213,7 +172,7 @@ async function health(config: Config, io: CliIo, roundtrip = false): Promise<num
   } finally {
     redis.disconnect();
   }
-  if (ok && roundtrip) ok = await mqttRoundtrip(config, io);
+  if (ok && roundtrip) ok = await cliRoundtrip(config, io);
   return ok ? 0 : 1;
 }
 

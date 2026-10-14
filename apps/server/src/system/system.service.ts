@@ -13,8 +13,22 @@ import { device } from '../db/schema';
 import { messageRateKey } from '../ingest/ingest.metrics';
 import { SystemCollectors } from './collectors';
 import { HEARTBEAT_PREFIX } from './heartbeat';
+import { type RoundtripResult, mqttRoundtrip } from './roundtrip';
 
 const ROLES = ['api', 'ingest', 'rules', 'scheduler', 'renderer'];
+const RELEASE_KEY = 'system:latest-release';
+const RELEASE_TTL_S = 6 * 3600;
+
+/** -1, 0 or 1 comparing dotted versions (pre-release suffixes ignored). */
+export function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => v.replace(/^v/, '').split('-')[0]!.split('.').map((n) => Number(n) || 0);
+  const [x, y] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d) return Math.sign(d);
+  }
+  return 0;
+}
 
 /** What the System page shows: processes, load, queues, disk and backups. */
 @Injectable()
@@ -27,6 +41,37 @@ export class SystemService {
     private readonly backups: BackupService,
     private readonly maintenance: Maintenance,
   ) {}
+
+  roundtrip(): Promise<RoundtripResult> {
+    if (this.config.MQTT_TRANSPORT === 'aws-iot') {
+      return Promise.resolve({ ok: false, ms: null, message: 'Not available with AWS IoT Core: devices connect to AWS, not this server' });
+    }
+    return mqttRoundtrip(this.db, this.redis, this.config.MQTT_URL);
+  }
+
+  async updateCheck(): Promise<{ current: string; latest: string | null; updateAvailable: boolean; url: string | null }> {
+    const current = appVersion();
+    let release = await this.redis.get(RELEASE_KEY);
+    if (release === null) {
+      let found: { latest: string | null; url: string | null } = { latest: null, url: null };
+      try {
+        const res = await fetch(`https://api.github.com/repos/${this.config.UPDATE_REPO}/releases/latest`, {
+          headers: { accept: 'application/vnd.github+json', 'user-agent': 'perspice-update-check' },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { tag_name?: string; html_url?: string };
+          if (body.tag_name) found = { latest: body.tag_name.replace(/^v/, ''), url: body.html_url ?? null };
+        }
+      } catch {
+        // Offline or rate-limited: no notice, ask again later.
+      }
+      release = JSON.stringify(found);
+      await this.redis.set(RELEASE_KEY, release, 'EX', found.latest ? RELEASE_TTL_S : 1800);
+    }
+    const { latest, url } = JSON.parse(release) as { latest: string | null; url: string | null };
+    return { current, latest, updateAvailable: !!latest && compareVersions(latest, current) > 0, url };
+  }
 
   async processes(): Promise<(ProcessInfo & { websocketClients?: number })[]> {
     const keys: string[] = [];

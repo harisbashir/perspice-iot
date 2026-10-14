@@ -11,6 +11,7 @@ import { DB } from '../db/db.module';
 import { deliveryLog } from '../db/schema';
 import { PreferencesService } from './preferences.service';
 import { WebhookSender } from './webhook-sender';
+import { PushService } from './push.service';
 import { CHANNELS, type Message, type NotificationChannel, type Recipient } from './types';
 
 export const NOTIFY_QUEUE = 'notify';
@@ -56,6 +57,7 @@ export class Dispatcher implements OnApplicationShutdown {
     private readonly prefs: PreferencesService,
     private readonly auth: AuthService,
     private readonly webhooks: WebhookSender,
+    private readonly push: PushService,
   ) {
     this.connection = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
     this.queue = new Queue(NOTIFY_QUEUE, { connection: this.connection });
@@ -67,7 +69,8 @@ export class Dispatcher implements OnApplicationShutdown {
     let queued = 0;
     for (const r of recipients) {
       const p = await this.prefs.get(r.id);
-      const outward = channels.filter((c) => c !== 'inapp' && c !== 'webhook' && this.channels.has(c) && p[c as 'email' | 'push']);
+      const pushOn = channels.includes('push') && (await this.push.isEnabled());
+      const outward = channels.filter((c) => c !== 'inapp' && c !== 'webhook' && this.channels.has(c) && p[c as 'email' | 'push'] && (c !== 'push' || pushOn));
       const wanted = opts.ignoreLevelAndQuiet || notifyLevelAtLeast(message.level, p.minSeverity);
       // Email/push are held (for a digest) during quiet hours or once the user's busy-period limit is hit.
       const hold = !opts.ignoreLevelAndQuiet && wanted && outward.length > 0 && (isQuiet(p, message.level, now, r.timezone) || (await this.overLimit(r.id, p, now)));

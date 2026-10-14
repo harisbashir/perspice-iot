@@ -102,4 +102,28 @@ describe('System page', () => {
     });
     await waitFor(() => expect(screen.queryByText(/being restored from a backup/)).toBeNull());
   }, 15_000);
+
+  it('offers the newer release, runs the end-to-end check and sets up push', async () => {
+    let pushKey: string | null = null;
+    server.use(
+      http.get('*/api/system/status', () => HttpResponse.json(status)),
+      http.get('*/api/system/backups', () => HttpResponse.json(backups)),
+      http.get('*/api/system/backups/restore', () => HttpResponse.json({ running: false })),
+      http.get('*/api/system/update', () => HttpResponse.json({ current: '1.0.2', latest: '1.0.3', updateAvailable: true, url: 'https://github.com/x/y/releases/tag/v1.0.3' })),
+      http.post('*/api/system/roundtrip', () => HttpResponse.json({ ok: true, ms: 84, message: 'ok' }, { status: 201 })),
+      http.get('*/api/push/public-key', () => HttpResponse.json({ publicKey: pushKey, subscriptions: 0 })),
+      http.post('*/api/system/push', () => {
+        pushKey = 'BKey';
+        return HttpResponse.json({ publicKey: pushKey }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp('/system', { user: owner });
+    expect(await screen.findByText(/Version 1.0.3 is available/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('sudo perspice update --version 1.0.3')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Run check' }));
+    expect(await screen.findByText('Working: stored in 84 ms')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Set up push notifications' }));
+    expect(await screen.findByText(/Set up: people can turn on push/)).toBeInTheDocument();
+  });
 });
