@@ -60,8 +60,10 @@ it reports `{"fw":"1.2.0"}` on `attributes`, which completes the update. HTTP de
 The [PerspiceClient library](firmware.md) does all of this on ESP32: set
 `cfg.firmwareVersion`, see the `OtaUpdate` example. It writes to the inactive app partition, so a
 failed or corrupt download never touches the running image, and marks the new image valid once it
-connects (with rollback enabled in the bootloader, an image that can't connect is replaced by the
-previous one at the next restart). Set `cfg.otaCaCert` to also verify the download server.
+connects. For an image that can't connect to be replaced by the previous one at the next restart,
+the sketch must define `extern "C" bool verifyRollbackLater() { return true; }`; otherwise the
+Arduino core marks every new image valid at boot (both the `OtaUpdate` and `ProductTemplate`
+examples do). Set `cfg.otaCaCert` to also verify the download server.
 
 The simulator takes updates too: `perspice-sim … --fw 1.0.0 --ota`.
 

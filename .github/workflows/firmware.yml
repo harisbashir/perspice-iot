@@ -18,12 +18,13 @@ jobs:
     strategy:
       matrix:
         include:
+          # The ESP32 core is pinned: a new major version (4.x moves to ESP-IDF 6) is adopted on purpose.
           - fqbn: esp32:esp32:esp32
-            core: esp32:esp32
-            examples: BasicSensor GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction RmsTestRun EthernetW5500 DualNetwork
+            core: esp32:esp32@3.3.12
+            examples: BasicSensor GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction RmsTestRun EthernetW5500 DualNetwork ProductTemplate
           - fqbn: esp32:esp32:esp32s3
-            core: esp32:esp32
-            examples: GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction RmsTestRun EthernetW5500 DualNetwork
+            core: esp32:esp32@3.3.12
+            examples: GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction RmsTestRun EthernetW5500 DualNetwork ProductTemplate
           - fqbn: arduino:avr:mega
             core: arduino:avr
             examples: BasicSensor

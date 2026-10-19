@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PerspiceClient 0.3.0, for building products on it:
+  - `ProductTemplate` example: a comms task that owns the client and an app/HMI task, with queues
+    between them, provisioning, Wi-Fi + W5500, pinned TLS, OTA with rollback, commands and a
+    factory reset.
+  - `PERSPICE_LETSENCRYPT_ROOTS` (`PerspiceCerts.h`): ISRG Root X1 and X2 for pinning TLS instead
+    of `setInsecure()`.
+  - `library.json`, so PlatformIO projects can depend on a release zip; the guide
+    `firmware/PerspiceClient/CLAUDE.md` (toolchain, partitions, threading, OTA, build flags).
+  - `PerspiceNetwork::setPriority()`, `setWifi()` and `forgetSettings()` are safe from any task (an
+    HMI's): they're applied by the next `loop()`. `wifiSsid(out, n)` copies the name safely.
 - PerspiceClient (ESP32, ESP32-S3): **Wi-Fi and W5500 Ethernet** with `PerspiceNetwork`. The W5500
   runs on the ESP32's own network stack, so TLS, provisioning, OTA and NTP work over it. The
   connection follows a priority (Ethernet first, Wi-Fi first, Ethernet only, Wi-Fi only) that an
@@ -21,12 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PerspiceClient: `PERSPICE_MQTT_BUFFER_BYTES` sets the MQTT packet buffer (384 bytes on AVR).
 - CI compiles the ESP32 examples for the ESP32-S3 too.
 
-### Changed
-
-- `BasicSensor` is the Arduino Mega example; ESP32 boards use `EthernetW5500` for wired Ethernet.
-
 ### Fixed
 
+- OTA rollback never happened: the Arduino core confirms every new image at boot unless the
+  sketch defines `verifyRollbackLater()`. `OtaUpdate` and `ProductTemplate` now do, and the docs
+  say so.
+- `PerspiceConfig.h` buffer sizes can now be overridden with build flags as documented; the
+  `DeepSleepSensor` example no longer suggests a `#define` in the sketch, which never reached the
+  library.
 - PerspiceClient (ESP32): an OTA job resent while its download was running was taken as a new one,
   and `otaInProgress()` was false during the download.
 - PerspiceClient (ESP32): reporting an update as already applied no longer re-enters the MQTT loop
@@ -34,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PerspiceClient (AVR): a large `bufferCapacity` could overflow the 16-bit allocation size and
   write past the offline buffer; the MQTT buffer no longer takes 1 KB of an Uno's 2 KB.
 - PerspiceClient: a destroyed client no longer leaves a dangling message callback.
+
+### Changed
+
+- Firmware CI pins the ESP32 core to 3.3.12 and compiles `ProductTemplate`.
+- `BasicSensor` is the Arduino Mega example; ESP32 boards use `EthernetW5500` for wired Ethernet.
 
 ## [1.0.3] - 2026-10-14
 

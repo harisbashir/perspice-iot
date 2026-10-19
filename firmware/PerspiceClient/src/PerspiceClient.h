@@ -8,9 +8,12 @@
 #include <PubSubClient.h>
 
 #include "PerspiceBuffer.h"
+#include "PerspiceCerts.h"
 #include "PerspiceConfig.h"
 #include "PerspiceNetwork.h"
 
+// Override only with a -D build flag (see PerspiceConfig.h): it sizes this class, so the sketch and
+// the library must agree.
 #ifndef PERSPICE_MAX_COMMANDS
 #define PERSPICE_MAX_COMMANDS 16
 #endif

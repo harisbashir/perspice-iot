@@ -34,7 +34,7 @@ void loop() {
 - Reconnects with back-off from 1 s to 60 s and sets an `offline` last will.
 - ESP32 syncs time over NTP and stamps telemetry; AVR boards leave stamping to the server.
 - Telemetry is buffered while offline (64 messages on ESP32, 8 on AVR by default) and sent
-  oldest-first in batches of up to 10. Define `PERSPICE_BUFFER_FLASH` on ESP32 to keep the buffer
+  oldest-first in batches of up to 10. Build with `-DPERSPICE_BUFFER_FLASH` on ESP32 (a build flag; a `#define` in the sketch doesn't reach the library) to keep the buffer
   in LittleFS across `sleepCycle()` deep sleeps.
 - With `cfg.apiHost` and `cfg.provisionKey` instead of an id, token and host, an ESP32 fetches its
   own credentials on first boot and keeps them in NVS ([provisioning.md](provisioning.md)).
@@ -42,6 +42,22 @@ void loop() {
 - On ESP32, firmware updates from the platform are applied from `loop()` (`otaEnabled`, on by
   default): HTTPS download into the inactive partition, SHA-256 check, progress reports, restart.
   `otaInProgress()` is true meanwhile. See [fleet.md](fleet.md).
+
+## Product firmware
+
+Start from the `ProductTemplate` example and `firmware/PerspiceClient/CLAUDE.md`, which ships
+with the library. It covers the toolchain (Espressif core 3.3.x; with PlatformIO the pioarduino
+platform), partition layouts with room for OTA, the task layout (the client is not thread-safe
+and `loop()` blocks), TLS pinning with `PERSPICE_LETSENCRYPT_ROOTS`, OTA rollback
+(`extern "C" bool verifyRollbackLater() { return true; }`), build flags and known pitfalls.
+
+With PlatformIO, a product pins a release of the library:
+
+```ini
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
+framework = arduino
+lib_deps = https://github.com/harisbashir/perspice-iot/releases/download/firmware-v0.3.0/PerspiceClient-0.3.0.zip
+```
 
 ## Wi-Fi and W5500 Ethernet (ESP32, ESP32-S3)
 
@@ -80,6 +96,8 @@ network.setPriority(PerspicePriority::WiFiOnly);  // e.g. from an HMI; kept in N
   (5 minutes), then the preferred one is tried again. Refused credentials don't count.
 - **Standby.** With `keepStandby` (default) the backup connection stays up for an instant switch;
   without it, Wi-Fi is only started while it is needed.
+- **From an HMI.** `setPriority()`, `setWifi()` and `forgetSettings()` are safe to call from any
+  task; the change is applied (and saved) by the next `loop()`.
 - **Remembered settings.** `setPriority()` and `setWifi()` are kept in NVS (namespace
   `perspice_net`) and win over the values compiled in, so an HMI choice survives restarts and OTA
   updates. `forgetSettings()` clears them; `remember = false` turns this off.
@@ -108,6 +126,7 @@ The W5500 gets an SPI bus of its own (not the one the Arduino `SPI` object uses)
 | Example | Board | Shows |
 |---|---|---|
 | `BasicSensor` | Arduino Mega + Ethernet shield | periodic telemetry over Ethernet (Arduino Ethernet library) |
+| `ProductTemplate` | ESP32 / ESP32-S3, Wi-Fi and/or W5500 | product skeleton: comms task + app task with queues, provisioning, pinned TLS, OTA with rollback, factory reset |
 | `EthernetW5500` | ESP32 / ESP32-S3 + W5500 | MQTT over TLS on wired Ethernet, cable status |
 | `DualNetwork` | ESP32 / ESP32-S3, Wi-Fi + W5500 | failover with a priority changed at run time (serial menu standing in for an HMI, `set_network` command) |
 | `RmsTestRun` | ESP32 / ESP32-S3, Wi-Fi and/or W5500 | no sensors needed: random Telecom RMS values, `gen_start` / `gen_stop` |

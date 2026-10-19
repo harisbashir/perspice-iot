@@ -1,6 +1,7 @@
 // DeepSleepSensor — battery ESP32: wake, connect, send one reading, deep-sleep 5 minutes.
 // Use a "sleepy" device profile so disconnects are not reported as offline.
-// Define PERSPICE_BUFFER_FLASH before including the library to keep unsent readings in LittleFS.
+// To keep unsent readings in LittleFS across sleeps, build with -DPERSPICE_BUFFER_FLASH (PlatformIO
+// build_flags; a #define in the sketch doesn't reach the library) and a partition with a filesystem.
 #include <PerspiceClient.h>
 #include <WiFi.h>
 

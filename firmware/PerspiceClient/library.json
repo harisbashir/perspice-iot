@@ -1,0 +1,37 @@
+{
+  "name": "PerspiceClient",
+  "version": "0.3.0",
+  "description": "Connect Arduino and ESP32 devices to the Perspice IoT platform over MQTT: telemetry with offline buffering, commands, shared config, OTA, provisioning, and Wi-Fi + W5500 Ethernet failover on ESP32.",
+  "keywords": [
+    "iot",
+    "mqtt",
+    "perspice",
+    "telemetry",
+    "ota",
+    "w5500",
+    "ethernet",
+    "wifi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harisbashir/perspice-iot.git"
+  },
+  "frameworks": "arduino",
+  "platforms": [
+    "espressif32",
+    "atmelavr"
+  ],
+  "headers": "PerspiceClient.h",
+  "dependencies": [
+    {
+      "owner": "knolleary",
+      "name": "PubSubClient",
+      "version": "^2.8"
+    },
+    {
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "version": "^7.0.0"
+    }
+  ]
+}

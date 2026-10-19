@@ -2,17 +2,28 @@
 
 #include <stdint.h>
 
-// Each can be overridden with a -D build flag. PERSPICE_MQTT_BUFFER_BYTES must hold the largest
-// message plus its topic (about 70 bytes); it is allocated once by PubSubClient.
+// Each can be overridden, but only with a -D build flag that reaches every file (PlatformIO
+// build_flags, arduino-cli --build-property): a #define in the sketch doesn't reach the library's
+// .cpp files. PERSPICE_BUFFER_ITEM_BYTES is the largest telemetry message (envelope included);
+// PERSPICE_MQTT_BUFFER_BYTES must hold the largest message plus its topic (about 70 bytes) and is
+// allocated once by PubSubClient.
 #if defined(__AVR__)
+#ifndef PERSPICE_DEFAULT_BUFFER
 #define PERSPICE_DEFAULT_BUFFER 8
+#endif
+#ifndef PERSPICE_BUFFER_ITEM_BYTES
 #define PERSPICE_BUFFER_ITEM_BYTES 96
+#endif
 #ifndef PERSPICE_MQTT_BUFFER_BYTES
 #define PERSPICE_MQTT_BUFFER_BYTES 384
 #endif
 #else
+#ifndef PERSPICE_DEFAULT_BUFFER
 #define PERSPICE_DEFAULT_BUFFER 64
+#endif
+#ifndef PERSPICE_BUFFER_ITEM_BYTES
 #define PERSPICE_BUFFER_ITEM_BYTES 512
+#endif
 #ifndef PERSPICE_MQTT_BUFFER_BYTES
 #define PERSPICE_MQTT_BUFFER_BYTES 1024
 #endif
