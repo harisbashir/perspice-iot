@@ -41,6 +41,11 @@ export class CommandsPublisher implements OnModuleInit, OnApplicationShutdown {
     this.dataPlane?.destroy();
   }
 
+  /** Whether a publish can go out now (always on AWS IoT Core, which is reached over HTTPS). */
+  get connected(): boolean {
+    return this.dataPlane ? true : (this.mqtt?.connected ?? false);
+  }
+
   async publishCommand(deviceId: string, msg: CommandMessage): Promise<void> {
     await this.publish(deviceTopic(deviceId, 'cmd'), JSON.stringify(msg), false);
   }

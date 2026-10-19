@@ -12,6 +12,7 @@ import { GenericContainer, type StartedTestContainer, TestContainers, Wait } fro
 import request from 'supertest';
 import { inject } from 'vitest';
 import { AppModule } from '../src/app.module';
+import { CommandsPublisher } from '../src/commands/commands.publisher';
 import { REDIS } from '../src/common/redis.module';
 import { type Config, type Role, loadConfig } from '../src/config/config';
 import { DB } from '../src/db/db.module';
@@ -186,6 +187,13 @@ export async function createTestApp(opts: TestAppOptions = {}): Promise<TestApp>
         ingest.ready(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('ingest client not ready after 60 s')), 60_000)),
       ]);
+    }
+    // Commands go out over a connection of their own, which may still be retrying after the broker
+    // refused it while booting; a test that sends a command right away needs it up too.
+    const publisher = app.get(CommandsPublisher, { strict: false });
+    for (const deadline = Date.now() + 60_000; publisher && !publisher.connected; ) {
+      if (Date.now() > deadline) throw new Error('command publisher not connected after 60 s');
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 

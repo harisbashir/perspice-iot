@@ -185,7 +185,9 @@ export async function runSimulation(o: SimOptions): Promise<SimReport> {
   };
   const minutes = setInterval(minuteReport, 60_000);
 
-  await new Promise((r) => setTimeout(r, o.durationS * 1000));
+  // Timers run on a monotonic clock and can fire a millisecond before Date.now() reaches `end`,
+  // which would report a window shorter than the duration asked for.
+  while (Date.now() < end) await new Promise((r) => setTimeout(r, end - Date.now()));
   clearInterval(minutes);
   const endedAt = Date.now();
   for (const t of timers) clearTimeout(t);
