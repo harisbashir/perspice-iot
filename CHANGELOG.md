@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- PerspiceClient: the `RmsTestRun` example, an ESP32 that simulates a Telecom RMS site with random
+  values (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`.
+- PerspiceClient: `PERSPICE_MQTT_BUFFER_BYTES` sets the MQTT packet buffer (384 bytes on AVR).
+
+### Fixed
+
+- PerspiceClient (ESP32): an OTA job resent while its download was running was taken as a new one,
+  and `otaInProgress()` was false during the download.
+- PerspiceClient (ESP32): reporting an update as already applied no longer re-enters the MQTT loop
+  from inside the message callback.
+- PerspiceClient (AVR): a large `bufferCapacity` could overflow the 16-bit allocation size and
+  write past the offline buffer; the MQTT buffer no longer takes 1 KB of an Uno's 2 KB.
+- PerspiceClient: a destroyed client no longer leaves a dangling message callback.
+
 ## [1.0.3] - 2026-10-14
 
 Devices made in quantity provision themselves, API keys get a screen, history retention is enforced,

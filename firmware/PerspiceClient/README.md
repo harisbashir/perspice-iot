@@ -83,6 +83,12 @@ device asks again, which the platform only answers when the key allows re-provis
 through the ESP32's own network stack (Wi-Fi, or Ethernet through lwIP). See
 `docs/provisioning.md` in the platform's source.
 
+## Memory
+
+`PERSPICE_MQTT_BUFFER_BYTES` (1024 on ESP32, 384 on AVR) sets PubSubClient's packet buffer; it must
+hold the largest message plus its topic. Override it, like the other `PERSPICE_*` sizes in
+`PerspiceConfig.h`, with a `-D` build flag.
+
 ## TLS
 
 Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
@@ -95,4 +101,7 @@ Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
 - `DeepSleepSensor` — wake, send, deep sleep (use a *sleepy* profile)
 - `OtaUpdate` — ESP32 taking firmware updates from the platform (set `firmwareVersion`)
 - `MassProduction` — one image for every unit: provisions itself with a provisioning key, stores its credentials, and forgets them on a long press of BOOT
+- `RmsTestRun` — no hardware needed: an ESP32 on Wi-Fi sends random but believable values for every
+  Telecom RMS key (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`,
+  for trying out dashboards, alarms and commands
 - `GpsTracker` — ESP32 with a serial GPS (TinyGPS++): position every 10 s, optional ignition input for trips; needs the `TinyGPSPlus` library

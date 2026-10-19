@@ -54,12 +54,19 @@ void PerspiceClient::otaProgress(const char* state, int pct, const char* error) 
   if (len == 0 || len >= sizeof(out) - 1) return;
   char t[96];
   topic(t, sizeof(t), "ota/progress");
+  // No mqtt_.loop() here: this also runs inside the MQTT callback (receiveOta), where calling
+  // it again would read the next packet into the buffer the callback is still using.
   mqtt_.publish(t, out);
-  mqtt_.loop();
 }
 
 void PerspiceClient::runOta() {
+  // otaPending_ stays set while the download runs, so the same job resent meanwhile (the MQTT
+  // loop is serviced below) is recognised and a different one waits.
+  runOtaDownload();
   otaPending_ = false;
+}
+
+void PerspiceClient::runOtaDownload() {
   const bool https = strncmp(otaUrl_, "https://", 8) == 0;
   WiFiClientSecure secure;
   WiFiClient plain;
@@ -102,6 +109,7 @@ void PerspiceClient::runOta() {
   int lastPct = -10;
   uint32_t idleSince = millis();
   otaProgress("downloading", 0);
+  mqtt_.loop();
   while (done < otaSize_) {
     size_t avail = stream->available();
     if (!avail) {
@@ -118,6 +126,7 @@ void PerspiceClient::runOta() {
     if (pct >= lastPct + 10) {
       lastPct = pct;
       otaProgress("downloading", pct);
+      mqtt_.loop();  // keep the broker connection alive through a long download
     }
   }
   http.end();
@@ -131,6 +140,7 @@ void PerspiceClient::runOta() {
     return;
   }
   otaProgress("verifying", 100);
+  mqtt_.loop();
   char hex[65];
   for (int i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
   if (strcasecmp(hex, otaSha_) != 0) {

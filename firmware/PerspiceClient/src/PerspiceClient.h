@@ -73,6 +73,7 @@ class PerspiceClient {
 #if defined(ESP32)
   void receiveOta(JsonDocument& msg);
   void runOta();
+  void runOtaDownload();
   void otaProgress(const char* state, int pct, const char* error = nullptr);
   bool canProvision() const { return config_.provisionKey && config_.apiHost; }
   void loadCredentials();

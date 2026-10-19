@@ -2,12 +2,20 @@
 
 #include <stdint.h>
 
+// Each can be overridden with a -D build flag. PERSPICE_MQTT_BUFFER_BYTES must hold the largest
+// message plus its topic (about 70 bytes); it is allocated once by PubSubClient.
 #if defined(__AVR__)
 #define PERSPICE_DEFAULT_BUFFER 8
 #define PERSPICE_BUFFER_ITEM_BYTES 96
+#ifndef PERSPICE_MQTT_BUFFER_BYTES
+#define PERSPICE_MQTT_BUFFER_BYTES 384
+#endif
 #else
 #define PERSPICE_DEFAULT_BUFFER 64
 #define PERSPICE_BUFFER_ITEM_BYTES 512
+#ifndef PERSPICE_MQTT_BUFFER_BYTES
+#define PERSPICE_MQTT_BUFFER_BYTES 1024
+#endif
 #endif
 
 struct PerspiceConfig {
@@ -35,6 +43,7 @@ struct PerspiceConfig {
   // PEM root certificate of the platform's web server (ISRG Root X1 for Let's Encrypt). Without it
   // the server isn't verified, so a network attacker could learn the provisioning key.
   const char* apiCaCert = nullptr;
+  // Informational only: TLS comes from the Client passed to PerspiceClient (WiFiClientSecure).
   bool useTls = false;
   uint16_t keepAliveS = 30;
   // Telemetry messages kept while offline (oldest dropped when full).

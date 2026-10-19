@@ -13,7 +13,7 @@
 namespace {
 const uint32_t kMaxBackoffMs = 60000;
 const uint8_t kMaxBatch = 10;
-const uint16_t kMqttBufferBytes = 1024;
+const uint16_t kMqttBufferBytes = PERSPICE_MQTT_BUFFER_BYTES;
 #if defined(ESP32) && defined(PERSPICE_BUFFER_FLASH)
 const char* kBufferFile = "/perspice_buffer.txt";
 #endif
@@ -36,7 +36,10 @@ PerspiceClient* PerspiceClient::instance_ = nullptr;
 
 PerspiceClient::PerspiceClient(Client& net) : mqtt_(net) { instance_ = this; }
 
-PerspiceClient::~PerspiceClient() { delete buffer_; }
+PerspiceClient::~PerspiceClient() {
+  if (instance_ == this) instance_ = nullptr;
+  delete buffer_;
+}
 
 bool PerspiceClient::begin(const PerspiceConfig& config) {
   config_ = config;
