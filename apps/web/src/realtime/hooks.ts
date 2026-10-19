@@ -57,7 +57,11 @@ export function useDeviceLive(deviceId: string): void {
   });
 }
 
-/** Joins the live rooms of every device a dashboard shows (the server drops out-of-scope ids). */
-export function useDevicesSubscription(deviceIds: string[]): void {
+/**
+ * Joins the live rooms of every device a dashboard shows (the server drops out-of-scope ids).
+ * Returns true once the server has answered for `watch` (all of them by default).
+ */
+export function useDevicesSubscription(deviceIds: string[], watch: string[] = deviceIds): boolean {
   useDeviceRooms(deviceIds);
+  return useDeviceRooms(watch);
 }

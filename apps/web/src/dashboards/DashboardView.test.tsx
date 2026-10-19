@@ -139,4 +139,25 @@ describe('DashboardView', () => {
     expect(await within(fuel).findByText('11.5')).toBeInTheDocument();
     expect(calls).toBe(1);
   });
+
+  it('fetches once more when the live subscription is answered, then counts as live', async () => {
+    // Readings published between the first fetch and the server joining the device's room never
+    // arrive as events; the second fetch picks them up.
+    let calls = 0;
+    server.use(
+      http.post('*/api/dashboards/data', () => {
+        calls++;
+        return HttpResponse.json({ results: { fuel: { ok: true, data: { device, values: { fuel_level: { ts: calls, v: calls === 1 ? 10 : 12 } } } } } });
+      }),
+    );
+    wrap(<DashboardView definition={definition} device={device} />);
+    const fuel = await screen.findByTestId('widget-fuel');
+    await within(fuel).findByText('10');
+    expect(fuel).toHaveAttribute('data-live', 'false');
+
+    fakeSocket.answerRooms();
+    expect(await within(fuel).findByText('12')).toBeInTheDocument();
+    await waitFor(() => expect(fuel).toHaveAttribute('data-live', 'true'));
+    expect(calls).toBe(2);
+  });
 });

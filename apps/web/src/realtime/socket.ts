@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { type Socket, io } from 'socket.io-client';
 import { refreshSession, session } from '@/api/client';
 
@@ -60,29 +60,61 @@ export function useRoomSubscription(subscribe: string, unsubscribe: string | nul
 // rooms are reference-counted and only left when the last user goes away.
 const deviceRooms = new Map<string, number>();
 const MAX_IDS_PER_MESSAGE = 500;
-let rejoinOnConnect = false;
+let roomEventsBound = false;
 
-function emitChunked(s: Socket, event: string, ids: string[]): void {
-  for (let i = 0; i < ids.length; i += MAX_IDS_PER_MESSAGE) s.emit(event, { deviceIds: ids.slice(i, i + MAX_IDS_PER_MESSAGE) });
+// Rooms the server has answered for (joined, or refused as out of scope) since the last connect:
+// events for a device published before its answer may not have reached this tab.
+const settled = new Set<string>();
+const settledListeners = new Set<() => void>();
+let settledVersion = 0;
+
+function changeSettled(change: () => void): void {
+  change();
+  settledVersion++;
+  settledListeners.forEach((l) => l());
 }
 
-/** Follows the live rooms of these devices for the component's lifetime (the server drops out-of-scope ids). */
-export function useDeviceRooms(deviceIds: string[]): void {
+function onSettledChange(listener: () => void): () => void {
+  settledListeners.add(listener);
+  return () => settledListeners.delete(listener);
+}
+
+function joinRooms(s: Socket, ids: string[]): void {
+  for (let i = 0; i < ids.length; i += MAX_IDS_PER_MESSAGE) {
+    const chunk = ids.slice(i, i + MAX_IDS_PER_MESSAGE);
+    // Any answer settles them; rooms left meanwhile stay unsettled.
+    s.emit('subscribe:devices', { deviceIds: chunk }, () =>
+      changeSettled(() => chunk.filter((id) => deviceRooms.has(id)).forEach((id) => settled.add(id))),
+    );
+  }
+}
+
+function leaveRooms(s: Socket, ids: string[]): void {
+  for (let i = 0; i < ids.length; i += MAX_IDS_PER_MESSAGE) s.emit('unsubscribe:devices', { deviceIds: ids.slice(i, i + MAX_IDS_PER_MESSAGE) });
+}
+
+/**
+ * Follows the live rooms of these devices for the component's lifetime (the server drops
+ * out-of-scope ids). Returns true once the server has answered for all of them since the last
+ * (re)connect, i.e. from when on their events are delivered.
+ */
+export function useDeviceRooms(deviceIds: string[]): boolean {
   const key = [...new Set(deviceIds)].sort().join(',');
   useEffect(() => {
     if (!key) return;
     const ids = key.split(',');
     const s = getSocket();
-    if (!rejoinOnConnect) {
-      rejoinOnConnect = true;
-      s.on('connect', () => emitChunked(s, 'subscribe:devices', [...deviceRooms.keys()]));
+    if (!roomEventsBound) {
+      roomEventsBound = true;
+      s.on('connect', () => joinRooms(s, [...deviceRooms.keys()]));
+      s.on('disconnect', () => changeSettled(() => settled.clear()));
     }
     const fresh = ids.filter((id) => {
       const n = deviceRooms.get(id) ?? 0;
       deviceRooms.set(id, n + 1);
       return n === 0;
     });
-    if (fresh.length && s.connected) emitChunked(s, 'subscribe:devices', fresh);
+    if (fresh.length && s.connected) joinRooms(s, fresh);
     return () => {
       const gone = ids.filter((id) => {
         const n = (deviceRooms.get(id) ?? 1) - 1;
@@ -90,7 +122,12 @@ export function useDeviceRooms(deviceIds: string[]): void {
         else deviceRooms.delete(id);
         return n <= 0;
       });
-      if (gone.length) emitChunked(s, 'unsubscribe:devices', gone);
+      if (gone.length) {
+        changeSettled(() => gone.forEach((id) => settled.delete(id)));
+        leaveRooms(s, gone);
+      }
     };
   }, [key]);
+  useSyncExternalStore(onSettledChange, () => settledVersion); // re-render when it changes
+  return !key || key.split(',').every((id) => settled.has(id));
 }
