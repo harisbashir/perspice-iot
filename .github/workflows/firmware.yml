@@ -20,7 +20,7 @@ jobs:
         include:
           - fqbn: esp32:esp32:esp32
             core: esp32:esp32
-            examples: BasicSensor GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction
+            examples: BasicSensor GeneratorController DeepSleepSensor GpsTracker OtaUpdate MassProduction RmsTestRun
           - fqbn: arduino:avr:mega
             core: arduino:avr
             examples: BasicSensor
