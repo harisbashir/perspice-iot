@@ -26,6 +26,7 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
   const [profileId, setProfileId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [tags, setTags] = useState('');
+  const [serial, setSerial] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [created, setCreated] = useState<{ id: string; token: string; awsIot?: AwsIotBundle } | null>(null);
 
@@ -38,12 +39,14 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
           profileId,
           ...(isPlatform && customerId ? { customerId } : {}),
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+          ...(serial.trim() ? { serial: serial.trim() } : {}),
         },
       });
       await qc.invalidateQueries({ queryKey: DEVICE_LISTS });
       onOpenChange(false);
       setName('');
       setTags('');
+      setSerial('');
       setCreated({ id: res.device.id, token: res.token, awsIot: res.awsIot });
     } catch (err) {
       setError(err);
@@ -89,6 +92,9 @@ export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOp
             )}
             <Field label="Tags" help="Comma separated.">
               {(id, d) => <Input id={id} aria-describedby={d} value={tags} onChange={(e) => setTags(e.target.value)} />}
+            </Field>
+            <Field label="Serial (optional)" help="The device's own serial number or MAC address, for provisioning keys that accept only registered serials.">
+              {(id, d) => <Input id={id} aria-describedby={d} value={serial} onChange={(e) => setSerial(e.target.value)} />}
             </Field>
             <ErrorText error={error} />
             <DialogFooter>

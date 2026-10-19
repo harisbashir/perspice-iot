@@ -28,6 +28,27 @@ describe('CSV device import', () => {
       .set('Content-Type', 'text/csv')
       .send(csv);
 
+  it('registers serials for provisioning: unique within the file and the profile', async () => {
+    const profile = await createProfile(t.db, { name: `Tracker ${unique()}` });
+    await t.db.insert(device).values({ name: 'Existing', profileId: profile.id, serial: 'SN-EXISTING', credentialsHash: `h-${unique()}` });
+    const bad = await upload(
+      ['name,profile,serial', `A,${profile.name},SN-1`, `B,${profile.name},SN-1`, `C,${profile.name},SN-EXISTING`, `D,${profile.name},bad serial`].join('\n'),
+      true,
+    );
+    expect(bad.body.errors.map((e: { row: number; field: string }) => [e.row, e.field])).toEqual(
+      expect.arrayContaining([
+        [2, 'serial'],
+        [3, 'serial'],
+        [4, 'serial'],
+      ]),
+    );
+    expect(bad.body.errors).toHaveLength(3);
+    const ok = await upload(['name,profile,serial', `A,${profile.name},SN-1`, `B,${profile.name},SN-2`, `C,${profile.name},`].join('\n'));
+    expect(ok.body.ok).toBe(true);
+    const rows = await t.db.select().from(device).where(eq(device.profileId, profile.id));
+    expect(rows.map((r) => r.serial).sort()).toEqual(['SN-1', 'SN-2', 'SN-EXISTING', null].sort());
+  });
+
   it('dry run reports every bad row and creates nothing', async () => {
     const profile = await createProfile(t.db, { name: `Meter ${unique()}` });
     const csv = [

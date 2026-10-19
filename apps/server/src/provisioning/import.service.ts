@@ -9,6 +9,7 @@ import {
   formatClaimCode,
   parseCsv,
 } from '@perspice/shared';
+import { inArray } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { Readable } from 'node:stream';
 import type { AuthUser } from '../auth/auth.types';
@@ -31,6 +32,9 @@ interface Planned {
   tags: string[];
   location: DeviceLocationDto | null;
   claim: boolean;
+  serial: string | null;
+  /** 1-based data row, for errors found after the rows are planned. */
+  row: number;
 }
 
 type Issue = ImportReport['errors'][number];
@@ -61,7 +65,7 @@ export class ImportService {
         const { token, hash } = this.credentials.newToken();
         const [row] = await tx
           .insert(device)
-          .values({ name: r.name, profileId: r.profileId, customerId: r.customerId, groupId: r.groupId, tags: r.tags, location: r.location, credentialsHash: hash })
+          .values({ name: r.name, profileId: r.profileId, customerId: r.customerId, groupId: r.groupId, tags: r.tags, location: r.location, serial: r.serial, credentialsHash: hash })
           .returning({ id: device.id });
         let claimCode: string | null = null;
         if (r.claim) {
@@ -142,8 +146,28 @@ export class ImportService {
         if (profile.locationMode === 'none') return fail('lat', "This device's profile doesn't use locations");
         location = { lat: r.lat, lng: r.lng, ts: Date.now(), source: 'fixed' };
       }
-      rows.push({ name: r.name, profileId: profile.id, customerId, groupId, tags: r.tags, location, claim: r.claim });
+      rows.push({ name: r.name, profileId: profile.id, customerId, groupId, tags: r.tags, location, claim: r.claim, serial: r.serial ?? null, row: n });
     });
+
+    // Serials are unique within a profile: in the file, and against existing devices.
+    const withSerial = rows.filter((r) => r.serial);
+    const seen = new Map<string, number>();
+    for (const r of withSerial) {
+      const k = `${r.profileId}/${r.serial}`;
+      const first = seen.get(k);
+      if (first !== undefined) errors.push({ row: r.row, field: 'serial', message: `Repeats the serial of row ${first}` });
+      else seen.set(k, r.row);
+    }
+    if (withSerial.length) {
+      const existing = await this.db
+        .select({ profileId: device.profileId, serial: device.serial })
+        .from(device)
+        .where(inArray(device.serial, [...new Set(withSerial.map((r) => r.serial!))]));
+      const taken = new Set(existing.map((e) => `${e.profileId}/${e.serial}`));
+      for (const r of withSerial) {
+        if (taken.has(`${r.profileId}/${r.serial}`)) errors.push({ row: r.row, field: 'serial', message: 'A device of this profile already has this serial' });
+      }
+    }
     return { rows, errors };
   }
 }

@@ -92,6 +92,10 @@ export interface DeviceDto {
   status: DeviceStatus;
   lastSeen: number | null;
   firmwareVersion: string | null;
+  /** The device's own identifier (MAC, serial number), unique within its profile. */
+  serial: string | null;
+  /** When it last fetched its credentials with a provisioning key. */
+  provisionedAt: string | null;
   offlineTimeoutS: number | null;
   deadTimeoutS: number | null;
   attributes: {

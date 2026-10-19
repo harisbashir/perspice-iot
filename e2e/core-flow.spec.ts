@@ -99,10 +99,16 @@ test('creates customer acme with blue branding and invites its admin, who sees t
   await invite.getByLabel('Role', { exact: true }).selectOption({ label: 'Customer Admin (customer)' });
   await invite.getByLabel('Customer', { exact: true }).selectOption({ label: 'Acme' });
   await invite.getByRole('button', { name: 'Send invite' }).click();
+  // The link is also shown for copying, for servers without email.
+  const shared = platform.getByRole('dialog', { name: 'Share the invite' });
+  const shownLink = await shared.getByLabel('Invite link', { exact: true }).inputValue();
+  await platform.keyboard.press('Escape');
+  await expect(shared).toBeHidden();
   await expect(platform.getByRole('cell', { name: CUSTOMER_ADMIN, exact: true })).toBeVisible();
 
   const link = linkIn(await waitForEmail(CUSTOMER_ADMIN, 'invited'), '/activate?token');
   expect(link.startsWith(ACME)).toBe(true);
+  expect(shownLink).toBe(link);
   customerContext = await newContext(browser);
   customer = await customerContext.newPage();
   await customer.goto(link);
@@ -172,4 +178,69 @@ test("customer admin cannot open another customer's device", async () => {
   ).json()) as { device: { id: string } };
   await customer.goto(`${ACME}/devices/${created.device.id}`);
   await expect(customer.getByRole('heading', { name: 'Not found' })).toBeVisible();
+});
+
+test('the Help button explains the page, to customers without the platform notes', async () => {
+  await customer.goto(`${ACME}/devices`);
+  await customer.getByRole('link', { name: 'Help for this page' }).click();
+  await expect(customer.getByRole('heading', { level: 1, name: 'Devices' })).toBeVisible();
+  await expect(customer.getByRole('heading', { name: 'Inside a device' })).toBeVisible();
+  await expect(customer.getByRole('complementary', { name: 'For platform administrators' })).toHaveCount(0);
+  await customer.goto(`${ACME}/help`);
+  await expect(customer.getByRole('region', { name: 'Running the platform' })).toHaveCount(0);
+
+  await platform.goto(`${BASE}/help/asset-types`);
+  await expect(platform.getByRole('heading', { name: 'Designing types' })).toBeVisible();
+  await platform.goto(`${BASE}/help/devices`);
+  await expect(platform.getByRole('complementary', { name: 'For platform administrators' }).first()).toBeVisible();
+});
+
+test('a template for a profile without devices previews with sample data', async () => {
+  const token = await apiToken();
+  const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const profile = (await (
+    await fetch(`${BASE}/api/device-profiles`, {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ name: 'Cold room', telemetrySchema: [{ key: 'temp', label: 'Temperature', unit: '°C', type: 'number', decimals: 1 }] }),
+    })
+  ).json()) as { id: string };
+  const generated = (await (await fetch(`${BASE}/api/device-profiles/${profile.id}/generate-dashboard`, { method: 'POST', headers: auth })).json()) as { id: string };
+  await platform.goto(`${BASE}/dashboards/${generated.id}/edit`);
+  await expect(platform.getByRole('status')).toContainText('sample data');
+  await expect(platform.getByLabel('Preview with')).toHaveValue('sample');
+  await expect(platform.getByRole('region', { name: 'Temperature' }).first()).toContainText('°C');
+  await expect(platform.getByText(/needs the dashboard to be opened/)).toHaveCount(0);
+});
+
+test('a mass-produced device provisions itself with the profile key and its data arrives', async () => {
+  const token = await apiToken();
+  const auth = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+  const profile = (await (
+    await fetch(`${BASE}/api/device-profiles`, {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ name: 'Fleet sensor', telemetrySchema: [{ key: 'level', label: 'Level', unit: '%', type: 'number' }] }),
+    })
+  ).json()) as { id: string };
+  const key = (await (
+    await fetch(`${BASE}/api/device-profiles/${profile.id}/provisioning-keys`, { method: 'POST', headers: auth, body: JSON.stringify({ name: 'Line 1', mode: 'create' }) })
+  ).json()) as { secret: string };
+
+  // What the firmware does on first boot: the same key in every unit, its own serial.
+  const res = await fetch(`${BASE}/api/v1/device/provision`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ key: key.secret, serial: 'E2E:00:00:00:00:01', attributes: { fw: '1.0.0' } }),
+  });
+  expect(res.status).toBe(201);
+  const creds = (await res.json()) as { deviceId: string; token: string; mqtt: { host: string } };
+  expect(creds.mqtt.host).toBe('mqtt.localhost');
+
+  const unit = await connectDevice(creds.deviceId, creds.token);
+  await unit.publish({ level: 73 });
+  await expect
+    .poll(async () => ((await (await fetch(`${BASE}/api/devices/${creds.deviceId}`, { headers: auth })).json()) as { latest: { level?: { v: number } } }).latest.level?.v)
+    .toBe(73);
+  await unit.client.endAsync(true);
 });

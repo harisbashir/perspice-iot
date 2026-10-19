@@ -214,6 +214,7 @@ services:
     environment:
       BASE_DOMAIN: ${BASE_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set (address for certificate expiry notices)}
+      CADDY_LOCAL_CERTS: ${LOCAL_CERTS:+local_certs}
       MAP_TILE_HOSTS: ${MAP_TILE_HOSTS:-https://tile.openstreetmap.org https://*.tile.openstreetmap.org}
     ports:
       - '80:80'

@@ -1,7 +1,9 @@
 # Device protocol (Perspice v1)
 
 Devices connect over MQTT (recommended) or HTTP. Each device has an **id** (UUID) and a
-**token** (`pdt_…`, shown once when the device is created or its token regenerated).
+**token** (`pdt_…`, shown once when the device is created or its token regenerated). Devices made
+in quantity can fetch their own id and token on first boot with a provisioning key instead
+(`POST /api/v1/device/provision`, see [provisioning.md](provisioning.md)).
 
 ## MQTT
 

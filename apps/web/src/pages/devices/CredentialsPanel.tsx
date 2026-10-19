@@ -100,7 +100,17 @@ export function TokenDialog({ deviceId, token, awsIot, onClose }: { deviceId: st
   );
 }
 
-export function CredentialsPanel({ deviceId, initialToken = null }: { deviceId: string; initialToken?: string | null }) {
+export function CredentialsPanel({
+  deviceId,
+  initialToken = null,
+  serial = null,
+  provisionedAt = null,
+}: {
+  deviceId: string;
+  initialToken?: string | null;
+  serial?: string | null;
+  provisionedAt?: string | null;
+}) {
   const { hasPerm } = useAuth();
   const [token, setToken] = useState<string | null>(initialToken);
   const [awsIot, setAwsIot] = useState<AwsIotBundle | null>(null);
@@ -129,6 +139,10 @@ export function CredentialsPanel({ deviceId, initialToken = null }: { deviceId: 
         <dd>The device token</dd>
         <dt className="text-slate-500">HTTP</dt>
         <dd className="font-mono">POST /api/v1/device/telemetry with header X-Device-Token</dd>
+        <dt className="text-slate-500">Serial</dt>
+        <dd className="font-mono">{serial ?? '—'}</dd>
+        <dt className="text-slate-500">Provisioned</dt>
+        <dd>{provisionedAt ? `With a provisioning key, ${new Date(provisionedAt).toLocaleString()}` : 'No: credentials entered by hand'}</dd>
       </dl>
       {hasPerm('device.credentials') && (
         <div className="space-y-2">

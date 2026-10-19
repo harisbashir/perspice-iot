@@ -170,3 +170,18 @@ make_source() {
   # After restoring and restarting, one successful round trip (the stub succeeds at once).
   [ "$(grep -c 'health --mqtt-roundtrip' "$STUB_LOG")" -eq 1 ]
 }
+
+@test "a registry update skips images built locally and rebuilds cert-sync" {
+  run bash "$SCRIPTS/update.sh" --yes --version 0.2.0
+  [ "$status" -eq 0 ]
+  grep -q 'pull --quiet --ignore-buildable' "$STUB_LOG"
+  grep -q 'build cert-sync' "$STUB_LOG"
+}
+
+@test "a source update rebuilds cert-sync too" {
+  unset PERSPICE_SRC
+  src="$(make_source 0.9.0)"
+  run bash "$SCRIPTS/update.sh" --yes --source "$src"
+  [ "$status" -eq 0 ]
+  grep -q 'build cert-sync' "$STUB_LOG"
+}

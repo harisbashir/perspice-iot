@@ -5,6 +5,8 @@
 # For a wildcard certificate via DNS-01 instead, use Caddyfile.dns with Dockerfile.caddy.
 {
 	email {$ACME_EMAIL}
+	# `local_certs` (LOCAL_CERTS=true): Caddy's own authority, for servers the internet can't reach.
+	{$CADDY_LOCAL_CERTS:}
 	on_demand_tls {
 		ask http://api:3000/internal/caddy/ask
 	}
@@ -24,6 +26,11 @@
 # Certificate for the MQTT broker's TLS listener (copied to EMQX by the cert-sync service).
 mqtt.{$BASE_DOMAIN} {
 	respond "MQTT broker: connect with an MQTT client on port 8883." 200
+}
+
+# Anything else over plain HTTP (the server's IP, say) is sent to the platform's address.
+http:// {
+	redir https://{$BASE_DOMAIN}{uri}
 }
 
 # Internal plain-HTTP listener for the PDF renderer (container network only; not published).

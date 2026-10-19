@@ -34,10 +34,9 @@ export class DeliveryModule {
         PushChannel,
         {
           provide: CHANNELS,
-          inject: [InAppChannel, EmailChannel, PushChannel, PushService],
-          // Push only when VAPID keys are configured.
-          useFactory: (inapp: NotificationChannel, email: NotificationChannel, push: NotificationChannel, svc: PushService) =>
-            svc.enabled ? [inapp, email, push] : [inapp, email],
+          inject: [InAppChannel, EmailChannel, PushChannel],
+          // Push is skipped per message while no VAPID keys are set up (see Dispatcher).
+          useFactory: (inapp: NotificationChannel, email: NotificationChannel, push: NotificationChannel) => [inapp, email, push],
         },
         Dispatcher,
         AlarmNotifier,

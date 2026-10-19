@@ -1,7 +1,7 @@
 import type { OtaDeviceState, OtaJobStatus, OtaTarget, TariffPeriod } from '@perspice/shared';
-import { bigint, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_common';
-import { customer } from './customers';
+import { customer, customerGroup } from './customers';
 import { device, deviceProfile } from './devices';
 import { user } from './users';
 
@@ -72,6 +72,41 @@ export const deviceClaim = pgTable('device_claim', {
   claimedBy: uuid('claimed_by').references(() => user.id, { onDelete: 'set null' }),
   ...timestamps(),
 });
+
+/**
+ * Provisioning keys: one secret in a profile's firmware lets every unit fetch its own device id
+ * and token on first boot, identified by its serial (no per-device credentials in the image).
+ */
+export const provisioningKey = pgTable(
+  'provisioning_key',
+  {
+    id: id(),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => deviceProfile.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** SHA-256 hex of the secret (`pps_…`), which is shown once. */
+    secretHash: text('secret_hash').notNull().unique(),
+    /** `create`: unknown serials become new devices; `preregistered`: only serials already registered. */
+    mode: text('mode', { enum: ['create', 'preregistered'] }).notNull(),
+    /** New devices join this customer (and group); unassigned when null. */
+    customerId: uuid('customer_id').references(() => customer.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').references(() => customerGroup.id, { onDelete: 'set null' }),
+    tags: text('tags').array().notNull().default([]),
+    /** Unassigned new devices get a claim code, returned to the device (e.g. for a label). */
+    issueClaimCodes: boolean('issue_claim_codes').notNull().default(false),
+    /** A device that provisioned before may fetch new credentials (its old token stops working). */
+    allowReprovision: boolean('allow_reprovision').notNull().default(false),
+    maxDevices: integer('max_devices'),
+    provisionedCount: integer('provisioned_count').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => user.id, { onDelete: 'set null' }),
+    ...timestamps(),
+  },
+  (t) => [index('provisioning_key_profile_idx').on(t.profileId)],
+);
 
 /** Energy tariffs (spec §11): one per customer, and the platform default (scope 'platform'). */
 export const tariff = pgTable('tariff', {

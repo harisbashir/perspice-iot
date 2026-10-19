@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- PerspiceClient: the `RmsTestRun` example, an ESP32 that simulates a Telecom RMS site with random
+  values (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`.
+- PerspiceClient: `PERSPICE_MQTT_BUFFER_BYTES` sets the MQTT packet buffer (384 bytes on AVR).
+
+### Fixed
+
+- PerspiceClient (ESP32): an OTA job resent while its download was running was taken as a new one,
+  and `otaInProgress()` was false during the download.
+- PerspiceClient (ESP32): reporting an update as already applied no longer re-enters the MQTT loop
+  from inside the message callback.
+- PerspiceClient (AVR): a large `bufferCapacity` could overflow the 16-bit allocation size and
+  write past the offline buffer; the MQTT buffer no longer takes 1 KB of an Uno's 2 KB.
+- PerspiceClient: a destroyed client no longer leaves a dangling message callback.
+
+## [1.0.3] - 2026-10-14
+
+Devices made in quantity provision themselves, API keys get a screen, history retention is enforced,
+and the System page does what needed the server's command line.
+
+### Added
+
+- **Provisioning keys** ([provisioning.md](docs/provisioning.md)): one secret per device profile goes
+  into the firmware of every unit; on first boot each unit sends it with its serial to
+  `POST /api/v1/device/provision` and receives its own device id and token, which it keeps across
+  restarts and OTA updates. Keys accept any serial or only registered ones, can place devices in a
+  customer and group with tags, issue claim codes for labels, cap the number of devices, expire,
+  allow re-provisioning, and be revoked. Failed attempts are limited per address.
+- Devices have a **serial** (New device, CSV import column `serial`, search, Credentials tab).
+- PerspiceClient (ESP32): `apiHost` and `provisionKey` instead of an id and token; credentials in
+  NVS; `clearCredentials()`, `claimCode()`, `lastProvisionStatus()`; the `MassProduction` example.
+- **Settings → API keys**: create keys with chosen permissions and an expiry (shown once), list and
+  revoke them; admins see and revoke everyone's keys in their organisation
+  (`GET /api/api-keys?scope=organisation`).
+- The dashboard builder sets the **default time window** and **refresh interval**.
+- **System**: *Run check* (the MQTT round trip of `perspice cli health --mqtt-roundtrip`), *Set up
+  push notifications* (VAPID keys stored encrypted, no restart), and a notice with the update
+  command when a newer release is published (`UPDATE_REPO`, checked every 6 hours).
+
+### Changed
+
+- **History retention is enforced**: raw readings older than the profile's retention (at least 4
+  days) are deleted every 6 hours; minute, hourly and daily summaries are kept, and history further
+  back than the retention is read from them. Installations upgraded from earlier versions delete
+  readings older than 365 days (the default) on the first run; raise a profile's retention first
+  to keep more.
+
+### Fixed
+
+- The top bar's help button was named after the page's article ("Help: Alarms and alarm rules"),
+  so it clashed with links of the same name on the page; it is now "Help for this page".
+
+## [1.0.2] - 2026-10-14
+
+### Added
+
+- Help: articles for every page, opened from the Help button in the top bar. Customers get
+  explanations of how the system works; platform users also get technical guides (device
+  profiles, dashboard design, asset types, the device protocol, firmware, system and API) and
+  boxed platform notes inside articles.
+- Dashboard templates preview with sample data when no device (or asset) can fill them, instead
+  of "This widget needs the dashboard to be opened for a device"; **Preview with** also offers
+  *Sample data* next to real devices.
+
+- Invite links to copy: after inviting a user, and from the menu of an invited user (which issues
+  a fresh link; earlier ones stop working). Users can be onboarded on servers without email.
+  API: the invite response carries `inviteLink`, and `POST /api/users/:id/invite-link` returns a
+  new one.
+
+### Fixed
+
+- Settings tabs other than *My profile* redirected in a loop and the page flickered: their links
+  were resolved under the current tab.
+
+## [1.0.1] - 2026-10-13
+
+Installs from the published images work, and a server can be installed on its IP address
+without DNS records.
+
+### Added
+
+- Installs without DNS records: `install.sh --domain <IPv4>` serves the platform on the address's
+  sslip.io name (customer subdomains included) and, for private addresses, uses local
+  certificates.
+- `install.sh --local-certs` (`LOCAL_CERTS=true`): certificates from Caddy's own authority, for
+  servers the internet can't reach.
+- Plain HTTP to any other name, such as the server's IP, redirects to the platform's address.
+
+### Fixed
+
+- Installs and updates from the published images failed: the installer pulled from a GitHub
+  owner that doesn't exist, and `docker compose pull` tried to pull `cert-sync`, which is built
+  on the server and never published. Images now come from `ghcr.io/harisbashir`, and `cert-sync`
+  is built during install and update.
+
 ## [1.0.0] - 2026-10-13
 
 The first stable release: every success criterion verified end to end

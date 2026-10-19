@@ -11,7 +11,7 @@ export class PushController {
   /** `publicKey` is null when the server has no VAPID keys (push unavailable). */
   @Get('public-key')
   async publicKey(@CurrentUser() actor: AuthUser) {
-    return { publicKey: this.push.publicKey(), subscriptions: await this.push.count(actor.id) };
+    return { publicKey: await this.push.publicKey(), subscriptions: await this.push.count(actor.id) };
   }
 
   @Post('subscriptions')

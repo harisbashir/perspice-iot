@@ -4,7 +4,8 @@ import { type AwsIotBundle, type DeviceDto, type DeviceLocationDto, ErrorCode, t
 import { type SQL, and, arrayContains, asc, count, eq, gt, ilike, or } from 'drizzle-orm';
 import type Redis from 'ioredis';
 import type { AuthUser } from '../auth/auth.types';
-import { AppError, forbidden, notFound, validation } from '../common/app-error';
+import { AppError, conflict, forbidden, notFound, validation } from '../common/app-error';
+import { isUniqueViolation } from '../db/errors';
 import { REDIS } from '../common/redis.module';
 import { CustomersService } from '../customers/customers.service';
 import { DB } from '../db/db.module';
@@ -27,6 +28,7 @@ export const PRESENCE_LAST_SEEN = 'presence:last_seen';
 /** Cached `{customerId, profileId}` used on the ingest hot path (Task 12). */
 export const devMetaKey = (deviceId: string) => `devmeta:${deviceId}`;
 const MAX_ATTRIBUTES_BYTES = 16 * 1024;
+const serialTaken = () => conflict('Another device of this profile already has this serial');
 
 export interface EffectiveTimeouts {
   offlineS: number;
@@ -49,6 +51,7 @@ export interface CreateDeviceInput {
   tags?: string[];
   offlineTimeoutS?: number | null;
   deadTimeoutS?: number | null;
+  serial?: string | null;
 }
 
 export interface UpdateDeviceInput extends Partial<CreateDeviceInput> {
@@ -97,7 +100,7 @@ export class DevicesService {
   async list(actor: AuthUser, q: ListDevicesQuery): Promise<{ items: DeviceDto[]; nextCursor: string | null }> {
     const scope = await this.scopes.forUser(actor);
     const conds: (SQL | undefined)[] = [
-      q.search ? ilike(device.name, `%${q.search}%`) : undefined,
+      q.search ? or(ilike(device.name, `%${q.search}%`), ilike(device.serial, `%${q.search}%`)) : undefined,
       q.profileId ? eq(device.profileId, q.profileId) : undefined,
       q.status ? eq(device.status, q.status) : undefined,
       q.customerId ? eq(device.customerId, q.customerId) : undefined,
@@ -170,9 +173,13 @@ export class DevicesService {
         tags: input.tags ?? [],
         offlineTimeoutS: input.offlineTimeoutS ?? null,
         deadTimeoutS: input.deadTimeoutS ?? null,
+        serial: input.serial ?? null,
         credentialsHash: hash,
       })
-      .returning();
+      .returning()
+      .catch((err: unknown) => {
+        throw isUniqueViolation(err) ? serialTaken() : err;
+      });
     await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
     let awsIot: AwsIotBundle | undefined;
     if (profile.transport === 'aws-iot') {
@@ -203,6 +210,7 @@ export class DevicesService {
     if (patch.disabled !== undefined) set.disabled = patch.disabled;
     if (patch.offlineTimeoutS !== undefined) set.offlineTimeoutS = patch.offlineTimeoutS;
     if (patch.deadTimeoutS !== undefined) set.deadTimeoutS = patch.deadTimeoutS;
+    if (patch.serial !== undefined) set.serial = patch.serial;
 
     let profile = await this.profiles.get(actor, existing.profileId);
     if (patch.profileId !== undefined && patch.profileId !== existing.profileId) {
@@ -221,7 +229,14 @@ export class DevicesService {
     }
     if (patch.groupId !== undefined) set.groupId = await this.resolveGroup(customerId ?? null, patch.groupId);
 
-    const [row] = await this.db.update(device).set(set).where(eq(device.id, id)).returning();
+    const [row] = await this.db
+      .update(device)
+      .set(set)
+      .where(eq(device.id, id))
+      .returning()
+      .catch((err: unknown) => {
+        throw isUniqueViolation(err) ? serialTaken() : err;
+      });
     if (set.customerId !== undefined || set.profileId !== undefined) await ensureDeviceDashboard(this.db, row!.profileId, row!.customerId);
     await this.redis.del(devMetaKey(id), `timeouts:${id}`);
     if (set.disabled !== undefined || set.customerId !== undefined) {
@@ -266,17 +281,23 @@ export class DevicesService {
 
   async regenerateCredentials(actor: AuthUser, id: string): Promise<{ token: string; awsIot?: AwsIotBundle }> {
     const existing = await this.find(actor, id);
-    const { token, hash } = this.credentials.newToken();
     let awsIot: AwsIotBundle | undefined;
     if (existing.awsCertificateArn) {
       const rotated = await this.aws.rotate(id, existing.awsCertificateArn);
       await this.db.update(device).set({ awsCertificateArn: rotated.certificateArn }).where(eq(device.id, id));
       awsIot = rotated.bundle;
     }
-    await this.db.update(device).set({ credentialsHash: hash }).where(eq(device.id, id));
-    await this.credentials.invalidate(id, existing.credentialsHash);
-    await this.emit('device.credentials_changed', existing);
+    const token = await this.replaceToken(existing);
     return { token, ...(awsIot ? { awsIot } : {}) };
+  }
+
+  /** A new token for the device; the old one stops working and its session is closed. */
+  async replaceToken(existing: DeviceRow, set: Partial<typeof device.$inferInsert> = {}): Promise<string> {
+    const { token, hash } = this.credentials.newToken();
+    await this.db.update(device).set({ ...set, credentialsHash: hash }).where(eq(device.id, existing.id));
+    await this.credentials.invalidate(existing.id, existing.credentialsHash);
+    await this.emit('device.credentials_changed', existing);
+    return token;
   }
 
   async setAttributes(actor: AuthUser, id: string, kind: 'server' | 'shared', values: Record<string, unknown>) {
@@ -348,6 +369,8 @@ export class DevicesService {
         status: r.status,
         lastSeen: score ? Number(score) : (r.lastSeen?.getTime() ?? null),
         firmwareVersion: r.firmwareVersion,
+        serial: r.serial,
+        provisionedAt: r.provisionedAt?.toISOString() ?? null,
         offlineTimeoutS: r.offlineTimeoutS,
         deadTimeoutS: r.deadTimeoutS,
         attributes: r.attributes,

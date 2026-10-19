@@ -54,6 +54,8 @@ const device = {
   status: 'online',
   lastSeen: 1,
   firmwareVersion: null,
+  serial: null,
+  provisionedAt: null,
   location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,
@@ -104,6 +106,62 @@ describe('dashboard builder', () => {
     expect(widgets).toHaveLength(2);
     expect(widgets[1]).toMatchObject({ type: 'radial-gauge', title: 'Fuel gauge', datasource: { kind: 'currentDevice', keys: ['fuel_level'] }, settings: { max: 200 } });
     expect(saved!.definition.states[0]!.layout).toHaveLength(2);
+  });
+
+  it('previews with sample data when no device has the profile, and on request when one does', async () => {
+    const sent: unknown[] = [];
+    let devices: (typeof device)[] = [];
+    server.use(
+      ...common,
+      http.post('*/api/dashboards/data', async ({ request }) => {
+        sent.push(...((await request.json()) as { requests: unknown[] }).requests);
+        return HttpResponse.json({ results: {} });
+      }),
+      http.get('*/api/dashboard-templates/t1', () =>
+        HttpResponse.json({ id: 't1', name: 'RMS', kind: 'device', profileId: PROFILE_ID, definition: definition(), version: 3, builtIn: false, createdAt: '', updatedAt: '' }),
+      ),
+      http.get('*/api/devices', () => HttpResponse.json({ items: devices, nextCursor: null })),
+    );
+    const { unmount } = renderApp('/dashboards/t1/edit', { user: makeUser({ permissions: ['dashboard.edit', 'device.read', 'profile.read'] }) });
+    expect(await screen.findByRole('status')).toHaveTextContent(/sample data/i);
+    // The fuel card shows a made-up percentage instead of an error, and nothing was asked of the server for it.
+    const card = await screen.findByRole('region', { name: 'Fuel' });
+    await waitFor(() => expect(card).toHaveTextContent(/\d+(\.\d)?\s*%/));
+    expect(card).not.toHaveTextContent(/needs the dashboard/);
+    expect(sent).toEqual([]);
+    unmount();
+
+    devices = [device];
+    const user = userEvent.setup();
+    renderApp('/dashboards/t1/edit', { user: makeUser({ permissions: ['dashboard.edit', 'device.read', 'profile.read'] }) });
+    const picker = await screen.findByLabelText('Preview with');
+    await waitFor(() => expect(picker).toHaveValue('d1'));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    await user.selectOptions(picker, 'sample');
+    expect(await screen.findByRole('status')).toHaveTextContent(/sample data/i);
+  });
+
+  it('sets the default time window and refresh interval', async () => {
+    let saved: { definition: DashboardDefinition } | undefined;
+    server.use(
+      ...common,
+      http.get('*/api/dashboard-templates/t1', () =>
+        HttpResponse.json({ id: 't1', name: 'RMS', kind: 'device', profileId: PROFILE_ID, definition: definition(), version: 3, builtIn: false, createdAt: '', updatedAt: '' }),
+      ),
+      http.get('*/api/devices', () => HttpResponse.json({ items: [], nextCursor: null })),
+      http.patch('*/api/dashboard-templates/t1', async ({ request }) => {
+        saved = (await request.json()) as { definition: DashboardDefinition };
+        return HttpResponse.json({ id: 't1', name: 'RMS', kind: 'device', profileId: PROFILE_ID, definition: saved.definition, version: 4, builtIn: false, createdAt: '', updatedAt: '' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp('/dashboards/t1/edit', { user: makeUser({ permissions: ['dashboard.edit', 'device.read', 'profile.read'] }) });
+    const windowSelect = await screen.findByLabelText('Default time window');
+    expect(windowSelect).toHaveValue(String(86_400_000));
+    await user.selectOptions(windowSelect, String(7 * 86_400_000));
+    await user.selectOptions(screen.getByLabelText('Refresh'), '60');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(saved?.definition.settings).toEqual({ timewindow: { kind: 'relative', lastMs: 7 * 86_400_000 }, refreshS: 60 }));
   });
 
   it('the clone dialog asks to map keys the target profile lacks', async () => {

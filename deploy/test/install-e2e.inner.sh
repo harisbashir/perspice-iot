@@ -12,7 +12,11 @@ fail() {
   done
   exit 1
 }
-BASE="https://localhost"
+# DOMAIN (default localhost) may be an IPv4 address: the installer then serves its sslip.io name.
+DOMAIN="${DOMAIN:-localhost}"
+HOST="$DOMAIN"
+[[ "$DOMAIN" =~ ^[0-9.]+$ ]] && HOST="${DOMAIN//./-}.sslip.io"
+BASE="https://$HOST"
 api() { curl -fsSk -H 'content-type: application/json' "$@"; }
 COMPOSE=(docker compose -p perspice -f /opt/perspice/docker-compose.yml --env-file /opt/perspice/.env)
 version() { sed -n 's/^PERSPICE_VERSION=//p' /opt/perspice/.env; }
@@ -38,7 +42,7 @@ FRESH=0
 [[ "$FROM" == "$NEW" ]] && FRESH=1
 
 log "Installing $FROM with its own install.sh (images built from its source)"
-old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain localhost --admin-email admin@perspice.test --version "$FROM" 2>&1 | tee /work/install.log; }
+old_install() { bash /opt/src/old/scripts/install.sh --build --non-interactive --domain "$DOMAIN" --admin-email admin@perspice.test --version "$FROM" 2>&1 | tee /work/install.log; }
 # A first database boot in a nested container is slow, and before 1.0 the healthcheck could call
 # its initialisation ready, so the old installer's migration sometimes failed. Its --reinstall
 # can't recover (it replaced the database password; fixed in 1.0), so start over, as a user would
@@ -71,6 +75,13 @@ login() {
 log "Adding a customer and a device, and sending telemetry over MQTT"
 auth=(-H "authorization: Bearer $access")
 customer="$(api "${auth[@]}" -X POST "$BASE/api/customers" -d '{"name":"Upgrade Co","slug":"upgrade"}' | jq -r .id)"
+if [[ "$HOST" != "$DOMAIN" ]]; then
+  log "Checking the IP install: the sslip.io name, local certificates and the redirect from the IP"
+  issuer="$(echo | openssl s_client -connect "$DOMAIN:443" -servername "upgrade.$HOST" 2>/dev/null | openssl x509 -noout -issuer)"
+  [[ "$issuer" == *"Caddy Local Authority"* ]] || fail "the customer's certificate came from: $issuer"
+  location="$(curl -sI "http://$DOMAIN/devices" | sed -n 's/^[Ll]ocation: *//p' | tr -d '\r')"
+  [[ "$location" == "https://$HOST/devices" ]] || fail "http://$DOMAIN redirects to '$location'"
+fi
 profile="$(api "${auth[@]}" "$BASE/api/device-profiles" | jq -r '[.[] | select(.name == "Generic Sensor")][0].id')"
 created="$(api "${auth[@]}" -X POST "$BASE/api/devices" -d "{\"name\":\"survivor\",\"profileId\":\"$profile\",\"customerId\":\"$customer\"}")"
 device="$(jq -r .device.id <<<"$created")"

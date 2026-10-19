@@ -3,10 +3,11 @@ import type { LatestValue } from '@perspice/shared';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { AuthUser } from '../auth/auth.types';
 import { DB } from '../db/db.module';
-import { telemetry, telemetryLatest } from '../db/schema';
+import { deviceProfile, telemetry, telemetryLatest } from '../db/schema';
 import { DevicesService } from '../devices/devices.service';
 import { LatestCache } from '../ingest/latest-cache';
 import { type TelemetrySource, selectSource } from './source-select';
+import { retentionCutoff } from './retention';
 
 export type Aggregation = 'auto' | 'raw' | 'avg' | 'min' | 'max';
 
@@ -63,9 +64,14 @@ export class TelemetryService {
    * aggregates only cover numeric values, so non-numeric keys are always returned raw.
    */
   async history(actor: AuthUser, deviceId: string, q: HistoryQuery): Promise<HistoryResult> {
-    await this.devices.find(actor, deviceId);
+    const d = await this.devices.find(actor, deviceId);
     let source = q.agg === 'raw' ? 'raw' : selectSource(q.from, q.to);
     if (source === 'raw' && (q.agg === 'avg' || q.agg === 'min' || q.agg === 'max')) source = '1m';
+    if (source === 'raw' && q.agg !== 'raw') {
+      // Raw readings older than the profile's retention are gone; the minute summaries remain.
+      const p = await this.db.query.deviceProfile.findFirst({ where: eq(deviceProfile.id, d.profileId), columns: { retentionDays: true } });
+      if (p && q.from < retentionCutoff(p.retentionDays)) source = '1m';
+    }
 
     const series: Record<string, [number, unknown][]> = Object.fromEntries(q.keys.map((k) => [k, []]));
     if (source === 'raw') {

@@ -5,6 +5,7 @@ import { api, apiResponse } from '@/api/client';
 import { useAuth } from '@/auth/AuthProvider';
 import { ErrorText, errorMessage } from '@/components/ErrorText';
 import { PageHeader } from '@/components/PageHeader';
+import { ToolsCard, UpdateNotice } from './SystemTools';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -213,6 +214,7 @@ export function SystemPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="System" description={s ? `Version ${s.version}` : undefined} />
+      <UpdateNotice />
       <ErrorText error={error} />
       {s && (
         <>
@@ -304,6 +306,7 @@ export function SystemPage() {
         </>
       )}
       {hasPerm('backup.manage') && <BackupsCard />}
+      <ToolsCard />
     </div>
   );
 }

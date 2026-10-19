@@ -25,6 +25,8 @@ const ConfigSchema = z.object({
     .refine((v) => Buffer.from(v, 'base64').length === 32, 'MASTER_KEY must be base64 decoding to 32 bytes'),
   PUBLIC_URL: z.string().url().default('http://localhost'),
   BASE_DOMAIN: z.string().min(1).default('localhost'),
+  /** GitHub repository whose releases the System page compares with this version. */
+  UPDATE_REPO: z.string().regex(/^[\w.-]+\/[\w.-]+$/).default('harisbashir/perspice-iot'),
   /** Where the renderer loads the web app (print page); defaults to PUBLIC_URL. */
   RENDERER_APP_URL: z.string().url().optional(),
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),

@@ -34,6 +34,8 @@ export interface SettingValues {
   'backup.schedule': import('@perspice/shared').BackupSchedule;
   'backup.latest': import('../backups/backup.service').LatestBackup;
   'map.tiles': import('@perspice/shared').MapTiles;
+  /** Web push keys set up from the System page (VAPID_* in .env take precedence). */
+  'push.vapid': import('../delivery/push.service').VapidKeys;
 }
 
 export type SettingKey = keyof SettingValues;

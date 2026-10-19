@@ -1,5 +1,5 @@
 import type { Permission } from '@perspice/shared';
-import { Activity, BellRing, Boxes, Building2, CalendarClock, Cpu, FileClock, HardDriveDownload, KeyRound, LayoutDashboard, MapPinned, Network, PanelsTopLeft, Server, Settings, Shapes, Users } from 'lucide-react';
+import { Activity, BellRing, CircleHelp, Boxes, Building2, CalendarClock, Cpu, FileClock, HardDriveDownload, KeyRound, LayoutDashboard, MapPinned, Network, PanelsTopLeft, Server, Settings, Shapes, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 export interface NavItem {
@@ -28,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/audit', label: 'Audit log', icon: FileClock, perm: 'audit.read' },
   { to: '/system', label: 'System', icon: Server, perm: 'system.settings', platformOnly: true },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/help', label: 'Help', icon: CircleHelp },
 ];
 
 export const ACTIVITY_ICON = Activity;

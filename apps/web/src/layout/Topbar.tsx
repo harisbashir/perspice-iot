@@ -1,6 +1,6 @@
-import { LogOut, Menu, UserRound } from 'lucide-react';
+import { CircleHelp, LogOut, Menu, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,12 +11,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { articleForPath } from '@/help/articles';
+import { useHelpArticles } from '@/help/useHelp';
 import { NotificationsBell } from './NotificationsBell';
 import { ThemeToggle } from './ThemeToggle';
 
 export function Topbar({ onMenu, actions }: { onMenu: () => void; actions?: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { articles } = useHelpArticles();
+  const article = articleForPath(pathname, articles);
   return (
     <header className="flex h-14 items-center gap-2 border-b border-slate-200 px-4 dark:border-slate-800">
       <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu" onClick={onMenu}>
@@ -24,6 +29,12 @@ export function Topbar({ onMenu, actions }: { onMenu: () => void; actions?: Reac
       </Button>
       <div className="flex-1" />
       {actions}
+      <Button variant="ghost" size="icon" asChild>
+        {/* One fixed name: a page-dependent one ("Help: Alarm rules") would clash with the page's own links. */}
+        <Link to={article ? `/help/${article.slug}` : '/help'} aria-label="Help for this page" title={article ? `Help: ${article.title}` : 'Help'}>
+          <CircleHelp className="h-5 w-5" />
+        </Link>
+      </Button>
       <NotificationsBell />
       <ThemeToggle />
       <DropdownMenu>

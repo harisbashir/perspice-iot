@@ -13,7 +13,7 @@
 namespace {
 const uint32_t kMaxBackoffMs = 60000;
 const uint8_t kMaxBatch = 10;
-const uint16_t kMqttBufferBytes = 1024;
+const uint16_t kMqttBufferBytes = PERSPICE_MQTT_BUFFER_BYTES;
 #if defined(ESP32) && defined(PERSPICE_BUFFER_FLASH)
 const char* kBufferFile = "/perspice_buffer.txt";
 #endif
@@ -36,14 +36,24 @@ PerspiceClient* PerspiceClient::instance_ = nullptr;
 
 PerspiceClient::PerspiceClient(Client& net) : mqtt_(net) { instance_ = this; }
 
-PerspiceClient::~PerspiceClient() { delete buffer_; }
+PerspiceClient::~PerspiceClient() {
+  if (instance_ == this) instance_ = nullptr;
+  delete buffer_;
+}
 
 bool PerspiceClient::begin(const PerspiceConfig& config) {
-  if (!config.host || !config.deviceId || !config.token) return false;
   config_ = config;
+#if defined(ESP32)
+  userHost_ = config.host != nullptr;
+  if ((!config_.deviceId || !config_.token) && canProvision()) loadCredentials();
+  if (!hasCredentials() && !canProvision()) return false;
+  if (!config_.host && !canProvision()) return false;
+#else
+  if (!config.host || !config.deviceId || !config.token) return false;
+#endif
   delete buffer_;
   buffer_ = new PerspiceBuffer(config.bufferCapacity, PERSPICE_BUFFER_ITEM_BYTES);
-  mqtt_.setServer(config_.host, config_.port);
+  if (config_.host) mqtt_.setServer(config_.host, config_.port);
   mqtt_.setKeepAlive(config_.keepAliveS);
   mqtt_.setBufferSize(kMqttBufferBytes);
   mqtt_.setCallback(dispatch);
@@ -101,12 +111,31 @@ bool PerspiceClient::connect() {
 
 void PerspiceClient::loop() {
   if (!buffer_) return;
+#if defined(ESP32)
+  if (!hasCredentials() || !config_.host) {
+    provisionStep();
+    return;
+  }
+#endif
   if (!mqtt_.connected()) {
     uint32_t now = millis();
     if (static_cast<int32_t>(now - nextAttemptMs_) < 0) return;
     if (connect()) {
       backoffMs_ = 1000;
+#if defined(ESP32)
+      authFailures_ = 0;
+#endif
     } else {
+#if defined(ESP32)
+      // Credentials the broker keeps refusing (token replaced, device re-created): provision
+      // again. The platform only hands out new ones when the key allows it; otherwise the stored
+      // credentials stay and connecting carries on.
+      int st = mqtt_.state();
+      if ((st == MQTT_CONNECT_BAD_CREDENTIALS || st == MQTT_CONNECT_UNAUTHORIZED) && canProvision() && ++authFailures_ >= 3) {
+        authFailures_ = 0;
+        if (provision()) return;
+      }
+#endif
       // Exponential back-off: 1 s, 2 s, 4 s … up to 60 s.
       nextAttemptMs_ = now + backoffMs_;
       backoffMs_ = backoffMs_ * 2 > kMaxBackoffMs ? kMaxBackoffMs : backoffMs_ * 2;

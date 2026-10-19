@@ -17,3 +17,51 @@
   --color-primary-950: 4 30 28;
   --color-accent: 245 158 11;
 }
+
+/* Help articles (rendered Markdown). */
+.help-article {
+  @apply space-y-4 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300;
+}
+.help-article h2 {
+  @apply pt-4 text-xl font-semibold text-slate-900 dark:text-slate-100;
+}
+.help-article h3 {
+  @apply pt-2 text-base font-semibold text-slate-900 dark:text-slate-100;
+}
+.help-article ul {
+  @apply list-disc space-y-1 pl-6;
+}
+.help-article ol {
+  @apply list-decimal space-y-1 pl-6;
+}
+.help-article a {
+  @apply text-primary-700 underline dark:text-primary-300;
+}
+.help-article code {
+  @apply rounded bg-slate-100 px-1 py-0.5 text-[13px] dark:bg-slate-800;
+}
+.help-article pre {
+  @apply overflow-x-auto rounded-md bg-slate-100 p-3 text-[13px] dark:bg-slate-800;
+}
+.help-article pre code {
+  @apply bg-transparent p-0;
+}
+.help-article table {
+  @apply block w-full overflow-x-auto text-sm;
+}
+.help-article th {
+  @apply border-b border-slate-300 px-2 py-1 text-left font-semibold dark:border-slate-700;
+}
+.help-article td {
+  @apply border-b border-slate-200 px-2 py-1 align-top dark:border-slate-800;
+}
+.help-article blockquote {
+  @apply border-l-4 border-primary-300 pl-4 text-slate-600 dark:text-slate-400;
+}
+.help-article .help-platform {
+  @apply space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30;
+}
+.help-article .help-platform::before {
+  content: 'For platform administrators';
+  @apply block text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300;
+}

@@ -57,6 +57,38 @@ perspice.onCommand("gen_start", genStart);
 
 Commands not registered are answered with `failed` and `{"error":"unknown_command"}`.
 
+## Provisioning: one image for every unit (ESP32)
+
+For devices made in quantity, don't flash credentials into each unit. Create a provisioning key on
+the device profile (**Device profiles → Provisioning**), build it into the firmware, and flash the
+same image everywhere:
+
+```cpp
+PerspiceConfig cfg;
+cfg.apiHost = "iot.example.com";            // the platform's web address
+cfg.provisionKey = "pps_…";                 // the same in every unit
+cfg.apiCaCert = rootCaPem;                  // PEM root (ISRG Root X1 for Let's Encrypt): recommended
+cfg.port = 8883;                            // with a WiFiClientSecure
+cfg.firmwareVersion = "1.0.0";
+perspice.begin(cfg);                        // no deviceId/token/host
+```
+
+On first boot the unit sends the key and its serial (its MAC address unless `cfg.serial` is set)
+to `POST https://<apiHost>/api/v1/device/provision` and receives its own device id, token and
+broker host, which it keeps in NVS. Restarts and OTA updates keep them, so the same image can be
+updated over the air. `hasCredentials()`, `deviceId()`, `claimCode()` and
+`lastProvisionStatus()` report progress (a factory jig can print the id or claim code on a label);
+`clearCredentials()` forgets them. If the broker keeps refusing the stored credentials, the
+device asks again, which the platform only answers when the key allows re-provisioning. HTTPS goes
+through the ESP32's own network stack (Wi-Fi, or Ethernet through lwIP). See
+`docs/provisioning.md` in the platform's source.
+
+## Memory
+
+`PERSPICE_MQTT_BUFFER_BYTES` (1024 on ESP32, 384 on AVR) sets PubSubClient's packet buffer; it must
+hold the largest message plus its topic. Override it, like the other `PERSPICE_*` sizes in
+`PerspiceConfig.h`, with a `-D` build flag.
+
 ## TLS
 
 Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
@@ -68,4 +100,8 @@ Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
 - `GeneratorController` — relay control with `gen_start` / `gen_stop` over TLS
 - `DeepSleepSensor` — wake, send, deep sleep (use a *sleepy* profile)
 - `OtaUpdate` — ESP32 taking firmware updates from the platform (set `firmwareVersion`)
+- `MassProduction` — one image for every unit: provisions itself with a provisioning key, stores its credentials, and forgets them on a long press of BOOT
+- `RmsTestRun` — no hardware needed: an ESP32 on Wi-Fi sends random but believable values for every
+  Telecom RMS key (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`,
+  for trying out dashboards, alarms and commands
 - `GpsTracker` — ESP32 with a serial GPS (TinyGPS++): position every 10 s, optional ignition input for trips; needs the `TinyGPSPlus` library

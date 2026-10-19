@@ -1,4 +1,5 @@
-import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { type AnyPgColumn, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import type { CalculatedKey, CommandDef, DeviceLocationDto, DeviceStatus, LocationKeys, StatusNotifyConfig, TelemetryKeyDef, TripSettings } from '@perspice/shared';
 import { id, timestamps } from './_common';
 import { dashboardTemplate } from './dashboards';
@@ -74,9 +75,14 @@ export const device = pgTable(
     deadTimeoutS: integer('dead_timeout_s'),
     disabled: boolean('disabled').notNull().default(false),
     mqttSessionConnectedAt: timestamp('mqtt_session_connected_at', { withTimezone: true }),
+    /** The device's own identifier (MAC, serial number), unique within its profile; used by provisioning. */
+    serial: text('serial'),
+    /** When the device last fetched its credentials with a provisioning key. */
+    provisionedAt: timestamp('provisioned_at', { withTimezone: true }),
     ...timestamps(),
   },
   (t) => [
+    uniqueIndex('device_profile_serial_idx').on(t.profileId, t.serial).where(sql`${t.serial} IS NOT NULL`),
     index('device_customer_idx').on(t.customerId),
     index('device_profile_idx').on(t.profileId),
     index('device_group_idx').on(t.groupId),

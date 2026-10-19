@@ -45,6 +45,17 @@ class PerspiceClient {
   void sleepCycle(uint32_t seconds);
   // True while an OTA update is downloading (the device restarts when it succeeds).
   bool otaInProgress() const { return otaPending_; }
+
+  // Provisioning: true once the device has credentials (configured, stored or fetched).
+  bool hasCredentials() const { return config_.deviceId && config_.token; }
+  const char* deviceId() const { return config_.deviceId ? config_.deviceId : ""; }
+  // The claim code the platform returned (keys that issue them, unassigned devices), else "".
+  const char* claimCode() const { return claimCode_; }
+  // The HTTP status of the last provisioning attempt (201 = success, 401 bad key, 403 refused,
+  // 409 already provisioned), 0 before any, negative for network errors.
+  int lastProvisionStatus() const { return provisionStatus_; }
+  // Forgets stored credentials; the device provisions again on the next loop().
+  void clearCredentials();
 #endif
 
  private:
@@ -62,7 +73,22 @@ class PerspiceClient {
 #if defined(ESP32)
   void receiveOta(JsonDocument& msg);
   void runOta();
+  void runOtaDownload();
   void otaProgress(const char* state, int pct, const char* error = nullptr);
+  bool canProvision() const { return config_.provisionKey && config_.apiHost; }
+  void loadCredentials();
+  bool provision();
+  void provisionStep();
+  char storedId_[40] = "";
+  char storedToken_[72] = "";
+  char storedHost_[128] = "";
+  char claimCode_[20] = "";
+  char macSerial_[18] = "";
+  bool userHost_ = false;
+  int provisionStatus_ = 0;
+  uint8_t authFailures_ = 0;
+  uint32_t nextProvisionMs_ = 0;
+  uint32_t provisionBackoffMs_ = 5000;
   bool otaPending_ = false;
   char otaJob_[40] = "";
   char otaVersion_[41] = "";

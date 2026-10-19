@@ -1,12 +1,20 @@
 #include "PerspiceBuffer.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
+namespace {
+// capacity × itemBytes, or nullptr when it would overflow size_t (16 bits on AVR, where
+// 1000 × 96 would wrap to a small block and the slots would run past it).
+char* allocate(uint16_t capacity, uint16_t itemBytes) {
+  if (capacity == 0 || itemBytes == 0 || capacity > SIZE_MAX / itemBytes) return nullptr;
+  return static_cast<char*>(malloc(static_cast<size_t>(capacity) * itemBytes));
+}
+}  // namespace
+
 PerspiceBuffer::PerspiceBuffer(uint16_t capacity, uint16_t itemBytes)
-    : data_(static_cast<char*>(malloc(static_cast<size_t>(capacity) * itemBytes))),
-      capacity_(data_ ? capacity : 0),
-      itemBytes_(itemBytes) {}
+    : data_(allocate(capacity, itemBytes)), capacity_(data_ ? capacity : 0), itemBytes_(itemBytes) {}
 
 PerspiceBuffer::~PerspiceBuffer() { free(data_); }
 

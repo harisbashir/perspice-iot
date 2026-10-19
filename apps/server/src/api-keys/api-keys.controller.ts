@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { PERMISSIONS } from '@perspice/shared';
 import { z } from 'zod';
 import { Audited } from '../audit/audited.decorator';
@@ -16,9 +16,10 @@ const CreateKey = z.object({
 export class ApiKeysController {
   constructor(private readonly keys: ApiKeysService) {}
 
+  /** Your own keys; `?scope=organisation`: every key in your scope (needs `user.manage`). */
   @Get()
-  list(@CurrentUser() actor: AuthUser) {
-    return this.keys.list(actor);
+  list(@CurrentUser() actor: AuthUser, @Query('scope') scope?: string) {
+    return scope === 'organisation' ? this.keys.listOrganisation(actor) : this.keys.list(actor);
   }
 
   @Post()

@@ -11,7 +11,10 @@ usage() {
   cat <<'USAGE'
 Usage: install.sh [options]
 
-  --domain <domain>          Base domain (platform UI; customers on <slug>.<domain>)
+  --domain <domain|IPv4>     Base domain (platform UI; customers on <slug>.<domain>). An IPv4
+                             address uses its sslip.io name, which needs no DNS records
+  --local-certs              Certificates from Caddy's own authority instead of Let's Encrypt
+                             (servers the internet can't reach; on by default for private IPs)
   --admin-email <email>      Super admin email (also used for certificate notices)
   --admin-name <name>        Super admin name (default: Administrator)
   --version <vX.Y.Z>         Release to install (default: latest; required when offline)
@@ -32,7 +35,7 @@ Usage: install.sh [options]
 USAGE
 }
 
-DOMAIN="" ADMIN_EMAIL="" ADMIN_NAME="Administrator" VERSION="" BUILD=0 INTERACTIVE=1 REINSTALL=0
+DOMAIN="" ADMIN_EMAIL="" ADMIN_NAME="Administrator" VERSION="" BUILD=0 INTERACTIVE=1 REINSTALL=0 LOCAL_CERTS=""
 SMTP_HOST="" SMTP_PORT="587" SMTP_USER="" SMTP_PASS="" SMTP_FROM="" MQTT_PLAIN="true"
 MQTT_MODE="emqx" AWS_REGION_ARG="" STORAGE="local" S3_BUCKET="" S3_REGION="" S3_ENDPOINT=""
 
@@ -54,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --s3-bucket) S3_BUCKET="$2"; shift 2 ;;
     --s3-region) S3_REGION="$2"; shift 2 ;;
     --s3-endpoint) S3_ENDPOINT="$2"; shift 2 ;;
+    --local-certs) LOCAL_CERTS=true; shift ;;
     --build) BUILD=1; shift ;;
     --non-interactive) INTERACTIVE=0; shift ;;
     --reinstall) REINSTALL=1; shift ;;
@@ -119,6 +123,12 @@ prompt DOMAIN "Base domain (e.g. iot.example.com)" domain
 prompt ADMIN_EMAIL "Super admin email" admin-email
 [[ "$ADMIN_EMAIL" == *@*.* ]] || die "Invalid admin email: $ADMIN_EMAIL" 64
 [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die "Invalid domain: $DOMAIN" 64
+# Customers are served on subdomains, which a bare IP can't have: sslip.io resolves
+# <slug>.10-0-0-5.sslip.io to 10.0.0.5. Let's Encrypt can't reach a private address.
+if [[ "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  [[ "$DOMAIN" =~ ^(10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.) ]] && LOCAL_CERTS=true
+  DOMAIN="${DOMAIN//./-}.sslip.io"
+fi
 if [[ "$BUILD" == "1" ]]; then
   VERSION="$(cat "$SCRIPT_DIR/../VERSION")"
 elif [[ -z "$VERSION" ]]; then
@@ -127,6 +137,7 @@ elif [[ -z "$VERSION" ]]; then
 fi
 VERSION="${VERSION#v}"
 ok "Domain $DOMAIN, version $VERSION"
+[[ -n "$LOCAL_CERTS" ]] && warn "Certificates from Caddy's own authority: browsers and devices must trust its root certificate (docs/install.md)."
 
 # 4. Secrets --------------------------------------------------------------------------------------
 step "4/8 Generating secrets"
@@ -152,6 +163,7 @@ PERSPICE_IMAGE_OWNER=$([[ "$BUILD" == "1" ]] && echo local || echo "${PERSPICE_R
 BASE_DOMAIN=$DOMAIN
 PUBLIC_URL=https://$DOMAIN
 ACME_EMAIL=$ADMIN_EMAIL
+LOCAL_CERTS=$LOCAL_CERTS
 POSTGRES_PASSWORD=$(secret POSTGRES_PASSWORD gen_secret 24)
 JWT_SECRET=$(secret JWT_SECRET gen_secret 48)
 MASTER_KEY=$(secret MASTER_KEY openssl rand -base64 32)
@@ -207,8 +219,10 @@ if [[ "$BUILD" == "1" ]]; then
   run_or_print docker build -t "ghcr.io/local/perspice-web:$VERSION" -f "$src/deploy/Dockerfile.web" "$src"
   run_or_print docker build -t "ghcr.io/local/perspice-renderer:$VERSION" -f "$src/deploy/Dockerfile.renderer" "$src"
 else
-  run_or_print compose pull --quiet
+  # cert-sync is built here, never published: pulling it would fail.
+  run_or_print compose pull --quiet --ignore-buildable
 fi
+run_or_print compose build cert-sync
 if [[ "$AWS_IOT" == "1" ]]; then
   # Endpoint, policies and the ingest certificate; the command prints the .env lines to add.
   run_or_print install -d -m 0700 -o 1000 -g 1000 "$PERSPICE_HOME/aws"

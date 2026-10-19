@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        from: [HEAD, v0.1.0, v0.8.0]
+        from: [HEAD, v0.1.0, v0.8.0, v1.0.2]
     steps:
       - uses: actions/checkout@v4
         with:

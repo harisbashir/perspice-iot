@@ -11,6 +11,26 @@ import { WidgetPalette } from './WidgetPalette';
 import { WidgetSettingsPanel } from './WidgetSettingsPanel';
 import { addState, addWidget, removeState, removeWidget, renameState, setLayout, updateWidget, validationError } from './edit';
 
+const H = 3_600_000;
+/** Default time windows a dashboard can open with (viewers pick others with the time picker). */
+const WINDOWS: [number, string][] = [
+  [H, 'Last hour'],
+  [6 * H, 'Last 6 hours'],
+  [24 * H, 'Last 24 hours'],
+  [7 * 24 * H, 'Last 7 days'],
+  [30 * 24 * H, 'Last 30 days'],
+  [90 * 24 * H, 'Last 90 days'],
+];
+const REFRESH: [number, string][] = [
+  [0, 'Off'],
+  [10, 'Every 10 s'],
+  [30, 'Every 30 s'],
+  [60, 'Every minute'],
+  [300, 'Every 5 minutes'],
+  [900, 'Every 15 minutes'],
+];
+const settingSelect = 'h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+
 export interface DashboardEditorProps {
   initial: DashboardDefinition;
   profile: DeviceProfileDto | null;
@@ -18,13 +38,15 @@ export interface DashboardEditorProps {
   previewDevice?: DeviceDto | null;
   /** Asset templates: the asset to preview with. */
   previewAssetId?: string;
+  /** No device or asset to preview with: widgets of the dashboard's own show made-up data. */
+  sample?: boolean;
   onSave: (def: DashboardDefinition) => Promise<void>;
   /** Extra toolbar content (preview device picker, version…). */
   toolbar?: ReactNode;
 }
 
 /** Drag-and-drop editor for a dashboard definition, with a live preview of real data. */
-export function DashboardEditor({ initial, profile, previewDevice = null, previewAssetId, onSave, toolbar }: DashboardEditorProps) {
+export function DashboardEditor({ initial, profile, previewDevice = null, previewAssetId, sample = false, onSave, toolbar }: DashboardEditorProps) {
   const [def, setDef] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [stateId, setStateId] = useState(initial.states[0]!.id);
@@ -99,8 +121,42 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
           {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
         </Button>
       </div>
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          Default time window
+          <select
+            className={settingSelect}
+            value={def.settings.timewindow.kind === 'relative' ? String(def.settings.timewindow.lastMs) : ''}
+            onChange={(e) => change({ ...def, settings: { ...def.settings, timewindow: { kind: 'relative', lastMs: Number(e.target.value) } } })}
+          >
+            {def.settings.timewindow.kind === 'absolute' && <option value="">Fixed dates</option>}
+            {WINDOWS.map(([ms, label]) => (
+              <option key={ms} value={ms}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Refresh
+          <select className={settingSelect} value={def.settings.refreshS} onChange={(e) => change({ ...def, settings: { ...def.settings, refreshS: Number(e.target.value) } })}>
+            {REFRESH.map(([s, label]) => (
+              <option key={s} value={s}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="text-xs text-slate-500">Values update live either way; refreshing also re-reads charts and tables.</span>
+      </div>
       {invalid && dirty && <p className="text-sm text-amber-700 dark:text-amber-400">{invalid}</p>}
       <ErrorText error={error} />
+      {sample && (
+        <p role="status" className="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+          Previewing with sample data: widgets of the dashboard's own device or asset show made-up values so you can see the
+          layout. Real data appears once the dashboard is opened for one.
+        </p>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <DashboardGrid
           state={state}
@@ -108,6 +164,7 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
           refreshS={0}
           device={previewDevice}
           assetId={previewAssetId}
+          sample={sample}
           profile={profile}
           edit={{ selectedId: selected, onSelect: setSelected, onLayoutChange: (layout) => {
             // react-grid-layout reports the initial layout too; only count real changes as edits.

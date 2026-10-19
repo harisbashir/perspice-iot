@@ -18,6 +18,23 @@ Point these records at the server's public IP:
 | `A  *.iot.example.com` | customer subdomains (`acme.iot.example.com`) |
 | `A  mqtt.iot.example.com` | MQTT broker |
 
+### Without DNS records (a LAN or a test server)
+
+Pass the server's IPv4 address as the domain: `install.sh --domain 192.168.1.50`. The platform is
+then served on `192-168-1-50.sslip.io`, a public name that resolves to that address, as do its
+subdomains (`acme.192-168-1-50.sslip.io`), so customer sign-in works with no records to create.
+Opening `http://192.168.1.50` redirects there.
+
+The platform can't be served on the bare IP itself: customers sign in on their own subdomain, and
+an IP has none.
+
+For a private address (10.x, 172.16–31.x, 192.168.x, 100.64–127.x, 127.x) the installer also turns
+on `--local-certs`, since Let's Encrypt can't reach the server; see [Certificates](#certificates).
+
+Some routers refuse DNS answers that point at private addresses ("DNS rebinding protection"). If
+the name doesn't resolve, allow `sslip.io` in the router, or add the names to the hosts file of the
+computer you browse from.
+
 ## Ports
 
 | Port | Use |
@@ -64,6 +81,19 @@ Caddy obtains Let's Encrypt certificates automatically. Customer subdomains get 
 demand, but only for slugs of active customers (Caddy asks the API first). A certificate for
 `mqtt.<domain>` is copied to the broker by the `cert-sync` service; until it exists the broker
 uses a temporary self-signed certificate.
+
+### Local certificates
+
+`--local-certs` (`LOCAL_CERTS=true` in `.env`) makes Caddy issue every certificate from its own
+authority instead of Let's Encrypt, for servers the internet can't reach. Browsers warn until they
+trust the authority's root certificate, and devices connecting with TLS on 8883 need it too:
+
+```bash
+cd /opt/perspice && docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./perspice-root.crt
+```
+
+Import `perspice-root.crt` as a trusted root on each computer (and give it to device firmware as
+the CA). Names ending in `.home.arpa`, `.local` or `localhost` always get local certificates.
 
 For a single wildcard certificate via DNS-01 (Cloudflare, Route 53), build `deploy/Dockerfile.caddy`
 and use `deploy/caddy/Caddyfile.dns`.

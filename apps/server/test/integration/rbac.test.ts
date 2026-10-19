@@ -23,7 +23,7 @@ describe('rbac', () => {
     await t?.close();
   });
 
-  async function customerUser(roleKey: 'customer_admin' | 'customer_viewer', customerId?: string) {
+  async function customerUser(roleKey: 'customer_admin' | 'customer_operator' | 'customer_viewer', customerId?: string) {
     const c = customerId
       ? (await t.db.query.customer.findFirst({ where: eq(customer.id, customerId) }))!
       : await createCustomer(t.db);
@@ -71,6 +71,48 @@ describe('rbac', () => {
     const token = /\/activate\?token=([A-Za-z0-9_-]+)/.exec(await mailText(msg.ID))![1]!;
     expect((await t.http.post('/api/auth/activate').send({ token, password: 'activated-pass' })).status).toBe(200);
     expect((await login(t, email, 'activated-pass', { host: `${c.slug}.localhost` })).status).toBe(200);
+  });
+
+  it('the invite returns its activation link, for admins to pass on when email is not set up', async () => {
+    const { c, auth } = await customerUser('customer_admin');
+    const email = unique('linked');
+    const res = await t.http
+      .post('/api/users/invite')
+      .set('Authorization', auth)
+      .send({ email, name: 'Linked', roleId: await roleId('customer_viewer') });
+    expect(res.status).toBe(201);
+    const link = res.body.inviteLink as string;
+    expect(link).toMatch(new RegExp(`^https?://${c.slug}\\.[^/]+/activate\\?token=[A-Za-z0-9_-]+$`));
+    const token = new URL(link).searchParams.get('token')!;
+    expect((await t.http.post('/api/auth/activate').send({ token, password: 'linked-pass-1' })).status).toBe(200);
+    expect((await login(t, email, 'linked-pass-1', { host: `${c.slug}.localhost` })).status).toBe(200);
+  });
+
+  it('a new invite link replaces the earlier ones, and is only given for invited users in scope', async () => {
+    const { c, auth } = await customerUser('customer_admin');
+    const email = unique('relink');
+    const invited = await t.http
+      .post('/api/users/invite')
+      .set('Authorization', auth)
+      .send({ email, name: 'Relink', roleId: await roleId('customer_viewer') });
+    const first = new URL(invited.body.inviteLink).searchParams.get('token')!;
+
+    const res = await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', auth);
+    expect(res.status).toBe(201);
+    expect(res.body.link).toMatch(new RegExp(`^https?://${c.slug}\\.`));
+    const second = new URL(res.body.link).searchParams.get('token')!;
+    expect(second).not.toBe(first);
+    expect((await t.http.post('/api/auth/activate').send({ token: first, password: 'relink-pass-1' })).status).toBe(400);
+
+    // Others can't mint links: a viewer, or an admin of another customer.
+    const viewer = await customerUser('customer_viewer', c.id);
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', viewer.auth)).status).toBe(403);
+    const other = await customerUser('customer_admin');
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', other.auth)).status).toBe(404);
+
+    expect((await t.http.post('/api/auth/activate').send({ token: second, password: 'relink-pass-1' })).status).toBe(200);
+    // Once active there is nothing to invite.
+    expect((await t.http.post(`/api/users/${invited.body.id}/invite-link`).set('Authorization', auth)).status).toBe(409);
   });
 
   it('customer admin inviting platform_admin → 403', async () => {
@@ -257,6 +299,31 @@ describe('rbac', () => {
       expect(JSON.stringify(list.body)).not.toContain(created.body.key);
       expect((await t.http.delete(`/api/api-keys/${created.body.id}`).set('Authorization', auth)).status).toBe(204);
       expect((await t.http.get('/api/users').set('Authorization', `Bearer ${created.body.key}`)).status).toBe(401);
+    });
+
+    it('admins see and revoke every key in their organisation, never another one’s', async () => {
+      const admin = await customerUser('customer_admin');
+      const colleague = await customerUser('customer_operator', admin.c.id);
+      const theirs = await t.http.post('/api/api-keys').set('Authorization', colleague.auth).send({ name: 'ERP sync', permissions: ['device.read'] });
+      const outsider = await customerUser('customer_admin');
+      const foreign = await t.http.post('/api/api-keys').set('Authorization', outsider.auth).send({ name: 'Other org', permissions: [] });
+
+      // Their own list is only theirs; the organisation's is for user managers.
+      expect((await t.http.get('/api/api-keys').set('Authorization', admin.auth)).body).toEqual([]);
+      const org = await t.http.get('/api/api-keys?scope=organisation').set('Authorization', admin.auth);
+      expect(org.status).toBe(200);
+      expect(org.body.map((k: { id: string }) => k.id)).toEqual([theirs.body.id]);
+      expect(org.body[0]).toMatchObject({ name: 'ERP sync', createdBy: { id: colleague.u.id, email: colleague.u.email } });
+      expect((await t.http.get('/api/api-keys?scope=organisation').set('Authorization', colleague.auth)).status).toBe(403);
+
+      expect((await t.http.delete(`/api/api-keys/${foreign.body.id}`).set('Authorization', admin.auth)).status).toBe(404);
+      expect((await t.http.delete(`/api/api-keys/${theirs.body.id}`).set('Authorization', colleague.auth.replace(/.$/, 'x'))).status).toBe(401);
+      expect((await t.http.delete(`/api/api-keys/${theirs.body.id}`).set('Authorization', admin.auth)).status).toBe(204);
+      expect((await t.http.get('/api/devices').set('Authorization', `Bearer ${theirs.body.key}`)).status).toBe(401);
+
+      // Platform admins see every organisation's keys.
+      const all = await t.http.get('/api/api-keys?scope=organisation').set('Authorization', platformAuth);
+      expect(all.body.map((k: { id: string }) => k.id)).toContain(foreign.body.id);
     });
   });
 });

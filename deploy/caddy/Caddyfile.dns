@@ -16,6 +16,11 @@
 	import perspice
 }
 
+# Anything else over plain HTTP (the server's IP, say) is sent to the platform's address.
+http:// {
+	redir https://{$BASE_DOMAIN}{uri}
+}
+
 # Internal plain-HTTP listener for the PDF renderer (container network only; not published).
 http://:8080 {
 	import perspice

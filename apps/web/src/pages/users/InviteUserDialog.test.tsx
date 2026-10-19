@@ -46,3 +46,47 @@ describe('InviteUserDialog', () => {
     expect(options).toEqual(['Choose a role', 'Customer Operator', 'Customer Viewer']);
   });
 });
+
+describe('invite links', () => {
+  const invited = { id: 'u9', email: 'new@example.com', name: 'New', scopeType: 'platform', customerId: null, groupId: null, roleId: 'platform_admin', status: 'invited', lastLoginAt: null, createdAt: '2026-10-13T00:00:00Z' };
+
+  it('shows the new user’s activation link to copy', async () => {
+    const link = 'https://iot.example.com/activate?token=abc123';
+    server.use(
+      http.get('*/api/users', () => HttpResponse.json([])),
+      http.get('*/api/roles', () => HttpResponse.json([role('platform_admin', 'Platform Admin')])),
+      http.post('*/api/users/invite', () => HttpResponse.json({ ...invited, inviteLink: link }, { status: 201 })),
+    );
+    const user = userEvent.setup();
+    renderApp('/users', { user: makeUser({ roleKey: 'super_admin', permissions: [...BUILT_IN_ROLES.super_admin.permissions] }) });
+    await user.click(await screen.findByRole('button', { name: /invite user/i }));
+    await user.type(await screen.findByLabelText('Email'), 'new@example.com');
+    await user.type(screen.getByLabelText('Name'), 'New');
+    await user.selectOptions(screen.getByLabelText('Role'), 'platform_admin');
+    await user.click(screen.getByRole('button', { name: 'Send invite' }));
+    expect(await screen.findByLabelText('Invite link')).toHaveValue(link);
+    await user.click(screen.getByRole('button', { name: /copy link/i }));
+    expect(await navigator.clipboard.readText()).toBe(link);
+  });
+
+  it('copies a fresh link for an invited user from the list', async () => {
+    const link = 'https://iot.example.com/activate?token=fresh';
+    let minted = 0;
+    server.use(
+      http.get('*/api/users', () => HttpResponse.json([invited])),
+      http.get('*/api/roles', () => HttpResponse.json([role('platform_admin', 'Platform Admin')])),
+      http.post('*/api/users/u9/invite-link', () => {
+        minted++;
+        return HttpResponse.json({ link }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp('/users', { user: makeUser({ roleKey: 'super_admin', permissions: [...BUILT_IN_ROLES.super_admin.permissions] }) });
+    await user.click(await screen.findByRole('button', { name: /actions for new@example.com/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy invite link' }));
+    expect(await screen.findByLabelText('Invite link')).toHaveValue(link);
+    expect(minted).toBe(1);
+    await user.click(screen.getByRole('button', { name: /copy link/i }));
+    expect(await navigator.clipboard.readText()).toBe(link);
+  });
+});

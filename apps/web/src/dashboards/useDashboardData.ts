@@ -1,18 +1,36 @@
-import type { DashboardState, DataResponse, Timewindow } from '@perspice/shared';
+import type { DashboardState, DataResponse, TelemetryKeyDef, Timewindow } from '@perspice/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api/client';
 import { useDevicesSubscription } from '@/realtime/hooks';
 import { useRoomSubscription, useSocketEvent } from '@/realtime/socket';
+import { isSampled, sampleResult } from './sample-data';
 import { type LocationEvent, type Results, type StatusEvent, type TelemetryEvent, type WidgetQuery, applyLocation, applyStatus, applyTelemetry, buildRequests, devicesIn } from './live';
 
 /**
  * Fetches every widget's data in one request and keeps it live: telemetry and status events for
- * the devices on screen are merged in without refetching.
+ * the devices on screen are merged in without refetching. With `sample` (key definitions), widgets
+ * of the dashboard's own device or asset get made-up data instead (template previews).
  */
-export function useDashboardData(state: DashboardState, deviceId: string | undefined, timewindow: Timewindow, refreshS: number, assetId?: string) {
+export function useDashboardData(
+  state: DashboardState,
+  deviceId: string | undefined,
+  timewindow: Timewindow,
+  refreshS: number,
+  assetId?: string,
+  sample?: TelemetryKeyDef[] | null,
+) {
   const [queries, setQueries] = useState<Record<string, WidgetQuery>>({});
-  const { requests, meta } = useMemo(() => buildRequests(state, deviceId, timewindow, queries), [state, deviceId, timewindow, queries]);
+  const built = useMemo(() => buildRequests(state, deviceId, timewindow, queries), [state, deviceId, timewindow, queries]);
+  const { requests, meta, sampled } = useMemo(() => {
+    if (!sample) return { ...built, sampled: {} };
+    const own = built.requests.filter((r) => isSampled(r.datasource));
+    return {
+      requests: built.requests.filter((r) => !isSampled(r.datasource)),
+      meta: Object.fromEntries(Object.entries(built.meta).filter(([id]) => !own.some((r) => r.widgetId === id))),
+      sampled: Object.fromEntries(own.map((r) => [r.widgetId, sampleResult(r, sample)])),
+    };
+  }, [built, sample]);
 
   const query = useQuery({
     queryKey: ['dashboard-data', deviceId ?? null, assetId ?? null, requests],
@@ -52,7 +70,8 @@ export function useDashboardData(state: DashboardState, deviceId: string | undef
 
   const setQuery = (widgetId: string, patch: WidgetQuery) => setQueries((q) => ({ ...q, [widgetId]: { ...q[widgetId], ...patch } }));
   // Widgets with nothing to fetch are "ready" with no data.
-  const resultFor = (widgetId: string) => (meta[widgetId] ? results[widgetId] : { ok: true as const, data: null });
+  const resultFor = (widgetId: string) =>
+    (sampled as Results)[widgetId] ?? (meta[widgetId] ? results[widgetId] : { ok: true as const, data: null });
 
   return { resultFor, setQuery, loading: query.isLoading, error: query.error };
 }

@@ -106,3 +106,39 @@ setup() {
   grep -q "^PG_TUNE_MEMORY=${expected}$" "$PERSPICE_HOME/.env"
   grep -q 'TS_TUNE_MEMORY: ${PG_TUNE_MEMORY:-}' "$SCRIPTS/../deploy/docker-compose.yml"
 }
+
+@test "pulls the published images and builds the locally built cert-sync instead of pulling it" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain example.com --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pull --quiet --ignore-buildable"* ]]
+  [[ "$output" == *"build cert-sync"* ]]
+}
+
+@test "a private IP as the domain installs on its sslip.io name with local certificates" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain 192.168.1.50 --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  grep -q '^BASE_DOMAIN=192-168-1-50.sslip.io$' "$PERSPICE_HOME/.env"
+  grep -q '^PUBLIC_URL=https://192-168-1-50.sslip.io$' "$PERSPICE_HOME/.env"
+  grep -q '^LOCAL_CERTS=true$' "$PERSPICE_HOME/.env"
+  [[ "$output" == *"https://192-168-1-50.sslip.io"* ]]
+}
+
+@test "a public IP gets its sslip.io name with public certificates" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain 203.0.113.7 --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  grep -q '^BASE_DOMAIN=203-0-113-7.sslip.io$' "$PERSPICE_HOME/.env"
+  grep -q '^LOCAL_CERTS=$' "$PERSPICE_HOME/.env"
+}
+
+@test "--local-certs makes Caddy issue its own certificates; public ones are the default" {
+  install_docker_stub
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --domain iot.example.com --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  grep -q '^LOCAL_CERTS=$' "$PERSPICE_HOME/.env"
+  run bash "$SCRIPTS/install.sh" --dry-run --non-interactive --reinstall --local-certs --domain iot.example.com --admin-email admin@example.com --version 0.4.0
+  [ "$status" -eq 0 ]
+  grep -q '^LOCAL_CERTS=true$' "$PERSPICE_HOME/.env"
+}

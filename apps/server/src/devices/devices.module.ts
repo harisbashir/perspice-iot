@@ -1,5 +1,7 @@
 import { ClaimService } from '../provisioning/claim.service';
 import { ImportService } from '../provisioning/import.service';
+import { ProvisioningController } from '../provisioning/provisioning.controller';
+import { ProvisioningService } from '../provisioning/provisioning.service';
 import { BulkService } from './bulk.service';
 import { Global, Module } from '@nestjs/common';
 import { CredentialsService } from './credentials.service';
@@ -11,8 +13,8 @@ import { ProfilesService } from './profiles.service';
 
 @Global()
 @Module({
-  controllers: [ProfilesController, DevicesController],
-  providers: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService, ClaimService, ImportService],
+  controllers: [ProfilesController, DevicesController, ProvisioningController],
+  providers: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService, ClaimService, ImportService, ProvisioningService],
   exports: [ProfilesService, DevicesService, CredentialsService, DebugLogService, BulkService],
 })
 export class DevicesModule {}

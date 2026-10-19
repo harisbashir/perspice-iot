@@ -122,7 +122,7 @@ export function DeviceDetailPage() {
           <OtaPanel deviceId={device.id} firmwareVersion={device.firmwareVersion} />
         </TabsContent>
         <TabsContent value="credentials">
-          <CredentialsPanel deviceId={device.id} />
+          <CredentialsPanel deviceId={device.id} serial={device.serial} provisionedAt={device.provisionedAt} />
         </TabsContent>
         <TabsContent value="debug">
           <DebugPanel deviceId={device.id} />

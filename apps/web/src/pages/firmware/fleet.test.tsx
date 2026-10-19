@@ -41,6 +41,8 @@ const dev = (id: string, name: string): DeviceDto => ({
   status: 'online',
   lastSeen: Date.now(),
   firmwareVersion: '1.0.0',
+  serial: null,
+  provisionedAt: null,
   location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,

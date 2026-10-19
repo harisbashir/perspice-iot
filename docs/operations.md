@@ -96,6 +96,14 @@ One image runs in several roles (`PERSPICE_ROLE`):
 `all` (the default outside Compose) runs every role except `renderer`, which needs the
 Chromium image.
 
+## History retention
+
+Each device profile's **History retention (days)** applies to raw readings: every 6 hours the
+`scheduler` deletes older ones (keeping at least 4 days, which the daily summary's refresh needs).
+Minute, hourly and daily summaries are kept for good, so long-range charts, energy figures and
+exports of summarised data still work; charts of a short period further back than the retention
+show minute averages.
+
 ## Exports and reports
 
 - Exports up to 50,000 rows download straight away; larger ones run on the `scheduler` and the
@@ -117,14 +125,22 @@ Chromium image.
   that still fail are marked as given up (dead letters) and can be retried from the log.
 - Email goes through the SMTP or SES settings (**Settings → Email**). Without them, email
   deliveries fail and show "Email is not configured".
-- **Web push** needs a VAPID key pair. Generate one with `perspice cli vapid-keys`, put the
-  output and a contact (`VAPID_SUBJECT=mailto:ops@example.com`) in `.env`, then
-  `perspice restart`. Without keys, push is hidden in the app.
+- **Web push** needs a VAPID key pair. The installer generates one; otherwise use **System → Set up
+  push notifications**, or `perspice cli vapid-keys` with the output and a contact
+  (`VAPID_SUBJECT=mailto:ops@example.com`) in `.env` and `perspice restart`. Without keys, push is
+  hidden in the app.
 - **Webhooks** may only reach public `https` addresses. To deliver to receivers on your own
   network, a super admin allows plain HTTP and/or private addresses under **Settings →
   Webhooks**.
 
 ## Health
+
+The **System** page shows processes, queues and storage, and (for super admins) can **Run check**
+(the same round trip as `perspice cli health --mqtt-roundtrip`), **Set up push notifications**
+(creates VAPID keys and stores them encrypted, for installs without `VAPID_*` in `.env`), and shows a
+notice with the update command when a newer release is published (checked against GitHub
+releases of `UPDATE_REPO`, default `harisbashir/perspice-iot`, every 6 hours; nothing is shown
+offline).
 
 - `GET /health`: process is up (`{status, role, version}`)
 - `GET /ready`: database and Redis reachable (503 lists failing dependencies)

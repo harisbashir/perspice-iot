@@ -6,6 +6,7 @@
 # with the data intact.
 # Usage: deploy/test/install-e2e.sh [--from v0.1.0 | --from HEAD]   (needs docker and git)
 #   --from HEAD installs this checkout with its own install.sh (no upgrade step).
+#   DOMAIN=<IPv4> (with --from HEAD) installs on the address, served on its sslip.io name.
 #   KEEP=1 leaves the container running (docker exec -it perspice-install-e2e bash).
 set -euo pipefail
 
@@ -47,4 +48,4 @@ DOCKERFILE
 # The inner daemon keeps its images on a volume (overlay2 can't sit on the container's own overlay).
 docker run -d --name "$NAME" --privileged -v "$NAME-docker:/var/lib/docker" -v "$WORK:/work" perspice-install-host sleep infinity >/dev/null
 
-docker exec "$NAME" bash /work/inner.sh
+docker exec -e DOMAIN="${DOMAIN:-localhost}" "$NAME" bash /work/inner.sh

@@ -25,6 +25,8 @@ const device = {
   status: 'online' as const,
   lastSeen: 1,
   firmwareVersion: null,
+  serial: null,
+  provisionedAt: null,
   location: null,
   offlineTimeoutS: null,
   deadTimeoutS: null,

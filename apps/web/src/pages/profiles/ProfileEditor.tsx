@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useProfile } from '../devices/hooks';
 import { CalculatedKeysEditor } from './CalculatedKeysEditor';
 import { CommandsEditor } from './CommandsEditor';
+import { ProvisioningKeys } from './ProvisioningKeys';
 import { TelemetryKeysEditor } from './TelemetryKeysEditor';
 
 type Draft = Omit<DeviceProfileDto, 'id' | 'createdAt' | 'updatedAt' | 'defaultDashboardTemplateId'>;
@@ -83,7 +84,7 @@ export function ProfileEditor() {
     }
   }
 
-  return (
+  const form = (
     <form onSubmit={submit}>
       <PageHeader title={isNew ? 'New device profile' : draft.name || 'Device profile'} actions={<Button type="submit">Save profile</Button>} />
       <div className="grid gap-6">
@@ -102,8 +103,8 @@ export function ProfileEditor() {
               )}
             </Field>
             <Field label="Description">{(fid) => <Input id={fid} value={draft.description ?? ''} onChange={(e) => set('description', e.target.value || null)} />}</Field>
-            <Field label="History retention (days)">
-              {(fid) => <Input id={fid} type="number" min={1} value={draft.retentionDays} onChange={(e) => set('retentionDays', Number(e.target.value))} />}
+            <Field label="History retention (days)" help="Individual readings older than this are deleted (at least 4 days are kept). Minute, hourly and daily averages are kept for good, so long-range charts still work.">
+              {(fid, d) => <Input id={fid} aria-describedby={d} type="number" min={1} value={draft.retentionDays} onChange={(e) => set('retentionDays', Number(e.target.value))} />}
             </Field>
           </CardContent>
         </Card>
@@ -254,5 +255,16 @@ export function ProfileEditor() {
         <ErrorText error={error} />
       </div>
     </form>
+  );
+  // Outside the profile form: keys are saved on their own, and a dialog's form can't nest in it.
+  return !isNew && id && draft.transport !== 'aws-iot' ? (
+    <>
+      {form}
+      <div className="mt-4">
+        <ProvisioningKeys profileId={id} />
+      </div>
+    </>
+  ) : (
+    form
   );
 }

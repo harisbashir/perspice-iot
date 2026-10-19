@@ -12,6 +12,25 @@ import { useProfile } from '../devices/hooks';
 import { useAssetTree, useAssetTypes } from '../assets/hooks';
 import type { TemplateDto } from './types';
 
+const SAMPLE = 'sample';
+
+/** The device or asset a template is previewed with, or made-up sample data. */
+function PreviewPicker({ value, onChange, options }: { value: string; onChange: (id: string) => void; options: { id: string; name: string }[] }) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      Preview with
+      <select className="h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value={SAMPLE}>Sample data</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function TemplateEditorPage() {
   const { templateId = '' } = useParams();
   const qc = useQueryClient();
@@ -23,13 +42,15 @@ export function TemplateEditorPage() {
     queryFn: () => api<Page<DeviceDto>>('/devices', { query: { profileId: tpl!.profileId!, limit: 50 } }),
     enabled: !!tpl?.profileId,
   });
+  // '' = the first device (or sample data without one); 'sample' = always sample data.
   const [previewId, setPreviewId] = useState('');
   const { data: assetTypes = [] } = useAssetTypes();
   const { data: assetRows = [] } = useAssetTree();
   const assetsOfType = assetRows.filter((a) => a.typeId === tpl?.assetTypeId);
   const [previewAssetId, setPreviewAssetId] = useState('');
-  const previewAsset = assetsOfType.find((a) => a.id === previewAssetId) ?? assetsOfType[0];
-  const preview = devices?.items.find((d) => d.id === previewId) ?? devices?.items[0] ?? null;
+  const previewAsset = previewAssetId === SAMPLE ? undefined : (assetsOfType.find((a) => a.id === previewAssetId) ?? assetsOfType[0]);
+  const preview = previewId === SAMPLE ? null : (devices?.items.find((d) => d.id === previewId) ?? devices?.items[0] ?? null);
+  const sample = tpl?.kind === 'device' ? !preview : tpl?.kind === 'asset' ? !previewAsset : false;
 
   if (isLoading) return <Skeleton className="h-96" />;
   if (error || !tpl) return <NotFoundPage />;
@@ -51,29 +72,12 @@ export function TemplateEditorPage() {
         profile={profile ?? null}
         previewDevice={tpl.kind === 'device' ? preview : null}
         previewAssetId={tpl.kind === 'asset' ? previewAsset?.id : undefined}
+        sample={sample}
         toolbar={
-          tpl.kind === 'asset' && assetsOfType.length ? (
-            <label className="flex items-center gap-2 text-sm">
-              Preview with
-              <select className="h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={previewAsset?.id ?? ''} onChange={(e) => setPreviewAssetId(e.target.value)}>
-                {assetsOfType.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : tpl.kind === 'device' && devices?.items.length ? (
-            <label className="flex items-center gap-2 text-sm">
-              Preview with
-              <select className="h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={preview?.id ?? ''} onChange={(e) => setPreviewId(e.target.value)}>
-                {devices.items.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          tpl.kind === 'asset' ? (
+            <PreviewPicker value={previewAsset?.id ?? SAMPLE} onChange={setPreviewAssetId} options={assetsOfType} />
+          ) : tpl.kind === 'device' ? (
+            <PreviewPicker value={preview?.id ?? SAMPLE} onChange={setPreviewId} options={devices?.items ?? []} />
           ) : null
         }
         onSave={async (definition: DashboardDefinition) => {
