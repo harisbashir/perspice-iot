@@ -12,7 +12,11 @@ Arduino / ESP32 library for the Perspice IoT platform (MQTT protocol `perspice/v
   priority (Ethernet first, Wi-Fi first, either only) that an HMI can change at run time
 
 Dependencies: [PubSubClient](https://github.com/knolleary/pubsubclient) and
-[ArduinoJson](https://arduinojson.org) 7.
+[ArduinoJson](https://arduinojson.org) 7. ESP32 needs the Espressif Arduino core 3.x (tested
+3.3.12); with PlatformIO use the pioarduino platform, since the official one still ships core 2.x.
+
+**Building a product on it?** Start from `examples/ProductTemplate` and read [CLAUDE.md](CLAUDE.md):
+toolchain and partitions, threading, TLS pinning, OTA rollback, build flags and the gotchas.
 
 ## Quick start
 
@@ -117,14 +121,34 @@ through the ESP32's own network stack (Wi-Fi, or Ethernet through lwIP). See
 
 `PERSPICE_MQTT_BUFFER_BYTES` (1024 on ESP32, 384 on AVR) sets PubSubClient's packet buffer; it must
 hold the largest message plus its topic. Override it, like the other `PERSPICE_*` sizes in
-`PerspiceConfig.h`, with a `-D` build flag.
+`PerspiceConfig.h`, with a global `-D` build flag: a `#define` in the sketch doesn't reach the
+library's own files.
 
 ## TLS
 
-Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
-`setCACert()` in production; `setInsecure()` is only for testing.
+Pass a `WiFiClientSecure` (ESP32) and port 8883. In production pin the CA instead of
+`setInsecure()`: `PerspiceCerts.h` (included by `PerspiceClient.h`) has the Let's Encrypt roots
+that public installs of the platform use:
+
+```cpp
+net.setCACert(PERSPICE_LETSENCRYPT_ROOTS);
+cfg.apiCaCert = PERSPICE_LETSENCRYPT_ROOTS;  // provisioning
+cfg.otaCaCert = PERSPICE_LETSENCRYPT_ROOTS;  // OTA downloads
+```
+
+A platform installed with `--local-certs` uses its own CA: pin its `root.crt` instead.
+
+## Tasks
+
+The client is not thread-safe and `loop()` blocks for seconds (connecting, provisioning, OTA): run
+it in a task of its own and talk to it through queues, as `ProductTemplate` does.
+`PerspiceNetwork::setPriority()`, `setWifi()`, `forgetSettings()` and the status getters are safe
+from any task (an HMI's).
 
 ## Examples
+
+- `ProductTemplate` — the starting point for product firmware: a comms task and an app/HMI task with
+  queues, provisioning, Wi-Fi + W5500, pinned TLS, OTA with rollback, commands, factory reset
 
 - `BasicSensor` — Arduino Mega with an Ethernet shield (Arduino Ethernet library)
 - `EthernetW5500` — ESP32 / ESP32-S3 on W5500 Ethernet with TLS

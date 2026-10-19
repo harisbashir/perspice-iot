@@ -79,6 +79,7 @@ bool PerspiceNetwork::begin(const PerspiceNetworkConfig& config) {
 
 void PerspiceNetwork::loop() {
   if (!started_) return;
+  applyPending();
   uint32_t now = millis();
 
   bool want = wantWifi();
@@ -122,6 +123,65 @@ IPAddress PerspiceNetwork::localIP() const {
 int PerspiceNetwork::wifiRssi() const { return wifiUp() ? WiFi.RSSI() : 0; }
 
 void PerspiceNetwork::setPriority(PerspicePriority priority) {
+  portENTER_CRITICAL(&lock_);
+  pending_.priority = true;
+  pending_.priorityValue = priority;
+  portEXIT_CRITICAL(&lock_);
+}
+
+PerspicePriority PerspiceNetwork::priority() const {
+  portENTER_CRITICAL(&lock_);
+  PerspicePriority p = pending_.priority ? pending_.priorityValue : priority_;
+  portEXIT_CRITICAL(&lock_);
+  return p;
+}
+
+bool PerspiceNetwork::setWifi(const char* ssid, const char* pass) {
+  if (!pass) pass = "";
+  size_t passLen = strlen(pass);
+  // WPA2 needs 8 to 63 characters; empty is an open network.
+  if (!ssid || !*ssid || strlen(ssid) >= sizeof(ssid_) || (passLen && (passLen < 8 || passLen >= sizeof(pass_)))) return false;
+  portENTER_CRITICAL(&lock_);
+  pending_.wifi = true;
+  strcpy(pending_.ssid, ssid);
+  strcpy(pending_.pass, pass);
+  portEXIT_CRITICAL(&lock_);
+  return true;
+}
+
+void PerspiceNetwork::wifiSsid(char* out, size_t outBytes) const {
+  if (!out || !outBytes) return;
+  portENTER_CRITICAL(&lock_);
+  const char* name = pending_.wifi ? pending_.ssid : ssid_;
+  strncpy(out, name, outBytes - 1);
+  out[outBytes - 1] = '\0';
+  portEXIT_CRITICAL(&lock_);
+}
+
+void PerspiceNetwork::forgetSettings() {
+  portENTER_CRITICAL(&lock_);
+  pending_.forget = true;
+  portEXIT_CRITICAL(&lock_);
+}
+
+void PerspiceNetwork::applyPending() {
+  // Copy out under the lock, then do the slow work (NVS, Wi-Fi) without it.
+  portENTER_CRITICAL(&lock_);
+  Pending p = pending_;
+  pending_ = Pending();
+  portEXIT_CRITICAL(&lock_);
+  if (p.forget) {
+    Preferences prefs;
+    if (prefs.begin(kNamespace, false)) {
+      prefs.clear();
+      prefs.end();
+    }
+  }
+  if (p.priority) applyPriority(p.priorityValue);
+  if (p.wifi) applyWifi(p.ssid, p.pass);
+}
+
+void PerspiceNetwork::applyPriority(PerspicePriority priority) {
   if (priority == priority_) return;
   priority_ = priority;
   avoid_ = PerspiceLink::None;
@@ -135,13 +195,11 @@ void PerspiceNetwork::setPriority(PerspicePriority priority) {
   }
 }
 
-bool PerspiceNetwork::setWifi(const char* ssid, const char* pass) {
-  if (!pass) pass = "";
-  size_t passLen = strlen(pass);
-  // WPA2 needs 8 to 63 characters; empty is an open network.
-  if (!ssid || !*ssid || strlen(ssid) >= sizeof(ssid_) || (passLen && (passLen < 8 || passLen >= sizeof(pass_)))) return false;
+void PerspiceNetwork::applyWifi(const char* ssid, const char* pass) {
+  portENTER_CRITICAL(&lock_);  // wifiSsid(out, n) may be copying the name from another task
   strcpy(ssid_, ssid);
   strcpy(pass_, pass);
+  portEXIT_CRITICAL(&lock_);
   if (config_.remember) {
     Preferences prefs;
     if (prefs.begin(kNamespace, false)) {
@@ -150,16 +208,7 @@ bool PerspiceNetwork::setWifi(const char* ssid, const char* pass) {
       prefs.end();
     }
   }
-  if (wifiStarted_) stopWifi();  // loop() starts it again with the new network
-  return true;
-}
-
-void PerspiceNetwork::forgetSettings() {
-  Preferences prefs;
-  if (prefs.begin(kNamespace, false)) {
-    prefs.clear();
-    prefs.end();
-  }
+  if (wifiStarted_) stopWifi();  // started again below with the new network
 }
 
 void PerspiceNetwork::reportConnectFailure() {

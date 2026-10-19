@@ -4,12 +4,16 @@
 //    upload the .bin under Firmware in the platform for this device's profile.
 // 3. Deploy it: the device downloads it over HTTPS, checks its SHA-256, restarts into it, and
 //    reports the new version, which completes the update.
-// Use a partition scheme with two app slots (the default does). With rollback enabled in the
-// bootloader, an image that never connects is replaced by the previous one.
+// Use a partition scheme with two app slots (the default does).
 #include <PerspiceClient.h>
 #include <WiFi.h>
 
 #define FIRMWARE_VERSION "1.0.0"
+
+// Keep a new image on probation until it reaches the platform (PerspiceClient confirms it on
+// connect); one that never does is rolled back at the next restart. Without this the Arduino core
+// confirms every image at boot. extern "C": the core's default is a C function.
+extern "C" bool verifyRollbackLater() { return true; }
 
 const char* WIFI_SSID = "your-ssid";
 const char* WIFI_PASS = "your-password";

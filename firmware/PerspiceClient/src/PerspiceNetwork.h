@@ -10,6 +10,7 @@
 #include <Arduino.h>
 #include <IPAddress.h>
 #include <SPI.h>
+#include <freertos/FreeRTOS.h>
 
 enum class PerspiceLink : uint8_t { None = 0, Ethernet = 1, WiFi = 2 };
 
@@ -69,10 +70,15 @@ class PerspiceNetwork {
   IPAddress localIP() const;
   int wifiRssi() const;  // dBm, 0 while Wi-Fi is down
 
-  // From the HMI or a command: takes effect at once and is remembered (config.remember).
+  // Safe to call from any task (an HMI's, a command handler): the change is applied, and
+  // remembered (config.remember), by the next loop(). priority() reports a pending change at once.
   void setPriority(PerspicePriority priority);
-  PerspicePriority priority() const { return priority_; }
+  PerspicePriority priority() const;
+  // false for an invalid name or password (WPA2: 8 to 63 characters; empty: an open network).
   bool setWifi(const char* ssid, const char* pass);
+  // Copies the Wi-Fi network name (a pending change included); safe from any task.
+  void wifiSsid(char* out, size_t outBytes) const;
+  // Only from the task that runs loop(): the name in use.
   const char* wifiSsid() const { return ssid_; }
   // Forgets the remembered priority and Wi-Fi network (begin()'s values apply after a restart).
   void forgetSettings();
@@ -96,12 +102,26 @@ class PerspiceNetwork {
   bool wantWifi() const;
   void startWifi();
   void stopWifi();
+  void applyPending();
+  void applyPriority(PerspicePriority priority);
+  void applyWifi(const char* ssid, const char* pass);
   void makeDefault(PerspiceLink link);
   void captureDns(PerspiceLink link);
   void applyDns(PerspiceLink link);
 
   PerspiceNetworkConfig config_;
   PerspicePriority priority_ = PerspicePriority::EthernetFirst;
+  // Changes requested from other tasks, applied by loop(); guarded by lock_.
+  struct Pending {
+    bool priority = false;
+    PerspicePriority priorityValue = PerspicePriority::EthernetFirst;
+    bool wifi = false;
+    char ssid[33] = "";
+    char pass[65] = "";
+    bool forget = false;
+  };
+  Pending pending_;
+  mutable portMUX_TYPE lock_ = portMUX_INITIALIZER_UNLOCKED;
   char ssid_[33] = "";
   char pass_[65] = "";
   bool started_ = false;
