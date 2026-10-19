@@ -14,7 +14,7 @@ pnpm --filter @perspice/web dev:demo     # http://localhost:5173, signed in as a
 realtime socket for a stand-in that pushes a reading for every online device every 4 s
 (`src/demo/socket.ts`, wired by the alias in `vite.config.ts`). The data in `src/demo/fixtures.ts`
 is a small telecom fleet: 6 Telecom RMS sites and 3 cold rooms, alarms, two customers. Its
-dashboards come from the server's own generators (`apps/server/src/dashboards/defaults.ts`) plus a
+dashboards come from the generators the server seeds with (`packages/shared/src/dashboard-defaults.ts`) plus a
 "Site" view on the RMS dashboard and a "Sites" view on the overview that use every gauge. Endpoints
 without a handler return `[]` for reads and `{ ok: true }` for writes. If a page crashes in demo mode,
 it is usually missing a handler that returns the right shape; add one rather than guarding the page.
@@ -136,6 +136,9 @@ screenshots. CSS isn't loaded in tests, so assert on roles and text, not classes
 - react-grid-layout's `WidthProvider` only re-measures on window resize; `DashboardGrid` measures
   its own width with a ResizeObserver instead. Leaflet maps need `invalidateSize()` when their frame
   resizes (`watchSize` in the map widget).
+- Never import from `apps/server` in the web app: the web Docker image only contains `apps/web`
+  and `packages/*`, so the build in CI (smoke, e2e) fails even though local typecheck passes. Move
+  shared code to `packages/shared`.
 - `tailwind.config.ts` changes need a dev-server restart.
 - Tailwind's `animate-pulse` is the skeleton shimmer; the reading glow is `animate-live`.
 - The repo isn't Prettier-clean; don't run `prettier --write` over whole folders, it reformats

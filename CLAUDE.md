@@ -47,7 +47,8 @@ take screenshots. Integration and e2e then run in CI only; say so when handing w
 - Devices speak MQTT through EMQX (or HTTP, or AWS IoT Core); the protocol is
   `docs/device-protocol.md` and `packages/shared/src/protocol.ts`. A protocol change touches the
   server, shared, the firmware library and the docs together.
-- Default dashboards are generated from a profile (`src/dashboards/defaults.ts`); widgets only
+- Default dashboards are generated from a profile (`packages/shared/src/dashboard-defaults.ts`,
+  shared with the web demo); widgets only
   exist on the client, the server stores their type and settings.
 
 ## Conventions

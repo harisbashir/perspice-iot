@@ -5,6 +5,7 @@ export * from './protocol.js';
 export * from './api-types.js';
 export * from './palette.js';
 export * from './dashboard.js';
+export * from './dashboard-defaults.js';
 export * from './exports.js';
 export * from './alarms.js';
 export * from './system.js';

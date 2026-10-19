@@ -10,8 +10,9 @@ import {
   type MeResponse,
   type TelemetryKeyDef,
   PERMISSIONS,
+  generateDeviceDefinition,
+  overviewDefinition,
 } from '@perspice/shared';
-import { generateDeviceDefinition, overviewDefinition } from '../../../server/src/dashboards/defaults';
 import { FALLBACK_BRANDING } from '@/branding/BrandingProvider';
 
 /**
