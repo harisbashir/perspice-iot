@@ -127,6 +127,29 @@ describe('live status', () => {
   });
 });
 
+describe('live values', () => {
+  it('fetches the device once more when its live room is answered, then counts as live', async () => {
+    // A reading published between the page's fetch and the server joining the device's room never
+    // arrives as an event; the second fetch picks it up.
+    let calls = 0;
+    server.use(
+      http.get('*/api/devices/d1', () => {
+        calls++;
+        return HttpResponse.json(device({ latest: { fuel_level: { ts: Date.now(), v: calls === 1 ? 10.5 : 12.5 } } }));
+      }),
+      http.get('*/api/device-profiles/p1', () => HttpResponse.json(profile)),
+    );
+    renderApp('/devices/d1', { user: operator });
+    await waitFor(() => expect(screen.getByTestId('value-fuel_level')).toHaveTextContent('10.5 %'));
+    expect(screen.getByTestId('device-page')).toHaveAttribute('data-live', 'false');
+
+    fakeSocket.answerRooms();
+    await waitFor(() => expect(screen.getByTestId('value-fuel_level')).toHaveTextContent('12.5 %'));
+    await waitFor(() => expect(screen.getByTestId('device-page')).toHaveAttribute('data-live', 'true'));
+    expect(calls).toBe(2);
+  });
+});
+
 describe('TokenDialog', () => {
   it('shows the token once and hides it when closed', async () => {
     const user = userEvent.setup();

@@ -38,14 +38,14 @@ export function DeviceDetailPage() {
   const { data: profile } = useProfile(device?.profileId);
   const dashboard = useDeviceDashboard(id);
   const [tab, setTab] = useState<string | null>(null);
-  useDeviceLive(id);
+  const live = useDeviceLive(id);
 
   if (isLoading || dashboard.isLoading) return <Skeleton className="h-64" />;
   if (error || !device) return <NotFoundPage />;
   const view = dashboard.data ?? null;
 
   return (
-    <div>
+    <div data-testid="device-page" data-live={live}>
       <PageHeader
         title={device.name}
         description={[profile?.name, device.firmwareVersion ? `firmware ${device.firmwareVersion}` : null].filter(Boolean).join(' · ')}

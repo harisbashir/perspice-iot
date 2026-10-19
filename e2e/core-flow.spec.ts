@@ -141,6 +141,8 @@ test('a Telecom RMS device for acme shows live fuel level within 2 s', async () 
   await customer.goto(`${ACME}/devices/${deviceId}`);
   await expect(customer.getByText('Online', { exact: true })).toBeVisible();
   await customer.getByRole('tab', { name: 'Overview' }).click(); // devices open on their dashboard
+  // Publishing before the page has joined the device's live room would lose the reading.
+  await expect(customer.getByTestId('device-page')).toHaveAttribute('data-live', 'true');
   await device.publish({ fuel_level: 71.25, mains_v: 231 });
   await expect(customer.getByTestId('value-fuel_level')).toHaveText('71.3 %', { timeout: 2000 });
 });
