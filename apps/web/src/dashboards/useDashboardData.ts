@@ -44,7 +44,33 @@ export function useDashboardData(
     if (query.data) setResults(query.data.results);
   }, [query.data]);
 
-  useDevicesSubscription(devicesIn(results, meta));
+  // The devices the dashboard names itself (its own, or one chosen in a widget). Devices that only
+  // turn up in lists don't hold back the catch-up below: the next fetch may list others.
+  const named = useMemo(() => [...new Set(Object.values(meta).flatMap((m) => (m.deviceId ? [m.deviceId] : [])))], [meta]);
+  const joined = useDevicesSubscription(devicesIn(results, meta), named);
+  // Readings published between the fetch and the server joining the rooms never arrive as events,
+  // so fetch once more when it has (and after every reconnect). Not needed when the rooms were
+  // joined before this dashboard fetched anything (another view on the same device).
+  const refetch = useRef(query.refetch);
+  refetch.current = query.refetch;
+  const joinedBeforeFetch = useRef(joined);
+  const [caughtUp, setCaughtUp] = useState(false);
+  useEffect(() => {
+    if (!joined) {
+      joinedBeforeFetch.current = false;
+      setCaughtUp(false);
+      return;
+    }
+    if (joinedBeforeFetch.current || !named.length) {
+      setCaughtUp(true);
+      return;
+    }
+    let current = true;
+    void refetch.current().finally(() => current && setCaughtUp(true));
+    return () => {
+      current = false;
+    };
+  }, [joined, named.length]);
   // KPI tiles count the whole scope, so they need every status change, not just on-screen devices.
   const stats = Object.values(meta).map((m) => m.stats);
   const hasAlarms = Object.values(meta).some((m) => m.alarms);
@@ -73,5 +99,7 @@ export function useDashboardData(
   const resultFor = (widgetId: string) =>
     (sampled as Results)[widgetId] ?? (meta[widgetId] ? results[widgetId] : { ok: true as const, data: null });
 
-  return { resultFor, setQuery, loading: query.isLoading, error: query.error };
+  // Live: every update from here on arrives as an event (and no fetch in flight can overwrite it).
+  const live = joined && caughtUp && !query.isFetching;
+  return { resultFor, setQuery, live, loading: query.isLoading, error: query.error };
 }

@@ -70,6 +70,8 @@ test('acme admin sees the new dashboard on Tower 17 with live values within 2 s'
   device = await connectDevice(state.deviceId, state.deviceToken);
   await customer.goto(`${ACME}/devices/${state.deviceId}`);
   await expect(customer.getByRole('region', { name: 'Fuel gauge' })).toBeVisible();
+  // Publishing before the page has joined the device's live room would lose the reading.
+  await expect(customer.getByTestId(/^widget-/).first()).toHaveAttribute('data-live', 'true');
   await device.publish({ fuel_level: 42.5, mains_v: 229 });
   await expect(customer.getByRole('region', { name: 'Fuel level' }).getByTestId('value')).toContainText('42.5', { timeout: 2000 });
 });

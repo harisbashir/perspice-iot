@@ -45,7 +45,7 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
   const { user, hasPerm } = useAuth();
   const navigate = useNavigate();
   const sampleKeys = useMemo(() => (sample ? (profile?.telemetrySchema ?? []) : null), [sample, profile]);
-  const { resultFor, setQuery } = useDashboardData(state, device?.id, timewindow, refreshS, assetId, sampleKeys);
+  const { resultFor, setQuery, live } = useDashboardData(state, device?.id, timewindow, refreshS, assetId, sampleKeys);
 
   const actionsFor = useMemo(
     () =>
@@ -113,7 +113,7 @@ export function DashboardGrid({ state, timewindow, refreshS, device = null, prof
         const def = getWidget(w.type);
         const selected = edit?.selectedId === w.id;
         return (
-          <div key={w.id} data-testid={`widget-${w.id}`} className={cn('relative', selected && 'rounded-lg ring-2 ring-primary-500')}>
+          <div key={w.id} data-testid={`widget-${w.id}`} data-live={live} className={cn('relative', selected && 'rounded-lg ring-2 ring-primary-500')}>
             <WidgetFrame title={w.title} actions={edit ? undefined : widgetActions?.(w)}>
               {def ? (
                 <def.Component
