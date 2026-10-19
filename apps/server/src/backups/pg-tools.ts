@@ -9,7 +9,12 @@ function run(cmd: string, args: string[], io: { stdin?: string; stdout?: string 
     let stderr = '';
     child.stderr!.on('data', (c: Buffer) => (stderr = (stderr + c.toString()).slice(-4000)));
     if (io.stdout) child.stdout!.pipe(createWriteStream(io.stdout, { mode: 0o600 }));
-    if (io.stdin) createReadStream(io.stdin).pipe(child.stdin!);
+    if (io.stdin) {
+      // A tool that stops early (pg_restore --exit-on-error on a bad dump) closes its input, so
+      // the next write fails with EPIPE; its exit code already reports the failure.
+      child.stdin!.on('error', () => undefined);
+      createReadStream(io.stdin).pipe(child.stdin!);
+    }
     child.on('error', (err) => reject(new Error(`${cmd} could not start: ${err.message}`)));
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} failed (exit ${code}): ${stderr.trim().split('\n').slice(-3).join(' ')}`))));
   });
