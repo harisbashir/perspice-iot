@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
+A redesigned web app that works properly on phones, five new dashboard gauges, and PerspiceClient
+0.3.0 with Wi-Fi and W5500 Ethernet and a template for building products on it.
+
 ### Added
 
 - Five dashboard widgets, drawn in SVG so they're sharp at any size and in dark mode: **Dial**
