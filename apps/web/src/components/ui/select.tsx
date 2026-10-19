@@ -10,7 +10,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, ComponentPropsWithout
   ({ className, children, ...props }, ref) => (
     <SelectPrimitive.Trigger
       ref={ref}
-      className={cn('flex h-9 w-full items-center justify-between rounded-md border border-slate-300 bg-transparent px-3 text-sm dark:border-slate-700', className)}
+      className={cn('flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-surface px-3 text-sm text-fg touch:h-11 dark:bg-surface-2/50', className)}
       {...props}
     >
       {children}
@@ -28,7 +28,7 @@ export const SelectContent = forwardRef<HTMLDivElement, ComponentPropsWithoutRef
       <SelectPrimitive.Content
         ref={ref}
         position={position}
-        className={cn('z-50 max-h-80 min-w-[8rem] overflow-hidden rounded-md border border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900', className)}
+        className={cn('z-50 max-h-80 min-w-[8rem] overflow-hidden rounded-xl bg-surface shadow-float dark:bg-surface-2', className)}
         {...props}
       >
         <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
@@ -42,7 +42,7 @@ export const SelectItem = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<ty
   ({ className, children, ...props }, ref) => (
     <SelectPrimitive.Item
       ref={ref}
-      className={cn('relative flex cursor-pointer select-none items-center rounded py-1.5 pl-7 pr-2 text-sm outline-none focus:bg-slate-100 dark:focus:bg-slate-800', className)}
+      className={cn('relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-7 pr-2 text-sm outline-none focus:bg-fill touch:py-2.5', className)}
       {...props}
     >
       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

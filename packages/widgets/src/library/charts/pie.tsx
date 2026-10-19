@@ -19,7 +19,7 @@ export function pieOption(s: Settings, data: LatestData | FleetLatestData, keys:
   return {
     tooltip: { trigger: 'item' },
     legend: { bottom: 0, type: 'scroll' },
-    series: [{ type: 'pie', radius: s.donut ? ['45%', '70%'] : '70%', data: slices }],
+    series: [{ type: 'pie', radius: s.donut ? ['45%', '70%'] : '70%', itemStyle: { borderColor: 'rgba(128,128,128,0.15)', borderWidth: 1, borderRadius: s.donut ? 4 : 0 }, data: slices }],
   };
 }
 

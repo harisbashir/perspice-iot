@@ -29,7 +29,7 @@ function SecretDialog({ secret, onClose }: { secret: string; onClose: () => void
           <DialogTitle>Signing secret</DialogTitle>
         </DialogHeader>
         <p className="text-sm">Copy it now: it won’t be shown again. Verify each call by comparing the <code>X-Perspice-Signature</code> header with an HMAC-SHA256 of <code>timestamp.body</code> using this secret.</p>
-        <code data-testid="webhook-secret" className="block break-all rounded bg-slate-100 p-2 text-sm dark:bg-slate-800">
+        <code data-testid="webhook-secret" className="block break-all rounded bg-fill p-2 text-sm">
           {secret}
         </code>
         <DialogFooter>
@@ -105,7 +105,7 @@ function PolicyCard() {
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={data.allowPrivate} onChange={(e) => void set({ allowPrivate: e.target.checked })} /> Allow private and local network addresses
         </label>
-        <p className="text-xs text-slate-500">Leave both off unless webhooks must reach systems on your own network.</p>
+        <p className="text-xs text-fg-muted">Leave both off unless webhooks must reach systems on your own network.</p>
       </CardContent>
     </Card>
   );
@@ -138,7 +138,7 @@ export function WebhookSettings() {
   return (
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-fg-muted">
           {user?.scopeType === 'platform' ? 'Platform webhooks receive events from every customer.' : 'Webhooks receive your organisation’s events.'}
         </p>
         <Button onClick={() => setCreating(true)}>New webhook</Button>
@@ -178,7 +178,7 @@ export function WebhookSettings() {
           ))}
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={4} className="py-8 text-center text-fg-muted">
                 No webhooks yet.
               </TableCell>
             </TableRow>

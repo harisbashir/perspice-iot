@@ -4,7 +4,8 @@ import { formatNumber, keyDef } from '../../data/format';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
-import { BAND_COLOR, bandOf, clamp, rangeSettings } from '../charts/thresholds';
+import { BAND_VAR, bandOf, clamp, rangeSettings } from '../charts/thresholds';
+import { Readout } from '../shared/Readout';
 import { firstValue } from './shared';
 import { fractionOf } from './progress';
 
@@ -33,13 +34,17 @@ export const tankWidget: WidgetDefinition<Settings> = {
             aria-valuemin={settings.min}
             aria-valuemax={settings.max}
             aria-valuenow={num === null ? settings.min : clamp(num, settings.min, settings.max)}
-            className="relative h-full w-14 overflow-hidden rounded-b-lg rounded-t-md border-2 border-slate-400"
+            className="relative h-full w-14 shrink-0 overflow-hidden rounded-[14px] bg-fill"
           >
-            <div className="absolute inset-x-0 bottom-0 transition-all" style={{ height: `${pct}%`, backgroundColor: BAND_COLOR[bandOf(settings, num)], opacity: 0.8 }} />
+            {/* Quarter marks, then the liquid. */}
+            {[25, 50, 75].map((m) => (
+              <span key={m} aria-hidden className="absolute inset-x-3 h-px bg-fg-muted/25" style={{ bottom: `${m}%` }} />
+            ))}
+            <div className="absolute inset-x-0 bottom-0 transition-[height] duration-700" style={{ height: `${pct}%`, backgroundColor: BAND_VAR[bandOf(settings, num)] }} />
           </div>
-          <div>
-            <div className="text-2xl font-semibold tabular-nums">{pct}%</div>
-            <div className="text-xs text-slate-500">
+          <div className="pb-1">
+            <Readout text={String(pct)} unit="%" />
+            <div className="mt-1.5 text-xs text-fg-muted">
               {num === null ? '—' : formatNumber(num, settings.decimals, settings.unit || def?.unit)}
               {settings.capacity ? ` of ${settings.capacity}` : ''}
             </div>

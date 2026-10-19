@@ -31,7 +31,7 @@ function Toggle({ label, checked, onChange, help }: { label: string; checked: bo
       <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>
         {label}
-        {help && <span className="block text-xs text-slate-500">{help}</span>}
+        {help && <span className="block text-xs text-fg-muted">{help}</span>}
       </span>
     </label>
   );
@@ -62,9 +62,9 @@ function PushCard() {
     <div className="space-y-2">
       <h3 className="text-sm font-medium">This browser</h3>
       {!s.available ? (
-        <p className="text-sm text-slate-500">Push notifications are not set up on this server.</p>
+        <p className="text-sm text-fg-muted">Push notifications are not set up on this server.</p>
       ) : !s.supported ? (
-        <p className="text-sm text-slate-500">This browser does not support push notifications.</p>
+        <p className="text-sm text-fg-muted">This browser does not support push notifications.</p>
       ) : (
         <div className="flex items-center gap-3">
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void toggle()}>
@@ -123,7 +123,7 @@ export function NotificationSettings() {
           <CardTitle>Channels</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-slate-500">The bell in the app always shows your notifications. Choose where else they reach you.</p>
+          <p className="text-sm text-fg-muted">The bell in the app always shows your notifications. Choose where else they reach you.</p>
           <Toggle label="Email" checked={prefs.email} onChange={(email) => set({ email })} />
           <Toggle label="Push notifications" checked={prefs.push} onChange={(push) => set({ push })} help="On the browsers where you turn push on below." />
           <PushCard />

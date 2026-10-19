@@ -19,7 +19,7 @@ function PreviewPicker({ value, onChange, options }: { value: string; onChange: 
   return (
     <label className="flex items-center gap-2 text-sm">
       Preview with
-      <select className="h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select className="h-8 rounded-lg border border-line-strong bg-surface px-2 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
         <option value={SAMPLE}>Sample data</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -62,7 +62,7 @@ export function TemplateEditorPage() {
           ← Dashboards
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{tpl.name}</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-fg-muted">
           {tpl.kind === 'device' ? `${profile?.name ?? ''} devices` : tpl.kind === 'asset' ? `${assetTypes.find((a) => a.id === tpl.assetTypeId)?.name ?? ''} assets` : 'Overview'} · version {tpl.version}
         </p>
       </div>

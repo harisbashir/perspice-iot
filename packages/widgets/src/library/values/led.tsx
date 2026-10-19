@@ -8,8 +8,8 @@ import { firstValue } from './shared';
 const schema = z.object({
   onLabel: field.text('On label', { max: 40 }).default('On'),
   offLabel: field.text('Off label', { max: 40 }).default('Off'),
-  onColor: field.color('On colour').default('#16A34A'),
-  offColor: field.color('Off colour').default('#94A3B8'),
+  onColor: field.color('On colour').default('#34C759'),
+  offColor: field.color('Off colour').default('#8E8E93'),
   threshold: field.number('Threshold', { help: 'For numeric keys: on when the value is above this' }).optional(),
   invert: field.boolean('Invert', 'On when false / below the threshold').default(false),
 });
@@ -39,9 +39,13 @@ export const ledWidget: WidgetDefinition<Settings> = {
     const color = on ? settings.onColor : settings.offColor;
     return (
       <WidgetStatus result={result}>
-        <div role="status" className="flex h-full items-center gap-3">
-          <span aria-hidden className="h-6 w-6 rounded-full shadow-inner" style={{ backgroundColor: on === null ? 'transparent' : color, border: `2px solid ${color}` }} />
-          <span className="text-lg font-medium">{on === null ? '—' : on ? settings.onLabel : settings.offLabel}</span>
+        <div role="status" className="flex h-full items-end gap-2.5 pb-1">
+          <span
+            aria-hidden
+            className="mb-1 h-3.5 w-3.5 shrink-0 rounded-full"
+            style={{ backgroundColor: on === null ? 'transparent' : color, border: `2px solid ${color}`, boxShadow: on ? `0 0 0 4px ${color}33, 0 0 12px ${color}66` : undefined }}
+          />
+          <span className="truncate font-rounded text-xl font-semibold leading-none tracking-tight @[12rem]:text-2xl">{on === null ? '—' : on ? settings.onLabel : settings.offLabel}</span>
         </div>
       </WidgetStatus>
     );

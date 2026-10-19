@@ -4,15 +4,17 @@ import { dataOf, isAlarmStats } from '../../data/result';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
+import { Readout } from '../shared/Readout';
 
 const METRICS = ['total', 'unacknowledged', 'critical', 'major', 'minor', 'warning'] as const;
-const COLORS: Record<(typeof METRICS)[number], string> = {
-  total: '',
-  unacknowledged: 'text-red-700 dark:text-red-400',
-  critical: 'text-red-700 dark:text-red-400',
-  major: 'text-orange-600 dark:text-orange-400',
-  minor: 'text-amber-600 dark:text-amber-400',
-  warning: 'text-sky-700 dark:text-sky-400',
+/** A severity dot beside the count; the count itself stays in the label colour. */
+const DOT: Record<(typeof METRICS)[number], string> = {
+  total: 'bg-fg-muted',
+  unacknowledged: 'bg-crit-vivid',
+  critical: 'bg-crit-vivid',
+  major: 'bg-[#FF6B00]',
+  minor: 'bg-warn-vivid',
+  warning: 'bg-info-vivid',
 };
 
 const schema = z.object({ metric: field.select('Count', METRICS).default('total') });
@@ -32,8 +34,12 @@ export const alarmKpi: WidgetDefinition<Settings> = {
     const value = isAlarmStats(data) ? data[settings.metric] : null;
     return (
       <WidgetStatus result={result}>
-        <div data-testid="alarm-kpi" className={`flex h-full items-center text-3xl font-semibold tabular-nums ${value ? COLORS[settings.metric] : ''}`}>
-          {value === null ? '—' : value.toLocaleString()}
+        <div className="flex h-full items-end justify-between gap-2 pb-1">
+          <span data-testid="alarm-kpi">
+            <Readout text={value === null ? '—' : value.toLocaleString()} className={value ? '' : 'text-fg-muted'} />
+          </span>
+          {/* A dot only while there is something to look at. */}
+          {!!value && <span aria-hidden className={`mb-2 h-2.5 w-2.5 rounded-full ${DOT[settings.metric]}`} />}
         </div>
       </WidgetStatus>
     );

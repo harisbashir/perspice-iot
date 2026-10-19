@@ -50,7 +50,7 @@ export function DeviceDashboardToolbar({ deviceId, view }: { deviceId: string; v
 export function OutdatedBanner({ view }: { view: DashboardViewDto }) {
   if (!view.outdated) return null;
   return (
-    <div role="status" className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+    <div role="status" className="mb-3 rounded-xl bg-warn-tint p-3 text-sm text-warn">
       “{view.templateName}” has changed since this dashboard was customised. Re-sync to get the changes (your customisations will be replaced).
     </div>
   );

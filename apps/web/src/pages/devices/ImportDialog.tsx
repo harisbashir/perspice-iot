@@ -77,7 +77,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-fg-muted">
               Columns: <span className="font-mono">{IMPORT_COLUMNS.join(', ')}</span>. Name and profile are required; tags are separated by “;”; claim = yes gives an unassigned device a claim code; serial registers the device’s serial for provisioning keys. Up to 5,000 devices.
             </p>
             <Field label="CSV file">

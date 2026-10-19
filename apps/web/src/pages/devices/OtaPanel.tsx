@@ -34,7 +34,7 @@ export function OtaPanel({ deviceId, firmwareVersion }: { deviceId: string; firm
           ))}
           {rows?.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+              <TableCell colSpan={4} className="py-6 text-center text-fg-muted">
                 No firmware updates for this device.
               </TableCell>
             </TableRow>

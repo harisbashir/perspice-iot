@@ -47,10 +47,10 @@ export function ExportPage() {
         <CardContent className="space-y-4 p-6">
           <div className="flex items-center gap-3">
             <StatusBadge job={job} />
-            {job.rowCount !== null && <span className="text-sm text-slate-600 dark:text-slate-400">{job.rowCount.toLocaleString()} rows</span>}
+            {job.rowCount !== null && <span className="text-sm text-fg-muted">{job.rowCount.toLocaleString()} rows</span>}
           </div>
           {pending(job) && <p className="text-sm">This export is large, so it is being prepared in the background. You'll get a notification and an email when it's ready.</p>}
-          {job.status === 'failed' && <p className="text-sm text-red-600">{job.error}</p>}
+          {job.status === 'failed' && <p className="text-sm text-crit">{job.error}</p>}
           {job.downloadUrl && (
             <>
               <Button asChild>
@@ -58,7 +58,7 @@ export function ExportPage() {
                   <Download className="h-4 w-4" /> Download
                 </a>
               </Button>
-              {job.expiresAt && <p className="text-xs text-slate-500">Available until {when(job.expiresAt)}.</p>}
+              {job.expiresAt && <p className="text-xs text-fg-muted">Available until {when(job.expiresAt)}.</p>}
             </>
           )}
           {job.status === 'done' && !job.downloadUrl && <p className="text-sm">This export has expired. Run it again to get a fresh file.</p>}
@@ -85,7 +85,7 @@ export function ExportsPage() {
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : data.length === 0 ? (
-        <p className="text-sm text-slate-500">No background exports yet. Smaller exports download straight away.</p>
+        <p className="text-sm text-fg-muted">No background exports yet. Smaller exports download straight away.</p>
       ) : (
         <Table>
           <TableHeader>

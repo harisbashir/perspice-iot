@@ -81,7 +81,7 @@ export function ToolsCard() {
       <CardContent className="space-y-5 text-sm">
         <div className="space-y-2">
           <p className="font-medium">End-to-end check</p>
-          <p className="text-slate-500">
+          <p className="text-fg-muted">
             Connects a temporary device to the broker, sends a value and waits for it to be stored, then removes the device. If
             this works, devices can connect and their data arrives.
           </p>
@@ -90,7 +90,7 @@ export function ToolsCard() {
               {checking ? 'Checking…' : 'Run check'}
             </Button>
             {result && (
-              <span role="status" className={result.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
+              <span role="status" className={result.ok ? 'text-ok' : 'text-crit'}>
                 {result.ok ? `Working: stored in ${result.ms} ms` : `Failed: ${result.message}`}
               </span>
             )}
@@ -99,10 +99,10 @@ export function ToolsCard() {
         <div className="space-y-2">
           <p className="font-medium">Push notifications</p>
           {push.data?.publicKey ? (
-            <p className="text-slate-500">Set up: people can turn on push under Settings → Notifications.</p>
+            <p className="text-fg-muted">Set up: people can turn on push under Settings → Notifications.</p>
           ) : (
             <>
-              <p className="text-slate-500">Not set up. This creates the keys browsers need (stored encrypted); it can’t be undone.</p>
+              <p className="text-fg-muted">Not set up. This creates the keys browsers need (stored encrypted); it can’t be undone.</p>
               <Button variant="outline" onClick={() => void setUpPush()}>
                 Set up push notifications
               </Button>

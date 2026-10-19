@@ -148,7 +148,7 @@ export function CustomersPage() {
             ))}
             {data?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="py-8 text-center text-slate-500">
+                <TableCell colSpan={3} className="py-8 text-center text-fg-muted">
                   No customers yet.
                 </TableCell>
               </TableRow>

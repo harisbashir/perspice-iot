@@ -132,7 +132,7 @@ function ScheduleDialog({ onClose }: { onClose: () => void }) {
                     {k.label}
                   </label>
                 ))}
-                {device && !keys.length && <p className="text-slate-500">This device’s profile has no telemetry keys.</p>}
+                {device && !keys.length && <p className="text-fg-muted">This device’s profile has no telemetry keys.</p>}
               </fieldset>
               <Field label="Format">
                 {(id) => (
@@ -204,7 +204,7 @@ function ScheduleDialog({ onClose }: { onClose: () => void }) {
               {people.map((u) => (
                 <label key={u.id} className="flex items-center gap-2">
                   <input type="checkbox" checked={d.recipients.includes(u.id)} onChange={(e) => set({ recipients: e.target.checked ? [...d.recipients, u.id] : d.recipients.filter((x) => x !== u.id) })} />
-                  {u.name} <span className="text-slate-500">{u.email}</span>
+                  {u.name} <span className="text-fg-muted">{u.email}</span>
                 </label>
               ))}
             </fieldset>
@@ -270,7 +270,7 @@ export function ReportSchedulesPage() {
                 {s.lastRun ? (
                   <span className="flex items-center gap-2">
                     <Badge variant={STATUS_VARIANT[s.lastRun.status]}>{s.lastRun.status}</Badge>
-                    <span className="text-xs text-slate-500">{s.lastRun.message}</span>
+                    <span className="text-xs text-fg-muted">{s.lastRun.message}</span>
                   </span>
                 ) : (
                   '—'
@@ -288,7 +288,7 @@ export function ReportSchedulesPage() {
           ))}
           {data.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={5} className="py-8 text-center text-fg-muted">
                 No scheduled reports yet.
               </TableCell>
             </TableRow>

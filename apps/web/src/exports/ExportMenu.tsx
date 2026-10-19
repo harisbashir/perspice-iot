@@ -58,7 +58,7 @@ export function ExportMenu({ request, label = 'Export', compact, className }: Ex
             aria-label={label}
             title={label}
             disabled={busy}
-            className={cn('rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100', className)}
+            className={cn('rounded p-1 text-fg-muted hover:bg-fill hover:text-fg', className)}
           >
             <Download className="h-3.5 w-3.5" />
           </button>

@@ -48,7 +48,7 @@ export function AssetPage() {
 
   return (
     <div>
-      <nav aria-label="Breadcrumb" className="mb-1 text-sm text-slate-500">
+      <nav aria-label="Breadcrumb" className="mb-1 text-sm text-fg-muted">
         <Link to="/assets" className="hover:underline">
           Assets
         </Link>
@@ -95,12 +95,12 @@ export function AssetPage() {
                 <Link to={`/assets/${c.id}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">
                   {c.name}
                 </Link>{' '}
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-fg-muted">
                   {c.rollup.devices} device{c.rollup.devices === 1 ? '' : 's'}
                 </span>
               </li>
             ))}
-            {children.length === 0 && <li className="text-slate-500">No sub-assets.</li>}
+            {children.length === 0 && <li className="text-fg-muted">No sub-assets.</li>}
           </ul>
           {canWrite && (
             <Button className="mt-3" size="sm" variant="outline" onClick={() => setAdding(true)}>
@@ -115,11 +115,11 @@ export function AssetPage() {
           <dl className="grid max-w-xl grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
             {(type?.attributes ?? []).map((a) => (
               <div key={a.key} className="contents">
-                <dt className="text-slate-500">{a.label}</dt>
+                <dt className="text-fg-muted">{a.label}</dt>
                 <dd data-testid={`attr-${a.key}`}>{asset.attributes[a.key] ?? '—'}</dd>
               </div>
             ))}
-            <dt className="text-slate-500">Location</dt>
+            <dt className="text-fg-muted">Location</dt>
             <dd>{asset.location ? `${asset.location.lat}, ${asset.location.lng}` : '—'}</dd>
           </dl>
         </TabsContent>
@@ -212,7 +212,7 @@ function AssetDevices({ assetId, customerId, canWrite }: { assetId: string; cust
           ))}
           {devices.data?.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="py-6 text-center text-slate-500">
+              <TableCell colSpan={4} className="py-6 text-center text-fg-muted">
                 No devices.
               </TableCell>
             </TableRow>

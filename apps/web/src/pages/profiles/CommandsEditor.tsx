@@ -13,7 +13,7 @@ function SchemaInput({ value, onChange }: { value?: Record<string, unknown>; onC
         aria-label="Parameter schema (JSON Schema)"
         rows={3}
         placeholder='{"type":"object","properties":{"seconds":{"type":"integer"}}}'
-        className="w-full rounded-md border border-slate-300 bg-transparent p-2 font-mono text-xs dark:border-slate-700"
+        className="w-full rounded-lg border border-line-strong bg-surface p-2 font-mono text-xs"
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -39,7 +39,7 @@ export function CommandsEditor({ value, onChange }: { value: CommandDef[]; onCha
   return (
     <div className="space-y-3">
       {value.map((c, i) => (
-        <div key={i} className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+        <div key={i} className="space-y-2 rounded-md border border-line p-3">
           <div className="grid grid-cols-[1fr_1fr_auto_36px] items-center gap-2">
             <Input aria-label="Command name" className="h-8 text-xs" value={c.name} onChange={(e) => update(i, { name: e.target.value })} />
             <Input aria-label="Command label" className="h-8 text-xs" value={c.label} onChange={(e) => update(i, { label: e.target.value })} />

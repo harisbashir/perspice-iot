@@ -30,7 +30,7 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader title="Settings" />
-      <nav aria-label="Settings" className="mb-6 flex gap-1 border-b border-slate-200 dark:border-slate-800">
+      <nav aria-label="Settings" className="scroll-row -mx-4 mb-6 gap-1 border-b border-line px-4 sm:mx-0 sm:px-0">
         {tabs.map((t) => (
           <NavLink
             key={t.to}
@@ -39,8 +39,8 @@ export function SettingsPage() {
             to={`/settings/${t.to}`}
             className={({ isActive }) =>
               cn(
-                '-mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300',
-                isActive && 'border-primary-600 text-primary-700 dark:text-primary-300',
+                '-mb-px shrink-0 whitespace-nowrap border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-fg-muted hover:text-fg',
+                isActive && 'border-primary-600 text-primary-700 dark:border-primary-400 dark:text-primary-300',
               )
             }
           >

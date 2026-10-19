@@ -23,13 +23,13 @@ export const multiValueWidget: WidgetDefinition<Settings> = {
     const keys = 'keys' in config.datasource ? config.datasource.keys : [];
     return (
       <WidgetStatus result={result}>
-        <dl className="grid gap-3" style={{ gridTemplateColumns: `repeat(${settings.columns}, minmax(0, 1fr))` }}>
+        <dl className="grid h-full content-center gap-x-4 gap-y-3" style={{ gridTemplateColumns: `repeat(${settings.columns}, minmax(0, 1fr))` }}>
           {keys.map((k) => {
             const def = keyDef(profile, k);
             return (
               <div key={k}>
-                <dt className="text-xs text-slate-500">{def?.label ?? k}</dt>
-                <dd className="text-lg font-semibold tabular-nums">{formatValue(isLatest(data) ? data.values[k]?.v : undefined, def)}</dd>
+                <dt className="truncate text-xs text-fg-muted">{def?.label ?? k}</dt>
+                <dd className="font-rounded text-lg font-semibold tabular-nums tracking-tight">{formatValue(isLatest(data) ? data.values[k]?.v : undefined, def)}</dd>
               </div>
             );
           })}

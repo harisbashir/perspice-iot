@@ -49,14 +49,15 @@ export function DeviceDetailPage() {
       <PageHeader
         title={device.name}
         description={[profile?.name, device.firmwareVersion ? `firmware ${device.firmwareVersion}` : null].filter(Boolean).join(' · ')}
-      />
-      <div className="mb-4 flex items-center gap-3 text-sm">
-        <StatusBadge status={device.status} />
-        <span className="text-slate-500">Last seen {timeAgo(device.lastSeen)}</span>
-        <DeviceAssetLine deviceId={device.id} customerId={device.customerId} />
-      </div>
+      >
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+          <StatusBadge status={device.status} />
+          <span className="text-fg-muted">Last seen {timeAgo(device.lastSeen)}</span>
+          <DeviceAssetLine deviceId={device.id} customerId={device.customerId} />
+        </div>
+      </PageHeader>
       <Tabs value={tab ?? (view ? 'dashboard' : 'overview')} onValueChange={setTab}>
-        <TabsList className="flex-wrap">
+        <TabsList className="max-w-full">
           {view && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {hasPerm('alarm.read') && <TabsTrigger value="alarms">Alarms</TabsTrigger>}

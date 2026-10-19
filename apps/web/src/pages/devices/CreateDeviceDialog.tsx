@@ -14,7 +14,7 @@ import { DEVICE_LISTS } from '@/realtime/hooks';
 import { TokenDialog } from './CredentialsPanel';
 import { useProfiles } from './hooks';
 
-const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 
 export function CreateDeviceDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { user } = useAuth();

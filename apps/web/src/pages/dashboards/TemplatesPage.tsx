@@ -19,7 +19,7 @@ import { useAssetTypes } from '../assets/hooks';
 import { CloneDialog } from './KeyMappingDialog';
 import type { TemplateDto } from './types';
 
-const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 const EMPTY = { states: [{ id: 'main', name: 'Main', layout: [], widgets: [] }], settings: { timewindow: { kind: 'relative', lastMs: 86_400_000 }, refreshS: 0 } };
 
 function download(name: string, data: unknown) {
@@ -195,7 +195,7 @@ export function TemplatesPage() {
           ))}
           {templates.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={5} className="py-8 text-center text-fg-muted">
                 No dashboards yet. Generate one from a device profile to start.
               </TableCell>
             </TableRow>

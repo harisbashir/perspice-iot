@@ -55,10 +55,10 @@ export function TripsPanel({ deviceId }: { deviceId: string }) {
 
       {distance.data && distance.data.days.length > 0 && (
         <section aria-label="Distance per day" className="space-y-1 text-sm">
-          <h3 className="font-medium">Distance per day <span className="font-normal text-slate-500">({distance.data.timezone})</span></h3>
+          <h3 className="font-medium">Distance per day <span className="font-normal text-fg-muted">({distance.data.timezone})</span></h3>
           {distance.data.days.map((d) => (
             <div key={d.day} className="flex items-center gap-2">
-              <span className="w-24 tabular-nums text-slate-500">{d.day}</span>
+              <span className="w-24 tabular-nums text-fg-muted">{d.day}</span>
               <span className="h-3 rounded bg-blue-500" style={{ width: `${(d.distanceM / maxDay) * 60}%` }} />
               <span className="tabular-nums">{km(d.distanceM)}</span>
             </div>
@@ -91,7 +91,7 @@ export function TripsPanel({ deviceId }: { deviceId: string }) {
           ))}
           {trips.data?.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-slate-500">
+              <TableCell colSpan={5} className="text-center text-fg-muted">
                 No trips in this period.
               </TableCell>
             </TableRow>

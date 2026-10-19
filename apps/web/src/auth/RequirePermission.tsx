@@ -7,7 +7,7 @@ import { useAuth } from './AuthProvider';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading, signedOut } = useAuth();
   const location = useLocation();
-  if (loading) return <div className="p-8 text-sm text-slate-500">Loading…</div>;
+  if (loading) return <div className="p-8 text-sm text-fg-muted">Loading…</div>;
   // After an expired session, signing in returns to this page; after signing out, to the overview.
   if (!user) return <Navigate to="/login" replace state={signedOut ? null : { from: location.pathname }} />;
   return <>{children}</>;
@@ -19,7 +19,7 @@ export function RequirePermission({ perm, children }: { perm: Permission; childr
     return (
       <div className="p-8">
         <h1 className="text-xl font-semibold">Not allowed</h1>
-        <p className="mt-2 text-sm text-slate-500">You don't have access to this page.</p>
+        <p className="mt-2 text-sm text-fg-muted">You don't have access to this page.</p>
       </div>
     );
   }

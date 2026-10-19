@@ -1,6 +1,8 @@
 import type { DeviceDto } from '@perspice/shared';
 import { Link } from 'react-router';
+import { ListRow, ListRows } from '@/components/ListRows';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { GRID_QUERY, useMediaQuery } from '@/lib/useMediaQuery';
 import { StatusBadge } from './StatusBadge';
 import { timeAgo } from './format';
 
@@ -16,8 +18,25 @@ export function DevicesTable({
   selected?: ReadonlySet<string>;
   onSelect?: (ids: string[], on: boolean) => void;
 }) {
+  const wide = useMediaQuery(GRID_QUERY);
   const selectable = !!selected && !!onSelect;
   const all = devices.length > 0 && devices.every((d) => selected?.has(d.id));
+  // Phones get a list: name, status and when it was last heard from (bulk selection needs the table).
+  if (!wide) {
+    return (
+      <ListRows empty="No devices.">
+        {devices.map((d) => (
+          <ListRow
+            key={d.id}
+            to={`/devices/${d.id}`}
+            title={d.name}
+            subtitle={`${profileName(d.profileId)} · ${timeAgo(d.lastSeen)}`}
+            trailing={<StatusBadge status={d.status} />}
+          />
+        ))}
+      </ListRows>
+    );
+  }
   return (
     <Table>
       <TableHeader>
@@ -52,12 +71,12 @@ export function DevicesTable({
             </TableCell>
             <TableCell>{profileName(d.profileId)}</TableCell>
             <TableCell title={d.lastSeen ? new Date(d.lastSeen).toLocaleString() : undefined}>{timeAgo(d.lastSeen)}</TableCell>
-            <TableCell className="text-xs text-slate-500">{d.tags.join(', ')}</TableCell>
+            <TableCell className="text-xs text-fg-muted">{d.tags.join(', ')}</TableCell>
           </TableRow>
         ))}
         {devices.length === 0 && (
           <TableRow>
-            <TableCell colSpan={selectable ? 6 : 5} className="py-8 text-center text-slate-500">
+            <TableCell colSpan={selectable ? 6 : 5} className="py-8 text-center text-fg-muted">
               No devices.
             </TableCell>
           </TableRow>

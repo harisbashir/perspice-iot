@@ -4,15 +4,18 @@ import { dataOf, isStats } from '../../data/result';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
+import { Readout } from '../shared/Readout';
+import { MiniRing } from '../shared/MiniRing';
 
 const METRICS = ['total', 'online', 'offline', 'dead', 'never', 'messages24h'] as const;
-const COLORS: Record<(typeof METRICS)[number], string> = {
-  total: '',
-  online: 'text-green-700 dark:text-green-400',
-  offline: 'text-amber-700 dark:text-amber-400',
-  dead: 'text-red-700 dark:text-red-400',
-  never: 'text-slate-500',
-  messages24h: '',
+/** The ring's colour per status; `total` and `messages24h` have no share to show. */
+const RING: Record<(typeof METRICS)[number], string | null> = {
+  total: null,
+  online: 'rgb(var(--ok-vivid))',
+  offline: 'rgb(var(--warn-vivid))',
+  dead: 'rgb(var(--crit-vivid))',
+  never: 'rgb(var(--fg-muted))',
+  messages24h: null,
 };
 
 const schema = z.object({ metric: field.select('Metric', METRICS).default('total') });
@@ -30,10 +33,20 @@ export const kpiWidget: WidgetDefinition<Settings> = {
   Component: ({ settings, result }) => {
     const data = dataOf(result);
     const value = isStats(data) ? data[settings.metric] : null;
+    const total = isStats(data) ? data.total : 0;
+    const ring = RING[settings.metric];
     return (
       <WidgetStatus result={result}>
-        <div data-testid="kpi" className={`flex h-full items-center text-3xl font-semibold tabular-nums ${COLORS[settings.metric]}`}>
-          {value === null ? '—' : value.toLocaleString()}
+        <div className="flex h-full items-end justify-between gap-2 pb-1">
+          <div data-testid="kpi">
+            <Readout text={value === null ? '—' : value.toLocaleString()} />
+          </div>
+          {ring && value !== null && total > 0 && (
+            <div className="flex flex-col items-end gap-1">
+              <MiniRing fraction={value / total} color={ring} />
+              <span className="text-[11px] font-medium tabular-nums text-fg-muted">{Math.round((value / total) * 100)}% of {total.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       </WidgetStatus>
     );

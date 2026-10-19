@@ -88,7 +88,7 @@ export function TariffSettings() {
               )}
             </Field>
           )}
-          <p className="text-slate-500" data-testid="tariff-status">
+          <p className="text-fg-muted" data-testid="tariff-status">
             {isDefaultScope
               ? 'Applies to customers without a tariff of their own, and to unassigned devices.'
               : current?.inherited
@@ -105,7 +105,7 @@ export function TariffSettings() {
           </div>
           <div className="space-y-2">
             <p className="font-medium">Time-of-use periods</p>
-            <p className="text-xs text-slate-500">In the customer’s timezone; “to” is exclusive (17–21 is 17:00 to 21:00). The first period that covers an hour applies.</p>
+            <p className="text-xs text-fg-muted">In the customer’s timezone; “to” is exclusive (17–21 is 17:00 to 21:00). The first period that covers an hour applies.</p>
             {draft.periods.map((p, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2" data-testid={`tariff-period-${i}`}>
                 <Input aria-label="Period name" className={`${cell} w-28`} value={p.name} onChange={(e) => setPeriod(i, { name: e.target.value })} />

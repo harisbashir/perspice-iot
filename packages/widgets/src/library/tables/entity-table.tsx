@@ -7,12 +7,17 @@ import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
 import { StatusPill } from './StatusPill';
-import { row, td, th } from './styles';
+import { row, td, th, wideOnly } from './styles';
 
 const schema = z.object({ linkToDevice: field.boolean('Open the device dashboard on click').default(true) });
 type Settings = z.infer<typeof schema>;
 
 const BUILT_IN: Record<string, string> = { status: 'Status', name: 'Name', profile: 'Profile', customer: 'Customer', lastSeen: 'Last seen' };
+/** Columns kept on a narrow widget: the name, the status, and the first other column configured. */
+const secondaryOf = (columns: string[]) => {
+  const keep = new Set(['name', 'status', columns.find((c) => c !== 'name' && c !== 'status')]);
+  return (c: string) => !keep.has(c);
+};
 
 export const entityTable: WidgetDefinition<Settings> = {
   type: 'entity-table',
@@ -27,6 +32,7 @@ export const entityTable: WidgetDefinition<Settings> = {
     const data = dataOf(result);
     const ds = config.datasource.kind === 'entityList' ? config.datasource : null;
     const columns = (ds?.columns ?? []).filter((c) => !(c === 'customer' && viewer.scopeType === 'customer'));
+    const secondary = secondaryOf(columns);
     const [sort, setSort] = useState<{ by: string; dir: 'asc' | 'desc' } | null>(null);
     const [customerId, setCustomerId] = useState('');
     const list = isList(data) ? data : null;
@@ -45,11 +51,11 @@ export const entityTable: WidgetDefinition<Settings> = {
         <div className="flex h-full flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white dark:bg-slate-900">
+              <thead className="sticky top-0 bg-surface">
                 <tr>
                   {columns.map((c) => (
-                    <th key={c} className={th} aria-sort={sort?.by === c ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-                      <button type="button" className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white" onClick={() => sortBy(c)}>
+                    <th key={c} className={`${th} ${secondary(c) ? wideOnly : ''}`} aria-sort={sort?.by === c ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                      <button type="button" className="inline-flex items-center gap-1 hover:text-fg" onClick={() => sortBy(c)}>
                         {BUILT_IN[c] ?? keyDef(profile, c)?.label ?? c}
                         {sort?.by === c && (sort.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                       </button>
@@ -61,7 +67,7 @@ export const entityTable: WidgetDefinition<Settings> = {
                 {list?.items.map((item) => (
                   <tr key={item.id} className={row}>
                     {columns.map((c) => (
-                      <td key={c} className={td}>
+                      <td key={c} className={`${td} ${secondary(c) ? wideOnly : ''}`}>
                         {c === 'status' ? (
                           <StatusPill status={item.status} />
                         ) : c === 'name' ? (
@@ -96,11 +102,11 @@ export const entityTable: WidgetDefinition<Settings> = {
             </table>
           </div>
           {list && (
-            <div className="flex items-center justify-end gap-2 pt-1 text-xs text-slate-500">
+            <div className="flex items-center justify-end gap-2 pt-1 text-xs text-fg-muted">
               {viewer.scopeType === 'platform' && (list.customers?.length || customerId) ? (
                 <select
                   aria-label="Filter by customer"
-                  className="mr-auto rounded border border-slate-200 bg-transparent px-1 py-0.5 dark:border-slate-700"
+                  className="mr-auto h-7 rounded-md border border-line-strong bg-surface px-2 text-xs"
                   value={customerId}
                   onChange={(e) => {
                     setCustomerId(e.target.value);
@@ -116,10 +122,10 @@ export const entityTable: WidgetDefinition<Settings> = {
                 </select>
               ) : null}
               <span>{list.total ? `${from}–${to} of ${list.total}` : 'No devices'}</span>
-              <button type="button" aria-label="Previous page" disabled={list.page === 0} className="disabled:opacity-40" onClick={() => actions.setQuery({ page: list.page - 1 })}>
+              <button type="button" aria-label="Previous page" disabled={list.page === 0} className="grid h-7 w-7 place-items-center rounded-md hover:bg-fill disabled:opacity-40 touch:h-9 touch:w-9" onClick={() => actions.setQuery({ page: list.page - 1 })}>
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <button type="button" aria-label="Next page" disabled={to >= list.total} className="disabled:opacity-40" onClick={() => actions.setQuery({ page: list.page + 1 })}>
+              <button type="button" aria-label="Next page" disabled={to >= list.total} className="grid h-7 w-7 place-items-center rounded-md hover:bg-fill disabled:opacity-40 touch:h-9 touch:w-9" onClick={() => actions.setQuery({ page: list.page + 1 })}>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>

@@ -36,7 +36,7 @@ function Tile({ label, value }: { label: string; value: string }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs font-medium uppercase text-slate-500">{label}</div>
+        <div className="text-xs font-medium uppercase text-fg-muted">{label}</div>
         <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
       </CardContent>
     </Card>
@@ -127,14 +127,14 @@ function BackupsCard() {
               Latest: <span className="font-mono">{s.latest.file}</span> · {formatBytes(s.latest.size)} · {new Date(s.latest.createdAt).toLocaleString()}
             </p>
           ) : (
-            <p className="text-slate-500">No backup yet.</p>
+            <p className="text-fg-muted">No backup yet.</p>
           )}
           {s.lastError && (
             <p role="alert" className="text-red-600">
               Last backup failed {new Date(s.lastError.at).toLocaleString()}: {s.lastError.message}
             </p>
           )}
-          {s.nextRunAt && <p className="text-slate-500">Next scheduled backup: {new Date(s.nextRunAt).toLocaleString()}</p>}
+          {s.nextRunAt && <p className="text-fg-muted">Next scheduled backup: {new Date(s.nextRunAt).toLocaleString()}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button disabled={!s.configured || s.running} onClick={() => void backUpNow()}>
@@ -160,9 +160,9 @@ function BackupsCard() {
             </Button>
           </form>
         )}
-        <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <div className="space-y-2 border-t border-line pt-4">
           <h3 className="font-medium">Restore</h3>
-          <p className="text-slate-500">Replaces all data and files with the backup’s. The platform is unavailable while it runs.</p>
+          <p className="text-fg-muted">Replaces all data and files with the backup’s. The platform is unavailable while it runs.</p>
           <input
             ref={fileRef}
             type="file"

@@ -78,7 +78,7 @@ export function DeliveryLogSettings() {
               <TableCell className="max-w-64 truncate">{d.subject}</TableCell>
               <TableCell>
                 <Badge variant={STATUS_VARIANT[d.status]}>{d.status}</Badge>
-                {d.error && <div className="mt-0.5 max-w-64 truncate text-xs text-slate-500" title={d.error}>{d.error}</div>}
+                {d.error && <div className="mt-0.5 max-w-64 truncate text-xs text-fg-muted" title={d.error}>{d.error}</div>}
               </TableCell>
               <TableCell>
                 {hasPerm('webhook.manage') && (d.status === 'failed' || d.status === 'dead') && (
@@ -91,7 +91,7 @@ export function DeliveryLogSettings() {
           ))}
           {!list.isLoading && rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={6} className="py-8 text-center text-fg-muted">
                 Nothing here.
               </TableCell>
             </TableRow>

@@ -145,7 +145,7 @@ export function AlarmRulesPage() {
           ))}
           {rules.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={5} className="py-8 text-center text-fg-muted">
                 No alarm rules yet.
               </TableCell>
             </TableRow>

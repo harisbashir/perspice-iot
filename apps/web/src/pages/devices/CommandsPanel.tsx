@@ -43,7 +43,7 @@ function ParamsForm({ schema, value, onChange }: { schema?: Record<string, unkno
         <Field key={name} label={`${p.title ?? name}${required.has(name) ? '' : ' (optional)'}`}>
           {(id) =>
             p.enum ? (
-              <select id={id} className="h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={String(value[name] ?? '')} onChange={(e) => onChange({ ...value, [name]: e.target.value })}>
+              <select id={id} className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm" value={String(value[name] ?? '')} onChange={(e) => onChange({ ...value, [name]: e.target.value })}>
                 <option value="" />
                 {p.enum.map((o) => (
                   <option key={String(o)} value={String(o)}>
@@ -151,7 +151,7 @@ export function CommandsPanel({ deviceId, deviceName, commands }: { deviceId: st
           ))}
         </div>
       )}
-      {commands.length === 0 && <p className="text-sm text-slate-500">This device's profile declares no commands.</p>}
+      {commands.length === 0 && <p className="text-sm text-fg-muted">This device's profile declares no commands.</p>}
       <div>
         <h3 className="mb-2 text-sm font-semibold">Recent commands</h3>
         <Table>

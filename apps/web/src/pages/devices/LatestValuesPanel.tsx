@@ -11,17 +11,17 @@ export function LatestValuesPanel({ device, schema }: { device: DeviceDto; schem
     .sort()
     .map((key) => ({ key, label: key, def: undefined }));
   const rows = [...known, ...extra];
-  if (!rows.length) return <p className="text-sm text-slate-500">No telemetry received yet.</p>;
+  if (!rows.length) return <p className="text-sm text-fg-muted">No telemetry received yet.</p>;
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map(({ key, label, def }) => (
         <Card key={key}>
           <CardContent className="p-4">
-            <div className="text-xs font-medium uppercase text-slate-500">{label}</div>
+            <div className="text-xs font-medium uppercase text-fg-muted">{label}</div>
             <div data-testid={`value-${key}`} className="mt-1 text-2xl font-semibold tabular-nums">
               {formatValue(latest[key]?.v, def)}
             </div>
-            <div className="mt-1 text-xs text-slate-500">{latest[key] ? timeAgo(latest[key]!.ts) : 'no data'}</div>
+            <div className="mt-1 text-xs text-fg-muted">{latest[key] ? timeAgo(latest[key]!.ts) : 'no data'}</div>
           </CardContent>
         </Card>
       ))}

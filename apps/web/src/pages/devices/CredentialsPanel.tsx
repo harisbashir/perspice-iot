@@ -47,14 +47,14 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 function AwsIotSection({ bundle }: { bundle: AwsIotBundle }) {
   const save = (text: string, name: string) => saveBlob(new Blob([text], { type: 'application/x-pem-file' }), name);
   return (
-    <div data-testid="aws-iot-bundle" className="space-y-2 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800">
+    <div data-testid="aws-iot-bundle" className="space-y-2 rounded-md border border-line p-3 text-sm">
       <p className="font-medium">AWS IoT Core</p>
       <dl className="grid grid-cols-[120px_1fr] gap-1">
-        <dt className="text-slate-500">Endpoint</dt>
+        <dt className="text-fg-muted">Endpoint</dt>
         <dd className="break-all font-mono">{bundle.endpoint}:8883</dd>
-        <dt className="text-slate-500">Client ID</dt>
+        <dt className="text-fg-muted">Client ID</dt>
         <dd className="font-mono">{bundle.clientId}</dd>
-        <dt className="text-slate-500">Topics</dt>
+        <dt className="text-fg-muted">Topics</dt>
         <dd className="font-mono">{bundle.topicPrefix}…</dd>
       </dl>
       <div className="flex flex-wrap gap-2">
@@ -84,7 +84,7 @@ export function TokenDialog({ deviceId, token, awsIot, onClose }: { deviceId: st
         </DialogHeader>
         {token && (
           <div className="space-y-3">
-            <code data-testid="device-token" className="block break-all rounded bg-slate-100 p-3 font-mono text-sm dark:bg-slate-800">
+            <code data-testid="device-token" className="block break-all rounded bg-fill p-3 font-mono text-sm">
               {token}
             </code>
             {awsIot ? <AwsIotSection bundle={awsIot} /> : <pre className="overflow-x-auto rounded bg-slate-900 p-3 text-xs text-slate-100">{arduinoSnippet(deviceId, token)}</pre>}
@@ -129,24 +129,24 @@ export function CredentialsPanel({
   return (
     <div className="space-y-4 text-sm">
       <dl className="grid grid-cols-[140px_1fr] gap-2">
-        <dt className="text-slate-500">MQTT host</dt>
+        <dt className="text-fg-muted">MQTT host</dt>
         <dd className="font-mono">{mqttHost()}</dd>
-        <dt className="text-slate-500">Ports</dt>
+        <dt className="text-fg-muted">Ports</dt>
         <dd>8883 (TLS), 1883 (plain, if enabled)</dd>
-        <dt className="text-slate-500">Client ID / username</dt>
+        <dt className="text-fg-muted">Client ID / username</dt>
         <dd className="font-mono">{deviceId}</dd>
-        <dt className="text-slate-500">Password</dt>
+        <dt className="text-fg-muted">Password</dt>
         <dd>The device token</dd>
-        <dt className="text-slate-500">HTTP</dt>
+        <dt className="text-fg-muted">HTTP</dt>
         <dd className="font-mono">POST /api/v1/device/telemetry with header X-Device-Token</dd>
-        <dt className="text-slate-500">Serial</dt>
+        <dt className="text-fg-muted">Serial</dt>
         <dd className="font-mono">{serial ?? '—'}</dd>
-        <dt className="text-slate-500">Provisioned</dt>
+        <dt className="text-fg-muted">Provisioned</dt>
         <dd>{provisionedAt ? `With a provisioning key, ${new Date(provisionedAt).toLocaleString()}` : 'No: credentials entered by hand'}</dd>
       </dl>
       {hasPerm('device.credentials') && (
         <div className="space-y-2">
-          <p className="text-slate-500">Regenerating disconnects the device and invalidates the current token.</p>
+          <p className="text-fg-muted">Regenerating disconnects the device and invalidates the current token.</p>
           <Button variant="outline" onClick={() => void regenerate()}>
             Regenerate token
           </Button>

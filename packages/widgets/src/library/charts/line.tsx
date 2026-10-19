@@ -27,8 +27,9 @@ export function lineOption(s: Settings, data: HistoryData, labels: Record<string
   const right = s.rightAxisKey && keys.includes(s.rightAxisKey) ? s.rightAxisKey : undefined;
   return {
     tooltip: { trigger: 'axis' },
-    legend: { top: 0, type: 'scroll' },
-    grid: { left: 48, right: right ? 48 : 16, top: 32, bottom: 32 },
+    legend: { top: 0, left: 0, type: 'scroll' },
+    // Labels sized to their text, so the plot gets the width (HIG › Charts: maximize the plot area).
+    grid: { left: 4, right: right ? 4 : 8, top: 34, bottom: 4, containLabel: true },
     xAxis: { type: 'time', ...range },
     yAxis: right ? [{ type: 'value', scale: true }, { type: 'value', scale: true }] : [{ type: 'value', scale: true }],
     series: keys.map((k) => ({
@@ -38,7 +39,7 @@ export function lineOption(s: Settings, data: HistoryData, labels: Record<string
       showSymbol: data.series[k]!.length === 1,
       smooth: s.smooth,
       yAxisIndex: k === right ? 1 : 0,
-      ...(s.area ? { areaStyle: {} } : {}),
+      ...(s.area ? { areaStyle: { opacity: 0.12 } } : {}),
       data: data.series[k]!,
     })),
   };

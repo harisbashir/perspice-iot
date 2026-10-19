@@ -35,12 +35,12 @@ export function DeviceAlarmsTab({ deviceId, profile }: { deviceId: string; profi
               <li key={r.id} className="flex items-center gap-2">
                 <SeverityBadge severity={r.severity} />
                 <span className="font-medium">{r.name}</span>
-                <span className="text-slate-500">— {describeRule(r, label)}</span>
+                <span className="text-fg-muted">— {describeRule(r, label)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-500">No alarm rules run for this device.</p>
+          <p className="text-sm text-fg-muted">No alarm rules run for this device.</p>
         )}
       </section>
     </div>

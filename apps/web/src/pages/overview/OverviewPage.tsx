@@ -20,7 +20,7 @@ export function OverviewPage() {
       {view ? (
         <DashboardView definition={view.definition} toolbar={(ctx) => <ReportButton {...ctx} />} />
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-fg-muted">
           No overview dashboard is set up.{' '}
           {hasPerm('dashboard.edit') && (
             <Link className="underline" to="/dashboards">

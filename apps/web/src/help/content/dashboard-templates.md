@@ -49,8 +49,8 @@ Widgets read data with the **viewer's** permissions, so the same template is saf
 
 | Category | Widgets |
 |---|---|
-| Values | Value card, Multi-value card, Radial gauge, Linear gauge, Tank level, Battery, Progress bar, Status indicator, Image with values |
-| Charts | Time series, Sparkline, Bar chart, Pie / donut, Heatmap |
+| Values | Value card, Multi-value card, Dial, Rings, Segmented meter, Radial gauge, Linear gauge, Tank level, Battery, Progress bar, Signal strength, Status indicator, Image with values |
+| Charts | Time series, Sparkline, Bar chart, Ranked bars, Pie / donut, Heatmap |
 | Tables | Latest values table, History table, Device table, Alarm table |
 | Fleet and alarms | Fleet KPI, Active alarms, Alarm timeline, Map |
 | Energy | Energy summary |

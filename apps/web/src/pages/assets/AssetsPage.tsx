@@ -53,7 +53,7 @@ export function AssetsPage() {
           </select>
         </div>
       )}
-      {!types.length && <p className="mb-4 text-sm text-slate-500">No asset types are defined yet{isPlatform ? ': add them under Asset types.' : '.'}</p>}
+      {!types.length && <p className="mb-4 text-sm text-fg-muted">No asset types are defined yet{isPlatform ? ': add them under Asset types.' : '.'}</p>}
       {tree.isLoading ? (
         <Skeleton className="h-40" />
       ) : nodes.length ? (
@@ -63,7 +63,7 @@ export function AssetsPage() {
           ))}
         </ul>
       ) : (
-        <p className="py-8 text-center text-sm text-slate-500">No assets yet.</p>
+        <p className="py-8 text-center text-sm text-fg-muted">No assets yet.</p>
       )}
       {creating && <AssetForm parentId={creating.parentId} customerId={isPlatform ? customerId : undefined} types={types} tree={rows} onClose={() => setCreating(null)} />}
     </div>
@@ -89,14 +89,14 @@ function TreeItem({ node, depth, canWrite, onAdd }: { node: AssetTreeNode<AssetT
 
   return (
     <li role="treeitem" aria-expanded={hasChildren ? open : undefined} aria-label={node.name} data-testid={`asset-${node.name}`}>
-      <div className="group flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900" style={{ paddingLeft: `${depth * 1.25 + 0.5}rem` }}>
-        <button type="button" className="h-5 w-5 text-slate-500" aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`} disabled={!hasChildren} onClick={() => setOpen(!open)}>
+      <div className="group flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 hover:bg-fill" style={{ paddingLeft: `${depth * 1.25 + 0.5}rem` }}>
+        <button type="button" className="h-5 w-5 text-fg-muted" aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`} disabled={!hasChildren} onClick={() => setOpen(!open)}>
           {hasChildren ? open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" /> : null}
         </button>
         <Link to={`/assets/${node.id}`} className="font-medium text-primary-700 hover:underline dark:text-primary-300">
           {node.name}
         </Link>
-        <span className="text-xs text-slate-500" data-testid="rollup">
+        <span className="text-xs text-fg-muted" data-testid="rollup">
           {r.devices} device{r.devices === 1 ? '' : 's'}
           {r.devices > 0 && ` · ${r.online} online`}
           {r.offline + r.dead > 0 && ` · ${r.offline + r.dead} offline`}

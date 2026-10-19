@@ -142,8 +142,8 @@ export function TotpEnrol() {
   return (
     <form onSubmit={confirm} className="space-y-4">
       <p className="text-sm">Scan this QR code with your authenticator app, then enter the 6-digit code it shows.</p>
-      <img src={qr} alt="QR code for your authenticator app" className="h-48 w-48 rounded border bg-white p-2" />
-      <p className="text-xs text-slate-500">
+      <img src={qr} alt="QR code for your authenticator app" className="h-48 w-48 rounded border bg-surface p-2" />
+      <p className="text-xs text-fg-muted">
         Can't scan? Enter this key: <code className="font-mono">{secret}</code>
       </p>
       <Field label="Code">

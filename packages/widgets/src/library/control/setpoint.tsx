@@ -28,7 +28,7 @@ export const setpointWidget: WidgetDefinition<Settings> = {
       <div className="flex h-full flex-col justify-center">
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <label htmlFor={id} className="text-xs text-slate-500">
+            <label htmlFor={id} className="text-xs text-fg-muted">
               Value
             </label>
             <input
@@ -37,7 +37,7 @@ export const setpointWidget: WidgetDefinition<Settings> = {
               min={settings.min}
               max={settings.max}
               disabled={!can.command}
-              className="h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+              className="h-9 w-full rounded-lg border border-line-strong bg-transparent px-2.5 text-sm touch:h-11"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

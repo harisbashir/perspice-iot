@@ -24,6 +24,16 @@ export function bandOf(s: Pick<RangeSettings, 'warnAt' | 'critAt' | 'lowIsBad'>,
   return 'ok';
 }
 
-export const BAND_COLOR: Record<Band, string> = { ok: '#16a34a', warn: '#d97706', crit: '#dc2626' };
+/** Band colours as hex, for canvases (ECharts) that can't read CSS variables. */
+export const BAND_COLOR: Record<Band, string> = { ok: '#34C759', warn: '#FF9500', crit: '#FF3B30' };
+/** The same bands as theme tokens (they brighten in dark mode), for HTML and SVG. */
+export const BAND_VAR: Record<Band, string> = { ok: 'rgb(var(--ok-vivid))', warn: 'rgb(var(--warn-vivid))', crit: 'rgb(var(--crit-vivid))' };
+/** Band text colours that pass contrast on a surface. */
+export const BAND_TEXT: Record<Band, string> = { ok: '', warn: 'text-warn', crit: 'text-crit' };
+
+/** The band a value at fraction `f` of the range falls in: for segmented meters and zone arcs. */
+export function bandAtFraction(s: Pick<RangeSettings, 'min' | 'max' | 'warnAt' | 'critAt' | 'lowIsBad'>, f: number): Band {
+  return bandOf(s, s.min + f * (s.max - s.min));
+}
 
 export const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));

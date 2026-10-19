@@ -2,7 +2,7 @@ import type { DeviceDto, DeviceLocationDto, DeviceStatus, LatestValue } from '@p
 import { type QueryClient, type InfiniteData, useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { Page } from '@/api/types';
-import { useDeviceRooms, useRoomSubscription, useSocketEvent } from './socket';
+import { useDeviceRooms, useRoomSubscription, useSocketEvent } from '@/realtime/socket';
 
 export interface StatusEvent {
   deviceId: string;

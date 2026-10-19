@@ -29,7 +29,7 @@ const REFRESH: [number, string][] = [
   [300, 'Every 5 minutes'],
   [900, 'Every 15 minutes'],
 ];
-const settingSelect = 'h-8 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const settingSelect = 'h-8 rounded-lg border border-line-strong bg-surface px-2 text-sm';
 
 export interface DashboardEditorProps {
   initial: DashboardDefinition;
@@ -147,9 +147,9 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
             ))}
           </select>
         </label>
-        <span className="text-xs text-slate-500">Values update live either way; refreshing also re-reads charts and tables.</span>
+        <span className="text-xs text-fg-muted">Values update live either way; refreshing also re-reads charts and tables.</span>
       </div>
-      {invalid && dirty && <p className="text-sm text-amber-700 dark:text-amber-400">{invalid}</p>}
+      {invalid && dirty && <p className="text-sm text-warn">{invalid}</p>}
       <ErrorText error={error} />
       {sample && (
         <p role="status" className="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
@@ -171,7 +171,7 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
             if (JSON.stringify(layout) !== JSON.stringify(state.layout)) change(setLayout(def, state.id, layout));
           } }}
         />
-        <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+        <div className="rounded-lg border border-line p-4">
           {widget ? (
             <WidgetSettingsPanel
               widget={widget}
@@ -183,7 +183,7 @@ export function DashboardEditor({ initial, profile, previewDevice = null, previe
               }}
             />
           ) : (
-            <p className="text-sm text-slate-500">Select a widget to change its data and options, or add a new one.</p>
+            <p className="text-sm text-fg-muted">Select a widget to change its data and options, or add a new one.</p>
           )}
         </div>
       </div>

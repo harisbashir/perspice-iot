@@ -79,6 +79,40 @@ Use `formatValue`, `keyDef` and `keyLabel` from `data/format` so values follow t
 units and decimals. For charts, render through `EChart`, which loads ECharts on first use,
 resizes with the frame and reports when it has drawn (the PDF renderer waits for that).
 
+## Gauges
+
+Five gauges are drawn in SVG/HTML (no ECharts), so they're light, sharp at any size and follow the
+theme. They live in `library/gauges/`:
+
+| Type | Name | Shows | Notes |
+|---|---|---|---|
+| `arc-gauge` | Dial | one value on a 240° dial | warning and critical zones drawn on the rim |
+| `ring-gauge` | Rings | up to three values as concentric rings | one shared range; colour per ring or by band |
+| `bar-gauge` | Segmented meter | one value as lit segments | each segment coloured by the zone it sits in; horizontal or vertical |
+| `bar-list` | Ranked bars | one key across devices, or several keys of one device | sorted and limited; fleet rows open the device |
+| `signal-bars` | Signal strength | RSSI (dBm), a percentage or a modem CSQ | 0–4 bars and a word (Weak… Excellent) |
+
+Gauges with a range use the shared `rangeSettings` (min, max, decimals, unit, warning and critical
+thresholds, "low values are bad") and `bandOf()` from `library/charts/thresholds.ts`.
+
+## Design
+
+Widgets are drawn inside `WidgetFrame` (the card, the title and the export menu come from it) and
+follow the web app's design tokens (`apps/web/CLAUDE.md` › Design tokens):
+
+- Colours: `text-fg`, `text-fg-muted`, `bg-fill`, `bg-fill-strong` for tracks; status through
+  `BAND_VAR` (CSS variables, for HTML and SVG) or `BAND_COLOR` (hex, for ECharts). No `slate-*`
+  and no `dark:` twins: the tokens switch with the appearance.
+- Readings: `<Readout text unit />` from `library/shared/Readout.tsx` puts the number in the
+  rounded face with the unit smaller, and glows once when the value changes. `splitUnit()` splits a
+  `formatValue()` result into the two.
+- Size: the frame body is a CSS container, so adapt to the widget's own width with container
+  queries (`@[12rem]:text-3xl`; `wideOnly` hides secondary table columns under 28rem). On phones
+  dashboards stack widgets two to a row or full width, so a widget can be anything from ~160 px
+  wide up.
+- Accessibility: a gauge is `role="meter"` with `aria-valuemin/max/now` (and `aria-valuetext` when
+  the number alone isn't the reading); colour is never the only signal.
+
 ## Safety
 
 - Never render user-provided HTML directly. Markdown goes through `renderMarkdown`, which
@@ -89,10 +123,13 @@ resizes with the frame and reports when it has drawn (the PDF renderer waits for
 
 ## Adding a widget
 
-1. Create the file under `packages/widgets/src/library/<category>/`.
+1. Create the file under `packages/widgets/src/library/<category>/`, following Design above.
 2. Add it to `BUILT_IN_WIDGETS` in `library/index.ts`.
 3. Add tests next to the existing ones in `packages/widgets/test` (render with `propsFor` from
    `test/props.ts`), then run `pnpm --filter @perspice/widgets test`.
+4. Add it to the widget table in `apps/web/src/help/content/dashboard-templates.md`, and look at it
+   in demo mode (`apps/web/CLAUDE.md`): the demo dashboards in `apps/web/src/demo/fixtures.ts` are
+   the place to show a new widget at phone and desktop width.
 
 Changing a widget's `type` breaks dashboards that use it. Add a new type instead and leave the
 old one registered.

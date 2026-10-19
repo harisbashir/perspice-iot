@@ -36,7 +36,7 @@ export function DeviceAssetLine({ deviceId, customerId }: { deviceId: string; cu
   }
 
   return (
-    <span className="flex flex-wrap items-center gap-2 text-sm text-slate-500" data-testid="device-asset">
+    <span className="flex flex-wrap items-center gap-2 text-sm text-fg-muted" data-testid="device-asset">
       <span>Asset:</span>
       {editing ? (
         <select aria-label="Asset" className={`${selectClass} h-8 w-64`} value={data.asset?.id ?? ''} onChange={(e) => void attach(e.target.value || null)}>

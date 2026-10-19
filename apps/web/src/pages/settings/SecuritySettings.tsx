@@ -21,14 +21,14 @@ export function SecuritySettings() {
           <input type="checkbox" className="mt-1" checked={data.enforceTotpForSuperAdmin} onChange={(e) => void update({ enforceTotpForSuperAdmin: e.target.checked })} />
           <span>
             <span className="font-medium">Require two-factor authentication for super admins</span>
-            <span className="block text-slate-500">Super admins can only manage their own account until they enrol.</span>
+            <span className="block text-fg-muted">Super admins can only manage their own account until they enrol.</span>
           </span>
         </label>
         <label className="flex items-start gap-3">
           <input type="checkbox" className="mt-1" checked={data.docsPublic} onChange={(e) => void update({ docsPublic: e.target.checked })} />
           <span>
             <span className="font-medium">Public API documentation</span>
-            <span className="block text-slate-500">Serve Swagger UI at /api/docs without signing in (takes effect after a restart).</span>
+            <span className="block text-fg-muted">Serve Swagger UI at /api/docs without signing in (takes effect after a restart).</span>
           </span>
         </label>
       </CardContent>

@@ -97,7 +97,7 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
           </>
         )}
         {data && <Badge variant="secondary">Source: {data.source === 'raw' ? 'raw data' : `${data.source} averages`}</Badge>}
-        {isFetching && <span className="text-xs text-slate-500">Loading…</span>}
+        {isFetching && <span className="text-xs text-fg-muted">Loading…</span>}
         <ExportMenu
           className="ml-auto"
           request={(format) =>
@@ -119,7 +119,7 @@ export function HistoryChart({ deviceId, keys }: { deviceId: string; keys: Telem
         ))}
       </fieldset>
       {selected.length === 0 ? (
-        <p className="text-sm text-slate-500">Choose at least one value to chart.</p>
+        <p className="text-sm text-fg-muted">Choose at least one value to chart.</p>
       ) : (
         <div ref={el} className="h-80 w-full" role="img" aria-label="Telemetry history chart" />
       )}

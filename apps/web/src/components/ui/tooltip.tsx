@@ -8,7 +8,7 @@ export function Tooltip({ content, children }: { content: ReactNode; children: R
     <TooltipPrimitive.Root>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Content sideOffset={4} className="z-50 rounded bg-slate-900 px-2 py-1 text-xs text-white shadow dark:bg-slate-100 dark:text-slate-900">
+        <TooltipPrimitive.Content sideOffset={4} className="z-50 max-w-xs rounded-lg bg-fg px-2.5 py-1.5 text-xs text-canvas shadow-float">
           {content}
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>

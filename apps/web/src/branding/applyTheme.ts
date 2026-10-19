@@ -36,18 +36,41 @@ export function applyTheme(b: BrandingDto, doc: Document = document): void {
   }
 }
 
-export type ThemeMode = 'light' | 'dark';
+/** The appearance setting: follow the system (the default, per Apple's HIG), or a fixed one. */
+export type Appearance = 'system' | 'light' | 'dark';
 export const THEME_KEY = 'perspice.theme';
 
-export function setThemeMode(mode: ThemeMode): void {
-  document.documentElement.classList.toggle('dark', mode === 'dark');
+const systemDark = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+
+function paint(appearance: Appearance): void {
+  const dark = appearance === 'dark' || (appearance === 'system' && systemDark());
+  document.documentElement.classList.toggle('dark', dark);
+}
+
+export function getAppearance(): Appearance {
   try {
-    localStorage.setItem(THEME_KEY, mode);
+    const stored = localStorage.getItem(THEME_KEY);
+    return stored === 'light' || stored === 'dark' ? stored : 'system';
   } catch {
-    /* storage unavailable */
+    return 'system';
   }
 }
 
-export function currentThemeMode(): ThemeMode {
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+export function setAppearance(appearance: Appearance): void {
+  try {
+    if (appearance === 'system') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, appearance);
+  } catch {
+    /* storage unavailable */
+  }
+  paint(appearance);
+}
+
+/** Keeps "system" in step when the OS switches between light and dark (index.html sets the first paint). */
+export function followSystemAppearance(): () => void {
+  if (typeof matchMedia !== 'function') return () => undefined;
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const onChange = () => getAppearance() === 'system' && paint('system');
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
 }

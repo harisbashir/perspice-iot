@@ -17,7 +17,7 @@ import { useProfiles } from '../devices/hooks';
 import { FIRMWARE, OTA_JOBS, formatBytes, useFirmware, useOtaJobs } from './hooks';
 import { OtaJobBadge } from './OtaStateBadge';
 
-const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 
 export function FirmwarePage() {
   const { data: firmware, isLoading } = useFirmware();
@@ -91,7 +91,7 @@ export function FirmwarePage() {
             ))}
             {firmware?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-slate-500">
+                <TableCell colSpan={6} className="py-8 text-center text-fg-muted">
                   No firmware yet.
                 </TableCell>
               </TableRow>
@@ -142,7 +142,7 @@ function JobsTable({ jobs, profileName }: { jobs: OtaJobDto[]; profileName: (id:
         })}
         {jobs.length === 0 && (
           <TableRow>
-            <TableCell colSpan={4} className="py-8 text-center text-slate-500">
+            <TableCell colSpan={4} className="py-8 text-center text-fg-muted">
               No updates yet.
             </TableCell>
           </TableRow>
@@ -262,7 +262,7 @@ function DeployDialog({ firmware, onClose, profileName }: { firmware: FirmwareDt
           </DialogTitle>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
-          <p className="text-sm text-slate-500">Devices of this profile that are already on this version are skipped.</p>
+          <p className="text-sm text-fg-muted">Devices of this profile that are already on this version are skipped.</p>
           <Field label="Customer">
             {(id) => (
               <select id={id} className={selectClass} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>

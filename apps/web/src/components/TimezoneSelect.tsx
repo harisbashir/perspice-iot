@@ -6,7 +6,7 @@ const zones = (): string[] => {
   return ['UTC', ...list.filter((z) => z !== 'UTC')];
 };
 
-export const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+export const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-sm dark:bg-surface-2/50';
 
 /** IANA timezone picker; `inheritLabel` adds an empty option meaning "use the default". */
 export function TimezoneSelect({

@@ -1,14 +1,21 @@
 import type { AlarmSeverity } from '@perspice/shared';
 
-const SEVERITY: Record<AlarmSeverity, string> = {
-  critical: 'bg-red-600 text-white',
-  major: 'bg-orange-500 text-white',
-  minor: 'bg-amber-300 text-amber-950',
-  warning: 'bg-sky-200 text-sky-950',
+/** Severity as a tinted capsule with a dot; critical is the only one filled, so it stands out in a list. */
+const SEVERITY: Record<AlarmSeverity, [string, string]> = {
+  critical: ['bg-red-600 text-white', 'bg-white'],
+  major: ['bg-crit-tint text-crit', 'bg-crit-vivid'],
+  minor: ['bg-warn-tint text-warn', 'bg-warn-vivid'],
+  warning: ['bg-info-tint text-info', 'bg-info-vivid'],
 };
 
 export function Severity({ severity }: { severity: AlarmSeverity }) {
-  return <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY[severity]}`}>{severity}</span>;
+  const [cls, dot] = SEVERITY[severity];
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${cls}`}>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {severity}
+    </span>
+  );
 }
 
 export function ago(ts: number, now = Date.now()): string {

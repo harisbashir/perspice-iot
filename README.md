@@ -29,7 +29,7 @@ device's credentials, and watch its values arrive. Updates: `sudo perspice updat
 |---|---|
 | Devices | profiles, credentials, MQTT/HTTP/AWS IoT Core, commands, presence, debug log, calculated keys |
 | Customers | tenants with subdomains, branding, groups, roles and permissions, claim codes |
-| Dashboards | templates per profile or asset type, 28 widgets, live updates, PDF reports, exports |
+| Dashboards | templates per profile or asset type, 33 widgets, live updates, PDF reports, exports |
 | Alarms | rule engine (thresholds, durations, geofences, maintenance…), email, web push, webhooks, digests |
 | Fleet | maps, trips, geofences, OTA firmware with staged rollout, bulk operations, CSV import |
 | Energy | consumption and cost with tariffs, generator run hours and service reminders |

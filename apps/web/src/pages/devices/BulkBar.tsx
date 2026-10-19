@@ -13,7 +13,7 @@ import { DEVICE_LISTS } from '@/realtime/hooks';
 import { flatten, useAssetTree } from '../assets/hooks';
 
 type Kind = BulkAction['kind'];
-const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 const list = (s: string) => s.split(',').map((t) => t.trim()).filter(Boolean);
 
 const TITLES: Record<Kind, string> = {

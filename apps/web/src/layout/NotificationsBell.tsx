@@ -52,16 +52,16 @@ export function NotificationsBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Notifications (${unread} unread)`} className="relative">
-          <Bell className="h-4 w-4" />
+        <Button variant="ghost" size="icon" aria-label={`Notifications (${unread} unread)`} className="relative rounded-full">
+          <Bell className="h-5 w-5" />
           {unread > 0 && (
-            <span data-testid="unread-count" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-4 text-white">
+            <span data-testid="unread-count" className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-crit-vivid px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-canvas">
               {unread > 99 ? '99+' : unread}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-1rem)]">
         <div className="flex items-center justify-between">
           <DropdownMenuLabel>Notifications</DropdownMenuLabel>
           {unread > 0 && (
@@ -76,12 +76,15 @@ export function NotificationsBell() {
         </div>
         <DropdownMenuSeparator />
         {(list?.items ?? []).map((n) => (
-          <DropdownMenuItem key={n.id} onSelect={() => void open(n)} className="flex-col items-start">
-            <span className={n.readAt ? 'text-slate-500' : 'font-medium'}>{n.title}</span>
-            <span className="text-xs text-slate-500">{new Date(n.createdAt).toLocaleString()}</span>
+          <DropdownMenuItem key={n.id} onSelect={() => void open(n)} className="flex-col items-start gap-0.5">
+            <span className={n.readAt ? 'text-fg-muted' : 'font-medium'}>
+              {!n.readAt && <span aria-hidden className="mr-1.5 inline-block h-2 w-2 rounded-full bg-primary-500 align-middle" />}
+              {n.title}
+            </span>
+            <span className="text-xs text-fg-muted">{new Date(n.createdAt).toLocaleString()}</span>
           </DropdownMenuItem>
         ))}
-        {list?.items.length === 0 && <p className="px-2 py-4 text-center text-sm text-slate-500">You're all caught up.</p>}
+        {list?.items.length === 0 && <p className="px-2 py-4 text-center text-sm text-fg-muted">You're all caught up.</p>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

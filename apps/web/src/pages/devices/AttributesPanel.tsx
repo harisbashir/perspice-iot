@@ -33,11 +33,11 @@ function JsonEditor({ deviceId, kind, value, canEdit }: { deviceId: string; kind
         aria-label={`${kind} attributes`}
         rows={8}
         readOnly={!canEdit}
-        className="w-full rounded-md border border-slate-300 bg-transparent p-2 font-mono text-xs dark:border-slate-700"
+        className="w-full rounded-lg border border-line-strong bg-surface p-2 font-mono text-xs"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      {error instanceof Error && !('code' in error) ? <p className="text-sm text-red-600">{error.message}</p> : <ErrorText error={error} />}
+      {error instanceof Error && !('code' in error) ? <p className="text-sm text-crit">{error.message}</p> : <ErrorText error={error} />}
       {canEdit && <Button onClick={() => void save()}>Save</Button>}
     </div>
   );
@@ -53,7 +53,7 @@ export function AttributesPanel({ device }: { device: DeviceDto }) {
           <CardDescription>Reported by the device (firmware, serial…).</CardDescription>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-800">{JSON.stringify(device.attributes.client, null, 2)}</pre>
+          <pre className="overflow-x-auto rounded bg-fill p-2 text-xs">{JSON.stringify(device.attributes.client, null, 2)}</pre>
         </CardContent>
       </Card>
       <Card>
