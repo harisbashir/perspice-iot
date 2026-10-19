@@ -104,7 +104,7 @@ export function PrintDashboard() {
       </div>
     );
   }
-  if (!s || !state) return <div data-print-state="loading" className="p-8 text-slate-500">Preparing report…</div>;
+  if (!s || !state) return <div data-print-state="loading" className="p-8 text-fg-muted">Preparing report…</div>;
 
   const b = s.branding;
   const summary = s.device
@@ -114,7 +114,7 @@ export function PrintDashboard() {
   const rows = Math.max(1, ...state.layout.map((l) => l.y + l.h));
 
   return (
-    <div data-print-state={ready ? 'ready' : 'loading'} className="min-h-screen bg-white p-4 text-slate-900">
+    <div data-print-state={ready ? 'ready' : 'loading'} className="min-h-screen bg-surface p-4 text-fg">
       <header className="mb-4 flex items-end justify-between gap-4 border-b-2 pb-3" style={{ borderColor: b.primaryColor }}>
         <div>
           {b.logoLightUrl ? (
@@ -125,9 +125,9 @@ export function PrintDashboard() {
             </div>
           )}
           <h1 className="text-xl font-semibold">{s.title}</h1>
-          {s.dashboard.definition.states.length > 1 && <p className="text-sm text-slate-600">{state.name}</p>}
+          {s.dashboard.definition.states.length > 1 && <p className="text-sm text-fg-muted">{state.name}</p>}
         </div>
-        <dl className="text-right text-xs text-slate-600">
+        <dl className="text-right text-xs text-fg-muted">
           <dt className="sr-only">Period</dt>
           <dd>{periodLabel(s.timewindow, s.generatedAt)}</dd>
           <dt className="sr-only">Generated</dt>
@@ -158,14 +158,14 @@ export function PrintDashboard() {
                     actions={readOnly}
                   />
                 ) : (
-                  <div className="text-xs text-slate-500">Unknown widget “{w.type}”</div>
+                  <div className="text-xs text-fg-muted">Unknown widget “{w.type}”</div>
                 )}
               </WidgetFrame>
             </div>
           );
         })}
       </div>
-      <footer className="mt-4 border-t pt-2 text-center text-[10px] text-slate-500">{b.productName}</footer>
+      <footer className="mt-4 border-t pt-2 text-center text-[10px] text-fg-muted">{b.productName}</footer>
     </div>
   );
 }

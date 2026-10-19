@@ -30,7 +30,7 @@ export function DeviceDashboardEditPage() {
           ← {device.name}
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">Customise dashboard</h1>
-        <p className="text-sm text-slate-500">Changes apply to every {profile?.name ?? ''} device of your organisation. Based on “{view.templateName}”.</p>
+        <p className="text-sm text-fg-muted">Changes apply to every {profile?.name ?? ''} device of your organisation. Based on “{view.templateName}”.</p>
       </div>
       <DashboardEditor
         initial={view.definition}

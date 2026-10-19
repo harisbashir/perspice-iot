@@ -6,6 +6,7 @@ import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
 import { firstValue } from './shared';
 import { fractionOf } from './progress';
+import { Readout } from '../shared/Readout';
 
 const schema = z.object({
   min: field.number('Empty at').default(0),
@@ -37,14 +38,20 @@ export const batteryWidget: WidgetDefinition<Settings> = {
             aria-valuemin={settings.min}
             aria-valuemax={settings.max}
             aria-valuenow={num ?? settings.min}
-            className="relative h-8 w-16 rounded border-2 border-slate-500 p-0.5"
+            className="relative h-9 w-[4.5rem] shrink-0 rounded-[9px] border-2 border-fg-muted/50 p-[3px]"
           >
-            <div className={`h-full rounded-sm ${low ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${pct}%` }} />
-            <span aria-hidden className="absolute -right-1.5 top-2 h-3 w-1 rounded-r bg-slate-500" />
+            <div className={`h-full rounded-[5px] transition-[width] duration-500 ${low ? 'bg-crit-vivid' : 'bg-ok-vivid'}`} style={{ width: `${pct}%` }} />
+            <span aria-hidden className="absolute -right-[5px] top-1/2 h-3 w-[3px] -translate-y-1/2 rounded-r-sm bg-fg-muted/50" />
           </div>
           <div>
-            <div className="text-lg font-semibold tabular-nums">{pct}%</div>
-            <div className="text-xs text-slate-500">{num === null ? '—' : formatNumber(num, def?.decimals, def?.unit)}{low && ' · low'}</div>
+            <Readout size="md" text={String(pct)} unit="%" />
+            {/* The raw reading, unless it is the percentage already shown. */}
+            {(def?.unit !== '%' || low) && (
+              <div className={`mt-1 text-xs ${low ? 'font-medium text-crit' : 'text-fg-muted'}`}>
+                {def?.unit !== '%' && (num === null ? '—' : formatNumber(num, def?.decimals, def?.unit))}
+                {low && (def?.unit !== '%' ? ' · low' : 'Low')}
+              </div>
+            )}
           </div>
         </div>
       </WidgetStatus>

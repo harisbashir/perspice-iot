@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useDeviceList } from '../devices/hooks';
 
 const cell = 'h-8 text-xs';
-const selectCls = 'h-8 rounded-md border border-slate-300 bg-transparent px-1 text-xs dark:border-slate-700';
+const selectCls = 'h-8 rounded-lg border border-line-strong bg-surface px-1 text-xs';
 
 type Kind = CalculatedKeyInput['kind'];
 const KINDS: [Kind, string][] = [
@@ -53,7 +53,7 @@ export function CalculatedKeysEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-fg-muted">
         Computed as data arrives and stored like telemetry. Formulas use key names, numbers, <code>+ - * / % ^</code>, comparisons, <code>&amp;&amp; || !</code>,{' '}
         <code>a ? b : c</code> and {EXPR_FUNCTIONS.join(', ')}; write <code>["odd-key"]</code> for keys with other characters. They apply to new data.
       </p>
@@ -62,8 +62,8 @@ export function CalculatedKeysEditor({
         const sources = [...telemetry.map((t) => t.key), ...value.slice(0, i).map((c) => c.key)].filter(Boolean);
         const base = { key: k.key, label: k.label, ...(k.unit ? { unit: k.unit } : {}), ...(k.decimals !== undefined ? { decimals: k.decimals } : {}) };
         return (
-          <div key={i} className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-800" data-testid={`calculated-${i}`}>
-            <div className="grid grid-cols-[1fr_1fr_80px_80px_1.4fr_36px] gap-2">
+          <div key={i} className="space-y-2 overflow-x-auto rounded-lg border border-line p-3" data-testid={`calculated-${i}`}>
+            <div className="grid min-w-[34rem] grid-cols-[1fr_1fr_80px_80px_1.4fr_36px] gap-2">
               <Input aria-label="Calculated key" placeholder="key" className={cell} value={k.key} onChange={(e) => update(i, { ...k, key: e.target.value })} />
               <Input aria-label="Calculated label" placeholder="Label" className={cell} value={k.label} onChange={(e) => update(i, { ...k, label: e.target.value })} />
               <Input aria-label="Calculated unit" placeholder="Unit" className={cell} value={k.unit ?? ''} onChange={(e) => update(i, { ...k, unit: e.target.value || undefined })} />
@@ -127,7 +127,7 @@ export function CalculatedKeysEditor({
               </div>
             )}
             {mine.map((x) => (
-              <p key={x.field + x.message} role="alert" className="text-xs text-red-600 dark:text-red-400">
+              <p key={x.field + x.message} role="alert" className="text-xs text-crit">
                 {x.message}
               </p>
             ))}
@@ -139,7 +139,7 @@ export function CalculatedKeysEditor({
           Add calculated key
         </Button>
         {sample.length > 0 && value.some((k) => k.kind === 'formula') && (
-          <label className="flex items-center gap-2 text-xs text-slate-500">
+          <label className="flex items-center gap-2 text-xs text-fg-muted">
             Preview formulas on
             <select aria-label="Preview device" className={selectCls} value={previewId} onChange={(e) => setPreviewId(e.target.value)}>
               <option value="">—</option>
@@ -168,7 +168,7 @@ function PreviewValue({ expr, device, earlier }: { expr: string; device: DeviceD
   const c = compileExpr(expr);
   const v = c.ok ? evaluate(c.expr, (k) => values[k]) : null;
   return (
-    <span className="whitespace-nowrap text-xs text-slate-500" data-testid="formula-preview">
+    <span className="whitespace-nowrap text-xs text-fg-muted" data-testid="formula-preview">
       = {v === null ? 'missing' : typeof v === 'number' ? Number(v.toFixed(6)) : String(v)}
     </span>
   );

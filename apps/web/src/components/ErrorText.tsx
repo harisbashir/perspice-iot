@@ -11,7 +11,7 @@ export function errorMessage(err: unknown): string {
 export function ErrorText({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="text-sm text-crit">
       {errorMessage(error)}
     </p>
   );

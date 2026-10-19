@@ -79,17 +79,18 @@ export function DevicesPage() {
           </div>
         }
       />
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
         <Input
           aria-label="Search devices"
+          type="search"
           placeholder="Search by name"
-          className="w-64"
+          className="col-span-2 sm:w-64"
           value={filters.search ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value || undefined }))}
         />
         <select
           aria-label="Filter by status"
-          className="h-9 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+          className="h-9 min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 text-sm"
           value={filters.status ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
         >
@@ -101,7 +102,7 @@ export function DevicesPage() {
         </select>
         <select
           aria-label="Filter by profile"
-          className="h-9 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+          className="h-9 min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 text-sm"
           value={filters.profileId ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, profileId: e.target.value || undefined }))}
         >
@@ -115,7 +116,7 @@ export function DevicesPage() {
         {assetOptions.length > 0 && (
           <select
             aria-label="Filter by asset"
-            className="h-9 rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+            className="h-9 min-w-0 rounded-lg border border-line-strong bg-surface px-2.5 text-sm"
             value={filters.assetId ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, assetId: e.target.value || undefined }))}
           >

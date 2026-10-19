@@ -28,18 +28,18 @@ export function useAction(confirmText: string) {
   const ui = (
     <>
       {pending && (
-        <div role="group" aria-label="Confirm" className="mt-2 flex items-center gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          <span className="flex-1">{confirmText}</span>
-          <button type="button" className="rounded px-2 py-1 hover:bg-amber-100 dark:hover:bg-amber-900" onClick={() => setPending(null)}>
+        <div role="group" aria-label="Confirm" className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-warn-tint p-2 text-xs text-warn">
+          <span className="min-w-0 flex-1 basis-32">{confirmText}</span>
+          <button type="button" className="h-7 rounded-md px-2.5 font-medium text-fg-2 hover:bg-fill touch:h-9" onClick={() => setPending(null)}>
             Cancel
           </button>
-          <button type="button" className="rounded bg-primary-600 px-2 py-1 font-medium text-white hover:bg-primary-700" onClick={() => void run(pending)}>
+          <button type="button" className="h-7 rounded-md bg-primary-600 px-2.5 font-medium text-white hover:bg-primary-700 touch:h-9" onClick={() => void run(pending)}>
             Confirm
           </button>
         </div>
       )}
       {message && (
-        <p role="status" className={`mt-1 text-xs ${message.ok ? 'text-green-700 dark:text-green-400' : 'text-red-600'}`}>
+        <p role="status" className={`mt-1 text-xs font-medium ${message.ok ? 'text-ok' : 'text-crit'}`}>
           {message.text}
         </p>
       )}
@@ -50,7 +50,7 @@ export function useAction(confirmText: string) {
 }
 
 export const buttonClass =
-  'inline-flex h-9 items-center justify-center rounded-md bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex h-9 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-medium text-white shadow-sm transition active:scale-[0.98] hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40 touch:h-11 @[16rem]:w-auto';
 
 export function parseParams(text: string | undefined): Record<string, unknown> {
   if (!text?.trim()) return {};

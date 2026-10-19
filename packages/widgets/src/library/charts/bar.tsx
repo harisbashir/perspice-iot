@@ -22,7 +22,7 @@ export function barOption(s: Settings, data: LatestData | FleetLatestData, keys:
   const value = { type: 'value' };
   return {
     tooltip: { trigger: 'axis' },
-    grid: { left: s.horizontal ? 96 : 48, right: 16, top: 16, bottom: 32 },
+    grid: { left: 4, right: 12, top: 12, bottom: 4, containLabel: true },
     xAxis: s.horizontal ? value : category,
     yAxis: s.horizontal ? category : value,
     series: [{ type: 'bar', name: labels[keys[0] ?? ''] ?? keys[0], data: values }],

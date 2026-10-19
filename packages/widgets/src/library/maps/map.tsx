@@ -33,7 +33,7 @@ function popupFor(d: Located, keys: string[], profile: DeviceProfileDto | null, 
   name.className = 'font-medium';
   name.textContent = d.name;
   const status = document.createElement('div');
-  status.className = 'text-xs text-slate-500';
+  status.className = 'text-xs text-fg-muted';
   status.textContent = `${d.status}${d.location.ts ? ` · located ${timeAgo(d.location.ts)}` : ''}`;
   root.append(name, status);
   for (const k of keys) {
@@ -75,12 +75,15 @@ function MapView({ data, keys, settings, profile, actions }: { data: LocationsDa
   const popupArgs = useRef({ keys, profile, actions });
   popupArgs.current = { keys, profile, actions };
   const fitted = useRef(false);
+  /** The bounds last fitted to; re-fitted when the frame resizes, until someone moves the map. */
+  const fitBounds = useRef<L.LatLngBounds | null>(null);
 
   // The map, tiles and geofences: once.
   useEffect(() => {
     const m = L.map(el.current!, { worldCopyJump: true, maxZoom: 19 }).setView([20, 0], 2);
     map.current = m;
     let alive = true;
+    const stopWatching = watchSize(m, () => fitBounds.current && m.fitBounds(fitBounds.current, { padding: [24, 24], maxZoom: 16 }), () => (fitBounds.current = null));
     void actions.mapTiles().then((t) => {
       if (!alive) return;
       m.setMaxZoom(t.maxZoom);
@@ -93,6 +96,7 @@ function MapView({ data, keys, settings, profile, actions }: { data: LocationsDa
     }
     return () => {
       alive = false;
+      stopWatching();
       m.remove();
       map.current = null;
       group.current = null;
@@ -147,11 +151,39 @@ function MapView({ data, keys, settings, profile, actions }: { data: LocationsDa
     if (settings.fit && !fitted.current && data.devices.length) {
       fitted.current = true;
       if (data.devices.length === 1) m.setView([data.devices[0]!.location.lat, data.devices[0]!.location.lng], 15);
-      else m.fitBounds(L.latLngBounds(data.devices.map((d) => [d.location.lat, d.location.lng] as [number, number])), { padding: [24, 24], maxZoom: 16 });
+      else {
+        fitBounds.current = L.latLngBounds(data.devices.map((d) => [d.location.lat, d.location.lng] as [number, number]));
+        m.fitBounds(fitBounds.current, { padding: [24, 24], maxZoom: 16 });
+      }
     }
   }, [data, settings.cluster, settings.fit]);
 
-  return <div ref={el} className="h-full w-full rounded" data-testid="map" />;
+  return <div ref={el} className="h-full w-full overflow-hidden rounded-lg" data-testid="map" />;
+}
+
+/**
+ * Keeps Leaflet in step with its frame (dashboards resize widgets; phones stack them): redraws on
+ * every size change and calls `onResize` until the person drags, zooms or scrolls the map.
+ */
+function watchSize(m: L.Map, onResize: () => void, onTouched: () => void): () => void {
+  const container = m.getContainer();
+  let touched = false;
+  const touch = () => {
+    touched = true;
+    onTouched();
+  };
+  container.addEventListener('pointerdown', touch);
+  container.addEventListener('wheel', touch, { passive: true });
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+    m.invalidateSize();
+    if (!touched) onResize();
+  });
+  observer?.observe(container);
+  return () => {
+    observer?.disconnect();
+    container.removeEventListener('pointerdown', touch);
+    container.removeEventListener('wheel', touch);
+  };
 }
 
 const SPEEDS = [1, 10, 60, 300] as const;
@@ -171,6 +203,7 @@ function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: stri
 
   useEffect(() => {
     const m = L.map(el.current!, { maxZoom: 19 }).setView([20, 0], 2);
+    const stopWatching = watchSize(m, () => undefined, () => undefined);
     map.current = m;
     let alive = true;
     void actions.mapTiles().then((t) => {
@@ -193,6 +226,7 @@ function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: stri
     });
     return () => {
       alive = false;
+      stopWatching();
       m.remove();
       map.current = null;
       position.current = null;
@@ -236,7 +270,7 @@ function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: stri
     <div className="flex h-full gap-2">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div ref={el} className="min-h-0 flex-1 rounded" data-testid="map" />
-        {!loading && !points.length && <p className="text-center text-xs text-slate-500">No locations in this period</p>}
+        {!loading && !points.length && <p className="text-center text-xs text-fg-muted">No locations in this period</p>}
         {points.length > 0 && (
           <div className="flex items-center gap-2 text-xs">
             <button type="button" className="rounded border px-2 py-0.5" onClick={() => setPlaying(!playing)}>
@@ -258,7 +292,7 @@ function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: stri
                 </option>
               ))}
             </select>
-            <span data-testid="route-time" className="tabular-nums text-slate-600">
+            <span data-testid="route-time" className="tabular-nums text-fg-muted">
               {current ? new Date(current.ts).toLocaleTimeString() : ''}
               {current?.speed !== undefined ? ` · ${Math.round(current.speed)} km/h` : ''}
             </span>
@@ -269,9 +303,9 @@ function RouteView({ deviceId, timewindow, settings, actions }: { deviceId: stri
         <ul className="w-40 shrink-0 space-y-1 overflow-y-auto text-xs" aria-label="Trips">
           {trips.map((t) => (
             <li key={t.id}>
-              <button type="button" className="w-full rounded border px-2 py-1 text-left hover:bg-slate-50" onClick={() => pickTrip(t)}>
+              <button type="button" className="w-full rounded border px-2 py-1 text-left hover:bg-fill" onClick={() => pickTrip(t)}>
                 <span className="block">{new Date(t.startTs).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
-                <span className="text-slate-500">
+                <span className="text-fg-muted">
                   {(t.distanceM / 1000).toFixed(1)} km{t.endTs === null ? ' · under way' : ''}
                 </span>
               </button>
@@ -302,11 +336,11 @@ export const mapWidget: WidgetDefinition<Settings> = {
       return (
         <WidgetStatus result={result}>
           {!single ? (
-            <p className="p-2 text-sm text-slate-500">Route playback shows one device: choose “This device” or a single device as the data source.</p>
+            <p className="p-2 text-sm text-fg-muted">Route playback shows one device: choose “This device” or a single device as the data source.</p>
           ) : deviceId ? (
             <RouteView deviceId={deviceId} timewindow={timewindow} settings={settings} actions={actions} />
           ) : (
-            <p className="p-2 text-sm text-slate-500">This device has no location yet.</p>
+            <p className="p-2 text-sm text-fg-muted">This device has no location yet.</p>
           )}
         </WidgetStatus>
       );
@@ -317,9 +351,9 @@ export const mapWidget: WidgetDefinition<Settings> = {
           <div className="relative h-full">
             <MapView data={data} keys={keys} settings={settings} profile={profile} actions={actions} />
             {data.devices.length === 0 && (
-              <p className="pointer-events-none absolute inset-x-0 top-2 z-[1000] text-center text-xs text-slate-500">No devices with a location</p>
+              <p className="pointer-events-none absolute inset-x-0 top-2 z-[1000] text-center text-xs text-fg-muted">No devices with a location</p>
             )}
-            {data.truncated && <p className="absolute bottom-1 left-1 z-[1000] rounded bg-white/80 px-1 text-xs text-slate-600">Showing the first 5,000 devices</p>}
+            {data.truncated && <p className="absolute bottom-1 left-1 z-[1000] rounded bg-surface/80 px-1 text-xs text-fg-muted">Showing the first 5,000 devices</p>}
           </div>
         )}
       </WidgetStatus>

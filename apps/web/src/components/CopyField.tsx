@@ -37,7 +37,7 @@ export function CopyField({
           value={value}
           rows={Math.min(14, value.split('\n').length)}
           onFocus={select}
-          className="w-full rounded-md border border-slate-300 bg-slate-50 p-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900"
+          className="w-full rounded-md border border-line-strong bg-fill p-2 font-mono text-xs"
         />
       ) : (
         <Input id={id} ref={ref} readOnly value={value} onFocus={select} className="font-mono" />

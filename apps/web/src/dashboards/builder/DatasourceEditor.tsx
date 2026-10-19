@@ -19,14 +19,14 @@ const ALARM_STATUS_CHOICES: { label: string; status: AlarmStatus[] | undefined }
   { label: 'All, including cleared', status: undefined },
 ];
 
-const selectClass = 'h-8 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-8 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 
 function KeyPicker({ keys, value, onChange, max }: { keys: { key: string; label: string }[]; value: string[]; onChange: (v: string[]) => void; max?: number }) {
   const atMax = max !== undefined && value.length >= max;
   return (
     <fieldset className="space-y-1">
-      <legend className="text-xs font-medium text-slate-600 dark:text-slate-300">Keys{max ? ` (up to ${max})` : ''}</legend>
-      {keys.length === 0 && <p className="text-xs text-slate-500">This profile declares no telemetry keys.</p>}
+      <legend className="text-xs font-medium text-fg-muted">Keys{max ? ` (up to ${max})` : ''}</legend>
+      {keys.length === 0 && <p className="text-xs text-fg-muted">This profile declares no telemetry keys.</p>}
       <div className="flex max-h-40 flex-col gap-1 overflow-auto">
         {keys.map((k) => {
           const checked = value.includes(k.key);
@@ -38,7 +38,7 @@ function KeyPicker({ keys, value, onChange, max }: { keys: { key: string; label:
                 disabled={!checked && atMax}
                 onChange={(e) => onChange(e.target.checked ? (max === 1 ? [k.key] : [...value, k.key]) : value.filter((x) => x !== k.key))}
               />
-              {k.label} <span className="font-mono text-xs text-slate-400">{k.key}</span>
+              {k.label} <span className="font-mono text-xs text-fg-muted">{k.key}</span>
             </label>
           );
         })}
@@ -87,7 +87,7 @@ export function DatasourceEditor({
     <div className="space-y-3">
       {kinds.length > 1 && (
         <div className="space-y-1">
-          <label htmlFor={`${id}-kind`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor={`${id}-kind`} className="text-xs font-medium text-fg-muted">
             Data source
           </label>
           <select id={`${id}-kind`} className={selectClass} value={value.kind} onChange={(e) => setKind(e.target.value as DataSource['kind'])}>
@@ -101,7 +101,7 @@ export function DatasourceEditor({
       )}
       {value.kind === 'device' && (
         <div className="space-y-1">
-          <label htmlFor={`${id}-device`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor={`${id}-device`} className="text-xs font-medium text-fg-muted">
             Device id
           </label>
           <input id={`${id}-device`} className={selectClass} value={value.deviceId} onChange={(e) => onChange({ ...value, deviceId: e.target.value.trim() })} />
@@ -109,7 +109,7 @@ export function DatasourceEditor({
       )}
       {value.kind === 'currentAsset' && (
         <div className="space-y-1">
-          <label htmlFor={`${id}-depth`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor={`${id}-depth`} className="text-xs font-medium text-fg-muted">
             Devices
           </label>
           <select id={`${id}-depth`} className={selectClass} value={value.depth} onChange={(e) => onChange({ ...value, depth: e.target.value as 'children' | 'subtree' })}>
@@ -120,7 +120,7 @@ export function DatasourceEditor({
       )}
       {(value.kind === 'devicesOfProfile' || value.kind === 'entityList' || value.kind === 'currentAsset') && (
         <div className="space-y-1">
-          <label htmlFor={`${id}-profile`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          <label htmlFor={`${id}-profile`} className="text-xs font-medium text-fg-muted">
             Profile
           </label>
           <select id={`${id}-profile`} className={selectClass} value={value.profileId ?? ''} onChange={(e) => onChange({ ...value, profileId: e.target.value || null })}>
@@ -136,7 +136,7 @@ export function DatasourceEditor({
       {value.kind === 'alarms' && (
         <>
           <div className="space-y-1">
-            <label htmlFor={`${id}-astatus`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor={`${id}-astatus`} className="text-xs font-medium text-fg-muted">
               Alarms
             </label>
             <select
@@ -153,7 +153,7 @@ export function DatasourceEditor({
             </select>
           </div>
           <fieldset className="space-y-1">
-            <legend className="text-xs font-medium text-slate-600 dark:text-slate-300">Severities (none ticked = all)</legend>
+            <legend className="text-xs font-medium text-fg-muted">Severities (none ticked = all)</legend>
             <div className="flex flex-wrap gap-3">
               {ALARM_SEVERITIES.map((s) => (
                 <label key={s} className="flex items-center gap-1 text-sm">
@@ -171,7 +171,7 @@ export function DatasourceEditor({
             </div>
           </fieldset>
           <div className="space-y-1">
-            <label htmlFor={`${id}-aprofile`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor={`${id}-aprofile`} className="text-xs font-medium text-fg-muted">
               Profile
             </label>
             <select id={`${id}-aprofile`} className={selectClass} value={value.filter.profileId ?? ''} onChange={(e) => onChange({ ...value, filter: { ...value.filter, profileId: e.target.value || null } })}>
@@ -193,7 +193,7 @@ export function DatasourceEditor({
           </label>
           {widget.data.mode === 'list' && (
             <div className="space-y-1">
-              <label htmlFor={`${id}-asize`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor={`${id}-asize`} className="text-xs font-medium text-fg-muted">
                 Alarms shown
               </label>
               <input id={`${id}-asize`} type="number" min={1} max={100} className={selectClass} value={value.pageSize} onChange={(e) => onChange({ ...value, pageSize: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })} />
@@ -210,7 +210,7 @@ export function DatasourceEditor({
             onChange={(columns) => onChange({ ...value, columns })}
           />
           <div className="space-y-1">
-            <label htmlFor={`${id}-size`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            <label htmlFor={`${id}-size`} className="text-xs font-medium text-fg-muted">
               Rows per page
             </label>
             <input

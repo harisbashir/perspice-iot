@@ -16,7 +16,10 @@ import { createRouter } from './router';
 const queryClient = createQueryClient();
 const router = createRouter();
 
-createRoot(document.getElementById('root')!).render(
+// Demo mode mocks the API before anything fetches (see vite.config.ts); dropped from real builds.
+const ready = import.meta.env.DEMO ? import('./demo/start').then((m) => m.startDemo()) : Promise.resolve();
+
+void ready.then(() => createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrandingProvider>
@@ -30,4 +33,4 @@ createRoot(document.getElementById('root')!).render(
       </BrandingProvider>
     </QueryClientProvider>
   </StrictMode>,
-);
+));

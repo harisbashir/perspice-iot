@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Five dashboard widgets, drawn in SVG so they're sharp at any size and in dark mode: **Dial**
+  (a 240° gauge with its warning and critical zones on the rim), **Rings** (up to three values as
+  concentric rings), **Segmented meter** (an LED-style bar), **Ranked bars** (a key across devices,
+  lowest or highest first) and **Signal strength** (RSSI, percentage or CSQ as bars and a word).
+- Fleet KPI tiles show a ring with their share of all devices ("67% of 9").
+- Appearance setting in the account menu: match the system (the default), light or dark.
+- Demo mode for the web app (`pnpm --filter @perspice/web dev:demo`): every page on mock data with
+  live readings, no server needed; `e2e/screenshots.mjs` captures it at phone and desktop width.
+- `CLAUDE.md` guides for the repository and the web app (design tokens, phone layouts, testing).
 - PerspiceClient 0.3.0, for building products on it:
   - `ProductTemplate` example: a comms task that owns the client and an app/HMI task, with queues
     between them, provisioning, Wi-Fi + W5500, pinned TLS, OTA with rollback, commands and a
@@ -33,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dashboards laid out before the page settled stayed too wide (the grid now follows its width),
+  and maps showed the whole world after their frame resized instead of their devices.
 - OTA rollback never happened: the Arduino core confirms every new image at boot unless the
   sketch defines `verifyRollbackLater()`. `OtaUpdate` and `ProductTemplate` now do, and the docs
   say so.
@@ -49,6 +60,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Redesigned web app, after Apple's Human Interface Guidelines: grouped surfaces on a grey
+  canvas (true black in dark mode), the system font with rounded figures for readings, semantic
+  colour tokens that adapt to dark mode and meet WCAG contrast, a sidebar grouped into sections,
+  segmented controls, bottom-sheet dialogs on phones, and a sign-in page with the brand's rings.
+  White-label brand colours still apply.
+- Phones: a tab bar (Overview, Devices, Alarms, More) replaces the slide-out menu; dashboards
+  stack their widgets two to a row instead of squeezing the 12-column grid; devices and alarms are
+  lists; tabs and filters scroll sideways instead of overlapping; controls and fields are 44 px on
+  touch screens and fields no longer zoom the page; nothing pushes the page wider than the screen.
+- Charts follow the app's theme and redraw when the appearance changes; their plot area uses the
+  full width.
 - Firmware CI pins the ESP32 core to 3.3.12 and compiles `ProductTemplate`.
 - `BasicSensor` is the Arduino Mega example; ESP32 boards use `EthernetW5500` for wired Ethernet.
 

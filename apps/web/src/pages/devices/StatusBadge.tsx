@@ -2,10 +2,10 @@ import type { DeviceStatus } from '@perspice/shared';
 import { Badge } from '@/components/ui/badge';
 
 const STYLE: Record<DeviceStatus, { label: string; variant: 'success' | 'warning' | 'danger' | 'secondary'; dot: string }> = {
-  online: { label: 'Online', variant: 'success', dot: 'bg-green-500' },
-  offline: { label: 'Offline', variant: 'warning', dot: 'bg-amber-500' },
-  dead: { label: 'Dead', variant: 'danger', dot: 'bg-red-500' },
-  never: { label: 'Never connected', variant: 'secondary', dot: 'bg-slate-400' },
+  online: { label: 'Online', variant: 'success', dot: 'bg-ok-vivid' },
+  offline: { label: 'Offline', variant: 'warning', dot: 'bg-warn-vivid' },
+  dead: { label: 'Dead', variant: 'danger', dot: 'bg-crit-vivid' },
+  never: { label: 'Never connected', variant: 'secondary', dot: 'bg-fg-muted' },
 };
 
 /** Colour plus a text label, so status is never conveyed by colour alone. */

@@ -5,6 +5,7 @@ import { formatValue, keyDef } from '../../data/format';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
+import { Readout, splitUnit } from '../shared/Readout';
 import { firstValue } from './shared';
 
 const schema = z.object({
@@ -35,13 +36,11 @@ export const valueCard: WidgetDefinition<Settings> = {
     }, [num]);
     return (
       <WidgetStatus result={result}>
-        <div className="flex h-full flex-col justify-center">
-          <div className="flex items-baseline gap-2">
-            <span data-testid="value" className="text-3xl font-semibold tabular-nums">
-              {formatValue(raw, { decimals: settings.decimals ?? def?.decimals, unit: settings.unit ?? def?.unit })}
-            </span>
-            {settings.showTrend && trend === 'up' && <ArrowUp aria-label="Rising" className="h-5 w-5 text-green-600" />}
-            {settings.showTrend && trend === 'down' && <ArrowDown aria-label="Falling" className="h-5 w-5 text-red-600" />}
+        <div className="flex h-full flex-col justify-end pb-1">
+          <div className="flex items-baseline gap-1.5">
+            <Readout testId="value" {...splitUnit(formatValue(raw, { decimals: settings.decimals ?? def?.decimals, unit: settings.unit ?? def?.unit }), settings.unit ?? def?.unit)} />
+            {settings.showTrend && trend === 'up' && <ArrowUp aria-label="Rising" className="h-4 w-4 self-center text-fg-muted" strokeWidth={2.5} />}
+            {settings.showTrend && trend === 'down' && <ArrowDown aria-label="Falling" className="h-4 w-4 self-center text-fg-muted" strokeWidth={2.5} />}
           </div>
         </div>
       </WidgetStatus>

@@ -69,7 +69,7 @@ export function LoginPage() {
           )}
         </Field>
         {error && (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-crit">
             {error}
           </p>
         )}

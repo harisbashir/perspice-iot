@@ -93,7 +93,7 @@ export function CustomerDetailPage() {
                 {(groups ?? []).map((g) => (
                   <li key={g.id}>{g.name}</li>
                 ))}
-                {groups?.length === 0 && <li className="text-slate-500">No groups.</li>}
+                {groups?.length === 0 && <li className="text-fg-muted">No groups.</li>}
               </ul>
               <form onSubmit={addGroup} className="flex gap-2">
                 <Input aria-label="New group name" placeholder="New group" value={groupName} onChange={(e) => setGroupName(e.target.value)} />

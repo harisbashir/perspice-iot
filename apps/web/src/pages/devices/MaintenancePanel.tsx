@@ -51,16 +51,16 @@ export function MaintenancePanel({ deviceId, profile }: { deviceId: string; prof
         </CardHeader>
         <CardContent className="text-sm">
           {runtimeKeys.length === 0 ? (
-            <p className="text-slate-500">This profile has no run-time key. Add a calculated key of the kind “Run time” to count run hours.</p>
+            <p className="text-fg-muted">This profile has no run-time key. Add a calculated key of the kind “Run time” to count run hours.</p>
           ) : (
             <dl className="grid gap-3 sm:grid-cols-2">
               {runtimeKeys.map((k, i) => {
                 const h = hours[i]?.data;
                 return (
-                  <div key={k.key} data-testid={`run-hours-${k.key}`} className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-                    <dt className="text-slate-500">{k.label}</dt>
+                  <div key={k.key} data-testid={`run-hours-${k.key}`} className="rounded-md border border-line p-3">
+                    <dt className="text-fg-muted">{k.label}</dt>
                     <dd className="text-2xl font-semibold tabular-nums">{h ? `${h.total.toLocaleString()} h` : '—'}</dd>
-                    <dd className="text-xs text-slate-500">{h ? `${h.sinceService.toLocaleString()} h since ${h.lastService ? 'the last service' : 'it was added'}` : ''}</dd>
+                    <dd className="text-xs text-fg-muted">{h ? `${h.sinceService.toLocaleString()} h since ${h.lastService ? 'the last service' : 'it was added'}` : ''}</dd>
                   </div>
                 );
               })}
@@ -82,7 +82,7 @@ export function MaintenancePanel({ deviceId, profile }: { deviceId: string; prof
               </div>
               <Button type="submit">Log service</Button>
             </form>
-            <p className="mt-2 text-xs text-slate-500">Maintenance reminders for this device start counting again from here.</p>
+            <p className="mt-2 text-xs text-fg-muted">Maintenance reminders for this device start counting again from here.</p>
             <ErrorText error={error} />
           </CardContent>
         </Card>
@@ -106,7 +106,7 @@ export function MaintenancePanel({ deviceId, profile }: { deviceId: string; prof
                 <TableRow key={s.id}>
                   <TableCell>{new Date(s.servicedAt).toLocaleString()}</TableCell>
                   <TableCell>{s.note}</TableCell>
-                  <TableCell className="text-xs text-slate-500">
+                  <TableCell className="text-xs text-fg-muted">
                     {Object.entries(s.runHours)
                       .map(([k, v]) => `${runtimeKeys.find((r) => r.key === k)?.label ?? k}: ${v} h`)
                       .join(', ')}
@@ -115,7 +115,7 @@ export function MaintenancePanel({ deviceId, profile }: { deviceId: string; prof
               ))}
               {services.data?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-6 text-center text-slate-500">
+                  <TableCell colSpan={3} className="py-6 text-center text-fg-muted">
                     No services logged yet.
                   </TableCell>
                 </TableRow>

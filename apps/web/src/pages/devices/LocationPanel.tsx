@@ -85,31 +85,31 @@ export function LocationPanel({ device, profile }: { device: DeviceDto; profile:
 
   return (
     <div className="space-y-3">
-      <div ref={el} className="h-80 rounded-md border border-slate-200 dark:border-slate-800" data-testid="location-map" />
+      <div ref={el} className="h-80 rounded-md border border-line" data-testid="location-map" />
       <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
         {loc ? (
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            <dt className="text-slate-500">Position</dt>
+            <dt className="text-fg-muted">Position</dt>
             <dd className="font-mono" data-testid="location-position">
               {fmt(loc.lat)}, {fmt(loc.lng)}
             </dd>
             {loc.accuracy !== undefined && (
               <>
-                <dt className="text-slate-500">Accuracy</dt>
+                <dt className="text-fg-muted">Accuracy</dt>
                 <dd>± {Math.round(loc.accuracy)} m</dd>
               </>
             )}
             {loc.speed !== undefined && (
               <>
-                <dt className="text-slate-500">Speed</dt>
+                <dt className="text-fg-muted">Speed</dt>
                 <dd>{Math.round(loc.speed)} km/h</dd>
               </>
             )}
-            <dt className="text-slate-500">{loc.source === 'fixed' ? 'Set' : 'Reported'}</dt>
+            <dt className="text-fg-muted">{loc.source === 'fixed' ? 'Set' : 'Reported'}</dt>
             <dd>{timeAgo(loc.ts)}</dd>
           </dl>
         ) : (
-          <p className="text-slate-500">{profile.locationMode === 'reported' ? 'No location reported yet.' : 'No location set.'}</p>
+          <p className="text-fg-muted">{profile.locationMode === 'reported' ? 'No location reported yet.' : 'No location set.'}</p>
         )}
         {canEdit && !draft && (
           <div className="flex gap-2">
@@ -125,8 +125,8 @@ export function LocationPanel({ device, profile }: { device: DeviceDto; profile:
         )}
       </div>
       {draft && (
-        <div className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
-          <p className="text-sm text-slate-500">
+        <div className="space-y-2 rounded-md border border-line p-3">
+          <p className="text-sm text-fg-muted">
             Click the map, or enter coordinates.{profile.locationMode === 'reported' ? ' The device’s next reported position replaces it.' : ''}
           </p>
           <div className="flex flex-wrap items-end gap-3">

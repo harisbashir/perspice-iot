@@ -28,12 +28,12 @@ export function WidgetSettingsPanel({
         </Button>
       </div>
       <div className="space-y-1">
-        <label htmlFor={`${id}-title`} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+        <label htmlFor={`${id}-title`} className="text-xs font-medium text-fg-muted">
           Title
         </label>
         <input
           id={`${id}-title`}
-          className="h-8 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+          className="h-8 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm"
           value={widget.title ?? ''}
           maxLength={200}
           onChange={(e) => onChange({ title: e.target.value })}
@@ -51,7 +51,7 @@ export function WidgetSettingsPanel({
           />
         </>
       ) : (
-        <p className="text-sm text-slate-500">This widget type is not available in this version; it is kept as is.</p>
+        <p className="text-sm text-fg-muted">This widget type is not available in this version; it is kept as is.</p>
       )}
     </aside>
   );

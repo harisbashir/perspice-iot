@@ -77,7 +77,7 @@ export function RolesPage() {
                 {r.name} {r.builtIn && <Badge variant="secondary">built-in</Badge>}
               </TableCell>
               <TableCell>{r.scope}</TableCell>
-              <TableCell className="max-w-md text-xs text-slate-500">{r.permissions.join(', ')}</TableCell>
+              <TableCell className="max-w-md text-xs text-fg-muted">{r.permissions.join(', ')}</TableCell>
               <TableCell>
                 {!r.builtIn && hasPerm('role.manage') && (
                   <Button variant="ghost" size="sm" onClick={() => void remove(r.id)}>
@@ -100,7 +100,7 @@ export function RolesPage() {
               {(id) => (
                 <select
                   id={id}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700"
+                  className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm"
                   value={scope}
                   onChange={(e) => setScope(e.target.value as 'platform' | 'customer')}
                 >

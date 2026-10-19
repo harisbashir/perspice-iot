@@ -20,13 +20,13 @@ export interface DashboardViewProps {
 export function StateTabs({ definition, active, onChange }: { definition: DashboardDefinition; active: string; onChange: (id: string) => void }) {
   if (definition.states.length < 2) return <span />;
   return (
-    <div role="tablist" aria-label="Dashboard views" className="flex flex-wrap gap-1">
+    <div role="tablist" aria-label="Dashboard views" className="scroll-row h-9 items-center gap-0.5 rounded-[10px] bg-fill p-0.5">
       {definition.states.map((s) => (
         <button
           key={s.id}
           role="tab"
           aria-selected={s.id === active}
-          className={`rounded-md px-3 py-1 text-sm ${s.id === active ? 'bg-primary-100 font-medium text-primary-800 dark:bg-primary-900 dark:text-primary-100' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          className={`h-full shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium ${s.id === active ? 'bg-surface text-fg shadow-sm dark:bg-fill-strong' : 'text-fg-muted hover:text-fg'}`}
           onClick={() => onChange(s.id)}
         >
           {s.name}
@@ -49,7 +49,7 @@ export function DashboardView({
   const [timewindow, setTimewindow] = useState<Timewindow>(definition.settings.timewindow);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StateTabs definition={definition} active={state.id} onChange={setStateId} />
         <div className="flex flex-wrap items-center gap-2">

@@ -8,8 +8,9 @@ import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
 import { EChart } from './EChart';
+import { Readout, splitUnit } from '../shared/Readout';
 
-const schema = z.object({ color: field.color('Line colour').default('#0F766E') });
+const schema = z.object({ color: field.color('Line colour').default('#0A84FF') });
 type Settings = z.infer<typeof schema>;
 
 export function sparklineModel(data: HistoryData, key: string): { points: number[]; last: number | null; delta: number | null } {
@@ -38,16 +39,16 @@ export const sparkline: WidgetDefinition<Settings> = {
           grid: { left: 0, right: 0, top: 4, bottom: 0 },
           xAxis: { type: 'category', show: false, data: model.points.map((_, i) => i) },
           yAxis: { type: 'value', show: false, scale: true },
-          series: [{ type: 'line', data: model.points, showSymbol: false, lineStyle: { color: settings.color, width: 2 }, areaStyle: { color: settings.color, opacity: 0.1 } }],
+          series: [{ type: 'line', data: model.points, showSymbol: false, lineStyle: { color: settings.color, width: 2 }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: `${settings.color}40` }, { offset: 1, color: `${settings.color}00` }] } } }],
         },
       [model, settings.color],
     );
     return (
       <WidgetStatus result={result} empty={model?.points.length === 0}>
         <div className="flex h-full flex-col">
-          <div className="text-2xl font-semibold tabular-nums">{model?.last !== null && model ? formatNumber(model.last!, def?.decimals, def?.unit) : '—'}</div>
+          <Readout size="md" {...splitUnit(model?.last !== null && model ? formatNumber(model.last!, def?.decimals, def?.unit) : '—', def?.unit)} />
           {model?.delta !== null && model && (
-            <div className={`text-xs ${model.delta! >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+            <div className="mt-1 text-xs font-medium tabular-nums text-fg-muted">
               {model.delta! >= 0 ? '▲' : '▼'} {formatNumber(Math.abs(model.delta!), def?.decimals)}
             </div>
           )}

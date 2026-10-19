@@ -2,8 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Defaults until branding loads (applyTheme overwrites these). Values are "R G B" channels. */
+/*
+ * Design tokens (apps/web/CLAUDE.md › Design tokens). Values are "R G B" channels so Tailwind can
+ * add alpha (`bg-surface/80`). Light values first, dark under `.dark`; components use the
+ * semantic names (bg-surface, text-fg-muted, border-line…), never raw greys.
+ */
 :root {
+  /* Brand defaults until branding loads (applyTheme overwrites these). */
   --color-primary-50: 231 241 241;
   --color-primary-100: 207 228 226;
   --color-primary-200: 195 221 219;
@@ -16,17 +21,198 @@
   --color-primary-900: 6 47 44;
   --color-primary-950: 4 30 28;
   --color-accent: 245 158 11;
+
+  --canvas: 242 242 247; /* #F2F2F7 grouped background */
+  --surface: 255 255 255; /* cards, sheets, menus */
+  --surface-2: 255 255 255; /* a surface on a surface (raised in dark mode) */
+  --fill: 236 236 240; /* control and hover fill */
+  --fill-strong: 220 220 225; /* tracks, skeletons; no text on it */
+  --line: 227 227 232; /* hairlines between rows and around cards */
+  --line-strong: 148 148 153; /* control borders, 3:1 on surface */
+  --fg: 29 29 31; /* #1D1D1F 16.8:1 on surface */
+  --fg-2: 58 58 60; /* #3A3A3C body copy, 11.4:1 */
+  --fg-muted: 104 104 109; /* #68686D secondary text, ≥4.7:1 on surface, canvas and fill */
+
+  /* Status. Text colours are ≥5:1 on surface and their tint; vivid ones are for marks only. */
+  --ok: 22 112 51;
+  --ok-vivid: 52 199 89;
+  --ok-tint: 227 245 232;
+  --warn: 178 80 0;
+  --warn-vivid: 255 149 0;
+  --warn-tint: 255 240 223;
+  --crit: 196 0 15;
+  --crit-vivid: 255 59 48;
+  --crit-tint: 253 231 232;
+  --info: 0 98 204;
+  --info-vivid: 10 132 255;
+  --info-tint: 224 238 255;
+
+  --glass: 242 242 247; /* translucent bars: canvas at 78% plus blur */
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: 0 0 0;
+  --surface: 28 28 30; /* #1C1C1E */
+  --surface-2: 44 44 46; /* #2C2C2E */
+  --fill: 44 44 46;
+  --fill-strong: 58 58 60;
+  --line: 56 56 58;
+  --line-strong: 107 107 112; /* 3.2:1 on surface */
+  --fg: 245 245 247; /* 15.6:1 on surface */
+  --fg-2: 209 209 214;
+  --fg-muted: 152 152 157; /* #98989D 5.9:1 on surface, 4.9:1 on fill */
+
+  --ok: 48 209 88;
+  --ok-vivid: 48 209 88;
+  --ok-tint: 18 54 30;
+  --warn: 255 159 10;
+  --warn-vivid: 255 159 10;
+  --warn-tint: 64 40 6;
+  --crit: 255 105 97;
+  --crit-vivid: 255 69 58;
+  --crit-tint: 72 20 20;
+  --info: 64 156 255;
+  --info-vivid: 10 132 255;
+  --info-tint: 10 40 76;
+
+  --glass: 22 22 24;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas font-sans text-[15px] leading-normal text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+  /* Readings line up digit by digit. */
+  .tabular-nums,
+  td {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-primary-500));
+    outline-offset: 2px;
+  }
+  /* Native controls (selects, checkboxes) follow the theme and the brand. */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'] {
+    accent-color: rgb(var(--color-primary-600));
+  }
+  /* Native selects everywhere: the Input look with a chevron (the app has ~100 of them). */
+  select:not([multiple]) {
+    appearance: none;
+    padding-right: 2rem !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.65rem center;
+    background-repeat: no-repeat;
+  }
+  select {
+    color: rgb(var(--fg));
+  }
+  /* Fields shrink with their grid or flex column instead of pushing the page wider than a phone. */
+  input,
+  select,
+  textarea {
+    min-width: 0;
+  }
+  /* Phones zoom into fields under 16 px, and fingers need 44 px targets (HIG › Accessibility). */
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+    select {
+      min-height: 44px;
+    }
+    input[type='checkbox'],
+    input[type='radio'] {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+}
+
+@layer components {
+  /* A translucent bar over scrolling content (top bar, tab bar). Solid when transparency is reduced. */
+  .glass {
+    background-color: rgb(var(--glass) / 0.78);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background-color: rgb(var(--canvas));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  /* Rows of chips or tabs that scroll sideways on narrow screens instead of wrapping. */
+  .scroll-row {
+    @apply flex max-w-full overflow-x-auto;
+    scrollbar-width: none;
+  }
+  .scroll-row::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* A table inside a card doesn't draw a second card. */
+.card .table-card {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Leaflet controls and popups in the app's style. */
+.leaflet-container {
+  font: inherit;
+  background: rgb(var(--fill));
+}
+.leaflet-bar,
+.leaflet-bar a {
+  border-color: rgb(var(--line)) !important;
+}
+.dark .leaflet-bar a {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
 }
 
 /* Help articles (rendered Markdown). */
 .help-article {
-  @apply space-y-4 text-[15px] leading-relaxed text-slate-700 dark:text-slate-300;
+  @apply space-y-4 text-[15px] leading-relaxed text-fg-2;
 }
 .help-article h2 {
-  @apply pt-4 text-xl font-semibold text-slate-900 dark:text-slate-100;
+  @apply pt-4 text-xl font-semibold text-fg;
 }
 .help-article h3 {
-  @apply pt-2 text-base font-semibold text-slate-900 dark:text-slate-100;
+  @apply pt-2 text-base font-semibold text-fg;
 }
 .help-article ul {
   @apply list-disc space-y-1 pl-6;
@@ -38,10 +224,10 @@
   @apply text-primary-700 underline dark:text-primary-300;
 }
 .help-article code {
-  @apply rounded bg-slate-100 px-1 py-0.5 text-[13px] dark:bg-slate-800;
+  @apply rounded bg-fill px-1 py-0.5 text-[13px];
 }
 .help-article pre {
-  @apply overflow-x-auto rounded-md bg-slate-100 p-3 text-[13px] dark:bg-slate-800;
+  @apply overflow-x-auto rounded-md bg-fill p-3 text-[13px];
 }
 .help-article pre code {
   @apply bg-transparent p-0;
@@ -50,13 +236,13 @@
   @apply block w-full overflow-x-auto text-sm;
 }
 .help-article th {
-  @apply border-b border-slate-300 px-2 py-1 text-left font-semibold dark:border-slate-700;
+  @apply border-b border-line-strong px-2 py-1 text-left font-semibold;
 }
 .help-article td {
-  @apply border-b border-slate-200 px-2 py-1 align-top dark:border-slate-800;
+  @apply border-b border-line px-2 py-1 align-top;
 }
 .help-article blockquote {
-  @apply border-l-4 border-primary-300 pl-4 text-slate-600 dark:text-slate-400;
+  @apply border-l-4 border-primary-300 pl-4 text-fg-muted;
 }
 .help-article .help-platform {
   @apply space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30;

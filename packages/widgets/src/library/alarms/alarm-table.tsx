@@ -5,7 +5,7 @@ import { dataOf, isAlarmList } from '../../data/result';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import { field } from '../../forms/fields';
 import type { WidgetDefinition } from '../../sdk';
-import { row, td, th } from '../tables/styles';
+import { row, td, th, wideOnly } from '../tables/styles';
 import { Severity, ago } from './shared';
 
 const schema = z.object({ showDevice: field.boolean('Show the device column').default(true) });
@@ -29,13 +29,13 @@ export const alarmTable: WidgetDefinition<Settings> = {
         <div className="flex h-full flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white dark:bg-slate-900">
+              <thead className="sticky top-0 bg-surface">
                 <tr>
                   <th className={th}>Severity</th>
                   <th className={th}>Alarm</th>
-                  {settings.showDevice && <th className={th}>Device</th>}
-                  <th className={th}>Started</th>
-                  <th className={th}>Status</th>
+                  {settings.showDevice && <th className={`${th} ${wideOnly}`}>Device</th>}
+                  <th className={`${th} ${wideOnly}`}>Started</th>
+                  <th className={`${th} ${wideOnly}`}>Status</th>
                   {can.ack && <th className={th} />}
                 </tr>
               </thead>
@@ -57,18 +57,18 @@ export const alarmTable: WidgetDefinition<Settings> = {
                         {a.ruleName}
                       </a>
                     </td>
-                    {settings.showDevice && <td className={td}>{a.device.name}</td>}
-                    <td className={td} title={new Date(a.startedAt).toLocaleString()}>
+                    {settings.showDevice && <td className={`${td} ${wideOnly}`}>{a.device.name}</td>}
+                    <td className={`${td} ${wideOnly}`} title={new Date(a.startedAt).toLocaleString()}>
                       {ago(a.startedAt)}
                     </td>
-                    <td className={`${td} capitalize`}>{a.status}</td>
+                    <td className={`${td} ${wideOnly} capitalize`}>{a.status}</td>
                     {can.ack && (
                       <td className={td}>
                         {a.status === 'active' && (
                           <button
                             type="button"
                             disabled={busy === a.id}
-                            className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                            className="h-7 rounded-md bg-fill px-2.5 text-xs font-medium hover:bg-fill-strong disabled:opacity-40 touch:h-9"
                             onClick={() => {
                               setBusy(a.id);
                               void actions.ackAlarm(a.id).finally(() => setBusy(null));
@@ -84,7 +84,7 @@ export const alarmTable: WidgetDefinition<Settings> = {
               </tbody>
             </table>
           </div>
-          {list && list.total > list.alarms.length && <div className="pt-1 text-right text-xs text-slate-500">{list.alarms.length} of {list.total}</div>}
+          {list && list.total > list.alarms.length && <div className="pt-1 text-right text-xs text-fg-muted">{list.alarms.length} of {list.total}</div>}
         </div>
       </WidgetStatus>
     );

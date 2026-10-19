@@ -20,11 +20,11 @@ export function Field({
       <Label htmlFor={id}>{label}</Label>
       {children(id, error || help ? msgId : undefined)}
       {error ? (
-        <p id={msgId} role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p id={msgId} role="alert" className="text-[13px] text-crit">
           {error}
         </p>
       ) : help ? (
-        <p id={msgId} className="text-sm text-slate-500">
+        <p id={msgId} className="text-[13px] text-fg-muted">
           {help}
         </p>
       ) : null}

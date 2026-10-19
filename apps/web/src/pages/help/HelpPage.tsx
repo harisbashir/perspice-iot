@@ -22,7 +22,7 @@ export function HelpPage() {
         }
       />
       <div className="relative mb-6 max-w-md">
-        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-fg-muted" />
         <Input aria-label="Search help" placeholder="Search help" className="pl-8" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {HELP_SECTIONS.map((s) => {
@@ -36,15 +36,15 @@ export function HelpPage() {
                 <li key={a.slug}>
                   <Link
                     to={`/help/${a.slug}`}
-                    className="block h-full rounded-lg border border-slate-200 p-4 hover:border-primary-400 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
+                    className="block h-full rounded-xl bg-surface p-4 shadow-card transition-shadow hover:shadow-float"
                   >
                     <span className="flex items-center gap-2 font-medium">
                       {a.title}
                       {a.audience === 'platform' && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Platform</span>
+                        <span className="rounded-full bg-warn-tint px-2 py-0.5 text-xs font-medium text-warn">Platform</span>
                       )}
                     </span>
-                    <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">{a.summary}</span>
+                    <span className="mt-1 block text-sm text-fg-muted">{a.summary}</span>
                   </Link>
                 </li>
               ))}
@@ -52,7 +52,7 @@ export function HelpPage() {
           </section>
         );
       })}
-      {!shown.length && <p className="text-sm text-slate-500">Nothing matches “{q}”.</p>}
+      {!shown.length && <p className="text-sm text-fg-muted">Nothing matches “{q}”.</p>}
     </div>
   );
 }

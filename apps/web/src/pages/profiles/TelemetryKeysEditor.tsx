@@ -8,8 +8,9 @@ const cell = 'h-8 text-xs';
 export function TelemetryKeysEditor({ value, onChange }: { value: TelemetryKeyDef[]; onChange: (v: TelemetryKeyDef[]) => void }) {
   const update = (i: number, patch: Partial<TelemetryKeyDef>) => onChange(value.map((k, j) => (j === i ? { ...k, ...patch } : k)));
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_1fr_80px_110px_80px_36px] gap-2 text-xs font-medium text-slate-500">
+    // Six columns don't fit a phone: they keep their width and the editor scrolls sideways.
+    <div className="space-y-2 overflow-x-auto pb-1">
+      <div className="grid min-w-[34rem] grid-cols-[1fr_1fr_80px_110px_80px_36px] gap-2 text-xs font-medium text-fg-muted">
         <span>Key</span>
         <span>Label</span>
         <span>Unit</span>
@@ -18,13 +19,13 @@ export function TelemetryKeysEditor({ value, onChange }: { value: TelemetryKeyDe
         <span />
       </div>
       {value.map((k, i) => (
-        <div key={i} className="grid grid-cols-[1fr_1fr_80px_110px_80px_36px] gap-2">
+        <div key={i} className="grid min-w-[34rem] grid-cols-[1fr_1fr_80px_110px_80px_36px] gap-2">
           <Input aria-label="Key" className={cell} value={k.key} onChange={(e) => update(i, { key: e.target.value })} />
           <Input aria-label="Label" className={cell} value={k.label} onChange={(e) => update(i, { label: e.target.value })} />
           <Input aria-label="Unit" className={cell} value={k.unit ?? ''} onChange={(e) => update(i, { unit: e.target.value || undefined })} />
           <select
             aria-label="Type"
-            className="h-8 rounded-md border border-slate-300 bg-transparent px-1 text-xs dark:border-slate-700"
+            className="h-8 rounded-lg border border-line-strong bg-surface px-1 text-xs"
             value={k.type}
             onChange={(e) => update(i, { type: e.target.value as TelemetryKeyDef['type'] })}
           >

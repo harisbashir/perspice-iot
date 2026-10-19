@@ -36,7 +36,7 @@ export const historyTable: WidgetDefinition<Settings> = {
       <WidgetStatus result={result} empty={isHistory(data) && rows.length === 0}>
         <div className="h-full overflow-auto">
           <table className="w-full">
-            <thead className="sticky top-0 bg-white dark:bg-slate-900">
+            <thead className="sticky top-0 bg-surface">
               <tr>
                 <th className={th}>Time</th>
                 {keys.map((k) => (
@@ -49,7 +49,7 @@ export const historyTable: WidgetDefinition<Settings> = {
             <tbody>
               {rows.map(([ts, values]) => (
                 <tr key={ts} className={row}>
-                  <td className={`${td} whitespace-nowrap text-xs text-slate-500`}>{new Date(ts).toLocaleString()}</td>
+                  <td className={`${td} whitespace-nowrap text-xs text-fg-muted`}>{new Date(ts).toLocaleString()}</td>
                   {keys.map((k) => (
                     <td key={k} className={`${td} tabular-nums`}>
                       {formatValue(values[k], keyDef(profile, k))}

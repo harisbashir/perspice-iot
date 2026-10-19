@@ -59,7 +59,7 @@ export function AssetTypesPage() {
           {types.map((t) => (
             <TableRow key={t.id} data-testid={`asset-type-${t.name}`}>
               <TableCell className="font-medium">{t.name}</TableCell>
-              <TableCell className="text-xs text-slate-500">{t.attributes.map((a) => a.label).join(', ') || '—'}</TableCell>
+              <TableCell className="text-xs text-fg-muted">{t.attributes.map((a) => a.label).join(', ') || '—'}</TableCell>
               <TableCell>{t.assetCount}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
@@ -75,7 +75,7 @@ export function AssetTypesPage() {
           ))}
           {types.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={4} className="py-8 text-center text-fg-muted">
                 No asset types yet.
               </TableCell>
             </TableRow>
@@ -132,7 +132,7 @@ function TypeDialog({ type, onClose }: { type: AssetTypeDto | null; onClose: () 
               <div key={i} className="flex gap-2" data-testid={`attribute-${i}`}>
                 <Input aria-label="Attribute key" className={cell} placeholder="key" value={a.key} onChange={(e) => setAttr(i, { key: e.target.value })} />
                 <Input aria-label="Attribute label" className={cell} placeholder="Label" value={a.label} onChange={(e) => setAttr(i, { label: e.target.value })} />
-                <select aria-label="Attribute type" className="h-8 rounded-md border border-slate-300 bg-transparent px-1 text-xs dark:border-slate-700" value={a.type} onChange={(e) => setAttr(i, { type: e.target.value as AssetAttributeDef['type'] })}>
+                <select aria-label="Attribute type" className="h-8 rounded-lg border border-line-strong bg-surface px-1 text-xs" value={a.type} onChange={(e) => setAttr(i, { type: e.target.value as AssetAttributeDef['type'] })}>
                   <option value="text">text</option>
                   <option value="number">number</option>
                   <option value="date">date</option>

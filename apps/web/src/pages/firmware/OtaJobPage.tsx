@@ -59,17 +59,17 @@ export function OtaJobPage() {
         </Link>
       </div>
       {job.haltReason && (
-        <p role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+        <p role="alert" className="mb-4 rounded-xl bg-warn-tint p-3 text-sm text-warn">
           Halted: {job.haltReason}
         </p>
       )}
-      <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-label="Devices finished" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-fill-strong" role="progressbar" aria-label="Devices finished" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full bg-primary-600" style={{ width: `${pct}%` }} />
       </div>
       <dl className="mb-6 flex flex-wrap gap-x-6 gap-y-1 text-sm" data-testid="ota-counts">
         {OTA_DEVICE_STATES.filter((s) => job.counts[s]).map((s) => (
           <div key={s} className="flex gap-1">
-            <dt className="text-slate-500">{s}</dt>
+            <dt className="text-fg-muted">{s}</dt>
             <dd className="font-medium">{job.counts[s]}</dd>
           </div>
         ))}

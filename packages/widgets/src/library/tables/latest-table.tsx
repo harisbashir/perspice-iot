@@ -41,7 +41,7 @@ export const latestTable: WidgetDefinition<Settings> = {
                   <tr key={k} className={row}>
                     <td className={td}>{def?.label ?? k}</td>
                     <td className={`${td} font-medium tabular-nums`}>{formatValue(lv?.v, def)}</td>
-                    {settings.showUpdated && <td className={`${td} text-slate-500`}>{lv ? timeAgo(lv.ts) : '—'}</td>}
+                    {settings.showUpdated && <td className={`${td} text-fg-muted`}>{lv ? timeAgo(lv.ts) : '—'}</td>}
                   </tr>
                 );
               })}

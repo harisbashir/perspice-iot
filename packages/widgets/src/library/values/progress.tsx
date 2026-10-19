@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { formatNumber, keyDef } from '../../data/format';
 import { WidgetStatus } from '../../data/WidgetStatus';
 import type { WidgetDefinition } from '../../sdk';
-import { BAND_COLOR, bandOf, clamp, rangeSettings } from '../charts/thresholds';
+import { BAND_VAR, bandOf, clamp, rangeSettings } from '../charts/thresholds';
+import { Readout, splitUnit } from '../shared/Readout';
 import { firstValue } from './shared';
 
 const schema = z.object(rangeSettings);
@@ -27,13 +28,13 @@ export const progressWidget: WidgetDefinition<Settings> = {
     const def = keyDef(profile, key);
     return (
       <WidgetStatus result={result}>
-        <div className="flex h-full flex-col justify-center gap-1">
-          <div className="flex justify-between text-sm">
-            <span>{num === null ? '—' : formatNumber(num, settings.decimals, settings.unit || def?.unit)}</span>
-            <span className="text-slate-500">{pct}%</span>
+        <div className="flex h-full flex-col justify-end gap-2 pb-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <Readout size="md" {...splitUnit(num === null ? '—' : formatNumber(num, settings.decimals, settings.unit || def?.unit), settings.unit || def?.unit)} />
+            <span className="text-[13px] font-medium tabular-nums text-fg-muted">{pct}%</span>
           </div>
-          <div role="progressbar" aria-label={config.title ?? key} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: BAND_COLOR[bandOf(settings, num)] }} />
+          <div role="progressbar" aria-label={config.title ?? key} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="h-2 overflow-hidden rounded-full bg-fill-strong">
+            <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, backgroundColor: BAND_VAR[bandOf(settings, num)] }} />
           </div>
         </div>
       </WidgetStatus>

@@ -4,6 +4,7 @@ import { alarmTable } from './alarms/alarm-table';
 import { alarmTimeline } from './alarms/alarm-timeline';
 import { CHART_WIDGETS } from './charts';
 import { commandButton } from './control/command-button';
+import { GAUGE_WIDGETS } from './gauges';
 import { setpointWidget } from './control/setpoint';
 import { sliderWidget } from './control/slider';
 import { toggleWidget } from './control/toggle';
@@ -24,6 +25,7 @@ import { valueCard } from './values/value-card';
 
 export const BUILT_IN_WIDGETS = [
   ...CHART_WIDGETS,
+  ...GAUGE_WIDGETS,
   mapWidget,
   valueCard,
   multiValueWidget,

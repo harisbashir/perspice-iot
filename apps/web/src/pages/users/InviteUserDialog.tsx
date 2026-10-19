@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
-const selectClass = 'h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700';
+const selectClass = 'h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm';
 
 /** Roles the current user may hand out: never more permissions than they hold. */
 export function grantableRoles(roles: RoleDto[], held: RoleDto['permissions'], scopeType: 'platform' | 'customer'): RoleDto[] {

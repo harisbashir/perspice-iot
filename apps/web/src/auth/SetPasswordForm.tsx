@@ -54,7 +54,7 @@ export function SetPasswordForm({
         {(id) => <Input id={id} type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />}
       </Field>
       {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-crit">
           {error}
         </p>
       )}

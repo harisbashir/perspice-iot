@@ -58,7 +58,7 @@ export function AuditPage() {
                 {r.targetType}
                 {r.targetId ? ` ${r.targetId.slice(0, 8)}` : ''}
               </TableCell>
-              <TableCell className="max-w-sm truncate font-mono text-xs text-slate-500">{r.diff ? JSON.stringify(r.diff) : ''}</TableCell>
+              <TableCell className="max-w-sm truncate font-mono text-xs text-fg-muted">{r.diff ? JSON.stringify(r.diff) : ''}</TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -43,7 +43,7 @@ export function HelpArticlePage() {
         ← Help
       </Link>
       <h1 className="mb-1 mt-1 text-2xl font-semibold">{article.title}</h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">{article.summary}</p>
+      <p className="mb-6 text-sm text-fg-muted">{article.summary}</p>
       {html === undefined ? (
         <Skeleton className="h-64" />
       ) : (

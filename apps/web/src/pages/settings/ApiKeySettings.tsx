@@ -55,7 +55,7 @@ function KeysTable({ keys, onRevoke, showOwner }: { keys: ApiKeyDto[]; onRevoke:
               {k.name} {expired(k) && <Badge variant="secondary">Expired</Badge>}
             </TableCell>
             {showOwner && <TableCell>{k.createdBy ? `${k.createdBy.name} (${k.createdBy.email})` : '—'}</TableCell>}
-            <TableCell className="max-w-xs text-xs text-slate-500">{k.permissions.join(', ') || 'none'}</TableCell>
+            <TableCell className="max-w-xs text-xs text-fg-muted">{k.permissions.join(', ') || 'none'}</TableCell>
             <TableCell>{when(k.lastUsed)}</TableCell>
             <TableCell>{k.expiresAt ? when(k.expiresAt) : 'Never'}</TableCell>
             <TableCell>
@@ -104,7 +104,7 @@ export function ApiKeySettings() {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <CardTitle className="text-base">Your API keys</CardTitle>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 max-w-2xl text-sm text-fg-muted">
               Let other systems use the API on your behalf: send <code>Authorization: Bearer pk_…</code>. A key has only the
               permissions you give it, never more than yours, and stops working if your account is disabled.
             </p>
@@ -114,7 +114,7 @@ export function ApiKeySettings() {
           </Button>
         </CardHeader>
         <CardContent>
-          {mine.length ? <KeysTable keys={mine} onRevoke={setRevoking} /> : <p className="text-sm text-slate-500">You have no API keys.</p>}
+          {mine.length ? <KeysTable keys={mine} onRevoke={setRevoking} /> : <p className="text-sm text-fg-muted">You have no API keys.</p>}
         </CardContent>
       </Card>
 
@@ -122,10 +122,10 @@ export function ApiKeySettings() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Everyone else’s keys</CardTitle>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Revoke a key that leaked or belongs to someone who left.</p>
+            <p className="mt-1 text-sm text-fg-muted">Revoke a key that leaked or belongs to someone who left.</p>
           </CardHeader>
           <CardContent>
-            {others.length ? <KeysTable keys={others} onRevoke={setRevoking} showOwner /> : <p className="text-sm text-slate-500">Nobody else has API keys.</p>}
+            {others.length ? <KeysTable keys={others} onRevoke={setRevoking} showOwner /> : <p className="text-sm text-fg-muted">Nobody else has API keys.</p>}
           </CardContent>
         </Card>
       )}
@@ -153,7 +153,7 @@ export function ApiKeySettings() {
               <Field label="Try it">
                 {(id) => <CopyField id={id} multiline value={`curl ${window.location.origin}/api/devices \\\n  -H 'Authorization: Bearer ${created}'`} />}
               </Field>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-fg-muted">
                 The API reference (OpenAPI) is at <code>/api/docs/openapi.json</code>; see Help → API and integrations.
               </p>
             </div>

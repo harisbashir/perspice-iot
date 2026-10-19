@@ -42,7 +42,7 @@ export const toggleWidget: WidgetDefinition<Settings> = {
           aria-label={config.title ?? 'Toggle'}
           disabled={!can.command || busy}
           onClick={() => trigger(send, settings.confirm)}
-          className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${on ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+          className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${on ? 'bg-ok-vivid' : 'bg-fill-strong'}`}
         >
           <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
         </button>

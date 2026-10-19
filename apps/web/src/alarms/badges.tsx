@@ -1,21 +1,28 @@
 import type { AlarmSeverity, AlarmStatus } from '@perspice/shared';
 import { cn } from '@/lib/utils';
 
-const SEVERITY: Record<AlarmSeverity, string> = {
-  critical: 'bg-red-600 text-white',
-  major: 'bg-orange-500 text-white',
-  minor: 'bg-amber-300 text-amber-950',
-  warning: 'bg-sky-200 text-sky-950 dark:bg-sky-900 dark:text-sky-100',
+/** Same look as the widgets' severity pill: critical filled, the rest tinted, each with a dot. */
+const SEVERITY: Record<AlarmSeverity, [string, string]> = {
+  critical: ['bg-red-600 text-white', 'bg-white'],
+  major: ['bg-crit-tint text-crit', 'bg-crit-vivid'],
+  minor: ['bg-warn-tint text-warn', 'bg-warn-vivid'],
+  warning: ['bg-info-tint text-info', 'bg-info-vivid'],
 };
 
 export function SeverityBadge({ severity, className }: { severity: AlarmSeverity; className?: string }) {
-  return <span className={cn('inline-block rounded px-1.5 py-0.5 text-xs font-semibold uppercase', SEVERITY[severity], className)}>{severity}</span>;
+  const [cls, dot] = SEVERITY[severity];
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold capitalize', cls, className)}>
+      <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', dot)} />
+      {severity}
+    </span>
+  );
 }
 
 const STATUS: Record<AlarmStatus, string> = {
-  active: 'text-red-700 dark:text-red-400',
-  acknowledged: 'text-amber-700 dark:text-amber-400',
-  cleared: 'text-slate-500',
+  active: 'text-crit',
+  acknowledged: 'text-warn',
+  cleared: 'text-fg-muted',
 };
 
 export function AlarmStatusText({ status }: { status: AlarmStatus }) {

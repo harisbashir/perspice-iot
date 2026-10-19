@@ -73,7 +73,7 @@ export const energySummary: WidgetDefinition<Settings> = {
                 {energy.unit ? ` ${energy.unit}` : ''}
               </span>
               {energy.total.cost !== null && energy.currency && (
-                <span data-testid="energy-cost" className="text-lg tabular-nums text-slate-600 dark:text-slate-300">
+                <span data-testid="energy-cost" className="text-lg tabular-nums text-fg-muted">
                   {fmtMoney(energy.total.cost, energy.currency)}
                 </span>
               )}

@@ -157,7 +157,7 @@ export function GeofencesPage() {
       <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <div className="space-y-3">
           {draft && (
-            <form aria-label="Geofence" className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-800" onSubmit={(e) => void save(e)}>
+            <form aria-label="Geofence" className="space-y-3 rounded-md border border-line p-3" onSubmit={(e) => void save(e)}>
               <Field label="Name">{(id) => <Input id={id} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />}</Field>
               <Field label="Colour">{(id) => <Input id={id} type="color" className="h-9 w-16 p-1" value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })} />}</Field>
               {platform && !draft.id && (
@@ -185,13 +185,13 @@ export function GeofencesPage() {
               </fieldset>
               {draft.kind === 'circle' ? (
                 <>
-                  <p className="text-xs text-slate-500">{draft.center ? 'Click the map to move the centre.' : 'Click the map to place the centre.'}</p>
+                  <p className="text-xs text-fg-muted">{draft.center ? 'Click the map to move the centre.' : 'Click the map to place the centre.'}</p>
                   <Field label="Radius (m)">
                     {(id) => <Input id={id} type="number" min={1} value={String(draft.radiusM)} onChange={(e) => setDraft({ ...draft, radiusM: Number(e.target.value) || 0 })} />}
                   </Field>
                 </>
               ) : (
-                <div className="flex items-center justify-between text-xs text-slate-500">
+                <div className="flex items-center justify-between text-xs text-fg-muted">
                   <span>
                     {draft.points.length} corner{draft.points.length === 1 ? '' : 's'}: click the map to add{draft.points.length < 3 ? ' (at least 3)' : ''}.
                   </span>
@@ -213,11 +213,11 @@ export function GeofencesPage() {
           <ErrorText error={error ?? geofences.error} />
           <ul className="space-y-1" aria-label="Geofence list">
             {(geofences.data ?? []).map((g) => (
-              <li key={g.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-800">
+              <li key={g.id} className="flex items-center gap-2 rounded-md border border-line px-2 py-1.5 text-sm">
                 <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: g.color }} />
                 <span className="min-w-0 flex-1 truncate">
                   {g.name}
-                  {g.customerId === null && <span className="ml-1 text-xs text-slate-500">(platform-wide)</span>}
+                  {g.customerId === null && <span className="ml-1 text-xs text-fg-muted">(platform-wide)</span>}
                 </span>
                 {writable(g) && (
                   <>
@@ -239,10 +239,10 @@ export function GeofencesPage() {
                 )}
               </li>
             ))}
-            {geofences.data?.length === 0 && <li className="text-sm text-slate-500">No geofences yet.</li>}
+            {geofences.data?.length === 0 && <li className="text-sm text-fg-muted">No geofences yet.</li>}
           </ul>
         </div>
-        <div ref={el} className="h-[32rem] rounded-md border border-slate-200 dark:border-slate-800" data-testid="geofence-map" />
+        <div ref={el} className="h-[32rem] rounded-md border border-line" data-testid="geofence-map" />
       </div>
     </div>
   );

@@ -42,7 +42,7 @@ export const imageOverlay: WidgetDefinition<Settings> = {
     const data = dataOf(result);
     const labels = useMemo(() => parseLabels(settings.labels), [settings.labels]);
     if (!settings.imageUrl || !isSafeImageUrl(settings.imageUrl)) {
-      return <div className="flex h-full items-center justify-center text-xs text-slate-500">Choose an image in the widget settings</div>;
+      return <div className="flex h-full items-center justify-center text-xs text-fg-muted">Choose an image in the widget settings</div>;
     }
     return (
       <div className="relative h-full w-full">

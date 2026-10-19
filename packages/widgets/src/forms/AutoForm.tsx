@@ -8,7 +8,7 @@ const unwrap = (s: z.ZodTypeAny): z.ZodTypeAny =>
   s instanceof z.ZodDefault || s instanceof z.ZodOptional || s instanceof z.ZodNullable ? unwrap(s._def.innerType) : s;
 
 const inputClass =
-  'h-8 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700 aria-[invalid=true]:border-red-500';
+  'h-8 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm aria-[invalid=true]:border-red-500';
 
 export interface AutoFormProps<T extends Record<string, unknown>> {
   schema: z.ZodObject<Shape>;
@@ -122,18 +122,18 @@ export function AutoForm<T extends Record<string, unknown>>({ schema, value, onC
           <div key={name} className={isCheckbox ? 'flex items-center gap-2' : 'space-y-1'}>
             {isCheckbox && control}
             {!(inner instanceof z.ZodArray) && (
-              <label htmlFor={id} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              <label htmlFor={id} className="text-xs font-medium text-fg-muted">
                 {meta.label}
               </label>
             )}
-            {inner instanceof z.ZodArray && <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{meta.label}</span>}
+            {inner instanceof z.ZodArray && <span className="text-xs font-medium text-fg-muted">{meta.label}</span>}
             {!isCheckbox && control}
             {err ? (
               <p id={`${id}-msg`} role="alert" className="text-xs text-red-600">
                 {err}
               </p>
             ) : meta.help ? (
-              <p id={`${id}-msg`} className="text-xs text-slate-500">
+              <p id={`${id}-msg`} className="text-xs text-fg-muted">
                 {meta.help}
               </p>
             ) : null}

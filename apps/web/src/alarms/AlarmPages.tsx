@@ -78,7 +78,7 @@ export function AlarmDetailPage() {
           </Link>
           {a.customer && <> ({a.customer.name})</>}
         </span>
-        <span className="text-slate-500">since {new Date(a.startedAt).toLocaleString()}</span>
+        <span className="text-fg-muted">since {new Date(a.startedAt).toLocaleString()}</span>
       </div>
       {canAck && a.status !== 'cleared' && (
         <div className="flex flex-wrap gap-2">
@@ -96,14 +96,14 @@ export function AlarmDetailPage() {
         <CardContent>
           <ol className="space-y-3">
             {a.timeline.map((e) => (
-              <li key={e.id} className="border-l-2 border-slate-200 pl-3 dark:border-slate-700">
+              <li key={e.id} className="border-l-2 border-line pl-3">
                 <div className="text-sm">
                   <span className="font-medium">{EVENT_TEXT[e.type]}</span>
                   {e.user && <> by {e.user.name}</>}
                   {e.type === 'cleared' && (e.data as { reason?: string } | null)?.reason === 'condition' && <> (condition recovered)</>}
-                  <span className="ml-2 text-xs text-slate-500">{new Date(e.ts).toLocaleString()}</span>
+                  <span className="ml-2 text-xs text-fg-muted">{new Date(e.ts).toLocaleString()}</span>
                 </div>
-                {e.comment && <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{e.comment}</p>}
+                {e.comment && <p className="mt-1 text-sm text-fg-2">{e.comment}</p>}
               </li>
             ))}
           </ol>

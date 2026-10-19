@@ -96,7 +96,7 @@ export function ProfileEditor() {
             <Field label="Name">{(fid) => <Input id={fid} required value={draft.name} onChange={(e) => set('name', e.target.value)} />}</Field>
             <Field label="Transport">
               {(fid) => (
-                <select id={fid} className="h-9 w-full rounded-md border border-slate-300 bg-transparent px-2 text-sm dark:border-slate-700" value={draft.transport} onChange={(e) => set('transport', e.target.value as Draft['transport'])}>
+                <select id={fid} className="h-9 w-full rounded-lg border border-line-strong bg-surface px-2 text-sm" value={draft.transport} onChange={(e) => set('transport', e.target.value as Draft['transport'])}>
                   <option value="mqtt">MQTT</option>
                   <option value="http">HTTP</option>
                 </select>
@@ -143,7 +143,7 @@ export function ProfileEditor() {
             </Field>
             {draft.locationMode === 'reported' && (
               <>
-                <p className="text-slate-500">Telemetry keys that carry the position (a message needs both latitude and longitude).</p>
+                <p className="text-fg-muted">Telemetry keys that carry the position (a message needs both latitude and longitude).</p>
                 <div className="grid gap-3 md:grid-cols-3">
                   {LOCATION_KEYS.map(([k, label]) => (
                     <Field key={k} label={label}>

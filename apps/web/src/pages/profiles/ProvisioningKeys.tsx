@@ -77,7 +77,7 @@ export function ProvisioningKeys({ profileId }: { profileId: string }) {
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div>
           <CardTitle className="text-base">Provisioning</CardTitle>
-          <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 max-w-3xl text-sm text-fg-muted">
             For devices made in quantity: build one provisioning key into the firmware of every unit. On first
             boot each unit sends it with its serial number and receives its own device credentials, which it
             keeps across firmware updates.
@@ -111,7 +111,7 @@ export function ProvisioningKeys({ profileId }: { profileId: string }) {
                     <TableCell>{k.mode === 'create' ? 'Any serial' : 'Registered serials'}</TableCell>
                     <TableCell>
                       {customerName(k.customerId)}
-                      {k.tags.length ? <span className="text-slate-500"> · {k.tags.join(', ')}</span> : null}
+                      {k.tags.length ? <span className="text-fg-muted"> · {k.tags.join(', ')}</span> : null}
                     </TableCell>
                     <TableCell>
                       {k.provisionedCount}
@@ -140,7 +140,7 @@ export function ProvisioningKeys({ profileId }: { profileId: string }) {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-fg-muted">
             No provisioning keys. Devices of this profile use credentials entered one by one.
           </p>
         )}
