@@ -101,6 +101,13 @@ bool PerspiceClient::connect() {
   // replaced by the previous one at the next restart).
   esp_ota_mark_app_valid_cancel_rollback();
 #endif
+#if defined(ESP32)
+  if (network_) {
+    JsonDocument net;
+    net.set(PerspiceNetwork::linkName(network_->active()));
+    setAttribute("net", net.as<JsonVariantConst>());
+  }
+#endif
   if (config_.firmwareVersion) {
     JsonDocument fw;
     fw.set(config_.firmwareVersion);
@@ -112,6 +119,18 @@ bool PerspiceClient::connect() {
 void PerspiceClient::loop() {
   if (!buffer_) return;
 #if defined(ESP32)
+  if (network_) {
+    network_->loop();
+    if (network_->generation() != netGeneration_) {
+      // Another connection is in use now: the old socket goes over the old one (if it still
+      // works at all), so start again. The back-off stays, so a broker that is down for both
+      // connections isn't hammered by the switching.
+      netGeneration_ = network_->generation();
+      mqtt_.disconnect();
+      nextAttemptMs_ = 0;
+    }
+    if (!network_->isUp()) return;  // telemetry is buffered meanwhile
+  }
   if (!hasCredentials() || !config_.host) {
     provisionStep();
     return;
@@ -124,9 +143,14 @@ void PerspiceClient::loop() {
       backoffMs_ = 1000;
 #if defined(ESP32)
       authFailures_ = 0;
+      if (network_) network_->reportConnected();
 #endif
     } else {
 #if defined(ESP32)
+      // No answer from the broker (rather than a refusal): maybe this connection has no route out.
+      if (network_ && (mqtt_.state() == MQTT_CONNECT_FAILED || mqtt_.state() == MQTT_CONNECTION_TIMEOUT)) {
+        network_->reportConnectFailure();
+      }
       // Credentials the broker keeps refusing (token replaced, device re-created): provision
       // again. The platform only hands out new ones when the key allows it; otherwise the stored
       // credentials stay and connecting carries on.
@@ -180,7 +204,12 @@ bool PerspiceClient::sendTelemetry(JsonDocument& values, uint64_t tsMs) {
   payload[used + len] = '}';
   payload[used + len + 1] = '\0';
 
-  if (mqtt_.connected() && buffer_->empty()) {
+  bool linkUp = true;
+#if defined(ESP32)
+  // A socket on a connection that just went down still looks connected for a moment.
+  if (network_) linkUp = network_->isUp() && network_->generation() == netGeneration_;
+#endif
+  if (linkUp && mqtt_.connected() && buffer_->empty()) {
     char t[96];
     topic(t, sizeof(t), "telemetry");
     if (mqtt_.publish(t, payload)) return true;

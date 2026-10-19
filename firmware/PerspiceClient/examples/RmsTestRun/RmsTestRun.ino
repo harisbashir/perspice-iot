@@ -1,5 +1,5 @@
-// RmsTestRun — an ESP32 on Wi-Fi pretending to be a telecom site, for trying the platform out
-// without any hardware attached. It sends random but believable values for every key of the
+// RmsTestRun — an ESP32 / ESP32-S3 on Wi-Fi or W5500 Ethernet pretending to be a telecom site,
+// for trying the platform out without any sensors attached. It sends random but believable values for every key of the
 // Telecom RMS profile:
 //   mains_v      mains voltage, around 230 V, with occasional outages (0 V)
 //   gen_running  the generator starts by itself during an outage, or on gen_start / gen_stop
@@ -9,18 +9,20 @@
 // so the dashboard, alarms (low fuel, mains failure, door open) and commands can all be tested.
 //
 // 1. Create a device with the Telecom RMS profile and copy its id and token (Credentials tab).
-// 2. Fill in the Wi-Fi network, the broker and the credentials below, then flash.
+// 2. Fill in the Wi-Fi network, the broker and the credentials below, choose the connection
+//    with NETWORK_PRIORITY, then flash. (W5500 wiring: see the EthernetW5500 example.)
 // 3. Open the Serial Monitor at 115200 baud to follow what is sent.
 // Shared configuration {"interval": 5} on the device or profile changes the send interval (s).
 #include <PerspiceClient.h>
-#include <WiFi.h>
 #include <WiFiClientSecure.h>
 
 #define FIRMWARE_VERSION "rms-test-1.0.0"
 // 1 = MQTT over TLS on 8883 (as in production), 0 = plain MQTT on 1883 (a local broker).
 #define USE_TLS 1
+// EthernetFirst, WiFiFirst, EthernetOnly or WiFiOnly.
+#define NETWORK_PRIORITY PerspicePriority::EthernetFirst
 
-const char* WIFI_SSID = "your-ssid";
+const char* WIFI_SSID = "your-ssid";  // "" on Ethernet alone
 const char* WIFI_PASS = "your-password";
 const char* MQTT_HOST = "mqtt.iot.example.com";
 const char* DEVICE_ID = "YOUR-DEVICE-ID";
@@ -29,13 +31,13 @@ const char* DEVICE_TOKEN = "pdt_YOUR_DEVICE_TOKEN";
 #if USE_TLS
 WiFiClientSecure net;
 #else
-WiFiClient net;
+NetworkClient net;  // plain TCP over Wi-Fi or Ethernet
 #endif
+PerspiceNetwork network;
 PerspiceClient perspice(net);
 
 uint32_t intervalMs = 10000;
 unsigned long lastSend = 0;
-unsigned long lastWifiLog = 0;
 
 // The simulated site.
 float mainsV = 230;
@@ -97,8 +99,9 @@ void report() {
   values["batt_v"] = roundf(battV * 100) / 100;
   values["door_open"] = doorOpen;
   bool sent = perspice.sendTelemetry(values);
-  Serial.printf("%s mains=%.0fV gen=%s fuel=%.1f%% batt=%.2fV door=%s (buffered: %u)\n", sent ? "sent" : "NOT SENT", mainsV,
-                genRunning ? "on" : "off", fuelLevel, battV, doorOpen ? "open" : "closed", perspice.pending());
+  Serial.printf("%s mains=%.0fV gen=%s fuel=%.1f%% batt=%.2fV door=%s (via %s, buffered: %u)\n", sent ? "sent" : "NOT SENT",
+                mainsV, genRunning ? "on" : "off", fuelLevel, battV, doorOpen ? "open" : "closed",
+                PerspiceNetwork::linkName(network.active()), perspice.pending());
 }
 
 bool genStart(JsonVariantConst, JsonDocument& result) {
@@ -130,20 +133,23 @@ void onConfig(JsonVariantConst config) {
   Serial.printf("config: sending every %lu s\n", static_cast<unsigned long>(s));
 }
 
+void onNetworkChange(PerspiceLink now, PerspiceLink before) {
+  if (now == PerspiceLink::None) Serial.println("network down (telemetry is buffered)");
+  else Serial.printf("network: %s, IP %s\n", PerspiceNetwork::linkName(now), network.localIP().toString().c_str());
+}
+
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println("\nPerspice RMS test run " FIRMWARE_VERSION);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.printf("connecting to %s", WIFI_SSID);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print('.');
-  }
-  Serial.printf("\nWi-Fi connected, IP %s\n", WiFi.localIP().toString().c_str());
+  PerspiceNetworkConfig netCfg;
+  netCfg.wifiSsid = WIFI_SSID;
+  netCfg.wifiPass = WIFI_PASS;
+  netCfg.priority = NETWORK_PRIORITY;
+  netCfg.remember = false;  // always the priority above
+  network.begin(netCfg);
+  network.onChange(onNetworkChange);
 
   PerspiceConfig cfg;
   cfg.host = MQTT_HOST;
@@ -159,22 +165,16 @@ void setup() {
   cfg.port = 1883;
 #endif
   if (!perspice.begin(cfg)) Serial.println("begin() failed: check the host, device id and token");
+  perspice.useNetwork(network);
   perspice.onCommand("gen_start", genStart);
   perspice.onCommand("gen_stop", genStop);
   perspice.onConfig(onConfig);
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    if (millis() - lastWifiLog > 5000) {
-      lastWifiLog = millis();
-      Serial.println("Wi-Fi lost, waiting to reconnect (telemetry is buffered)");
-    }
-  } else {
-    bool was = perspice.isConnected();
-    perspice.loop();
-    if (perspice.isConnected() != was) Serial.println(was ? "MQTT disconnected" : "MQTT connected");
-  }
+  bool was = perspice.isConnected();
+  perspice.loop();  // runs the network too
+  if (perspice.isConnected() != was) Serial.println(was ? "MQTT disconnected" : "MQTT connected");
 
   // Keeps sending while offline too: the library buffers and flushes on reconnect.
   if (millis() - lastSend >= intervalMs) {
