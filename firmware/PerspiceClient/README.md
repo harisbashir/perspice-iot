@@ -7,7 +7,9 @@ Arduino / ESP32 library for the Perspice IoT platform (MQTT protocol `perspice/v
   (RAM; on ESP32 also LittleFS across deep sleep with `PERSPICE_BUFFER_FLASH`)
 - Remote commands with acknowledgement, shared configuration, client attributes
 - Reconnect with exponential back-off (1 s → 60 s) and an `offline` last-will message
-- Any Arduino `Client`: Wi-Fi, W5100/W5500 Ethernet, `WiFiClientSecure` for TLS
+- Any Arduino `Client`: Wi-Fi, Ethernet, `WiFiClientSecure` for TLS
+- ESP32 / ESP32-S3: Wi-Fi and W5500 Ethernet together with `PerspiceNetwork`: failover, and a
+  priority (Ethernet first, Wi-Fi first, either only) that an HMI can change at run time
 
 Dependencies: [PubSubClient](https://github.com/knolleary/pubsubclient) and
 [ArduinoJson](https://arduinojson.org) 7.
@@ -43,6 +45,34 @@ void loop() {
   }
 }
 ```
+
+## Wi-Fi and W5500 Ethernet (ESP32, ESP32-S3)
+
+```cpp
+WiFiClientSecure net;
+PerspiceNetwork network;
+PerspiceClient perspice(net);
+
+void setup() {
+  PerspiceNetworkConfig netCfg;
+  netCfg.wifiSsid = "ssid";
+  netCfg.wifiPass = "password";
+  netCfg.priority = PerspicePriority::EthernetFirst;  // WiFiFirst, EthernetOnly, WiFiOnly
+  network.begin(netCfg);         // W5500 on the default pins; see netCfg.eth*
+  // … PerspiceConfig cfg as above, port 8883 …
+  perspice.begin(cfg);
+  perspice.useNetwork(network);  // perspice.loop() runs the network and follows its changes
+}
+
+// From an HMI button: takes effect at once and is kept in NVS.
+network.setPriority(PerspicePriority::WiFiOnly);
+network.setWifi("other-ssid", "password");
+```
+
+The W5500 runs on the ESP32's own network stack (the core's `ETH` driver, Espressif core 3.0 or
+later), so TLS, provisioning, OTA and NTP work over either connection. The device switches when
+the connection in use goes down, or when the broker can't be reached over it, and returns to the
+preferred one when it recovers. Pins, standby and failback are described in `docs/firmware.md`.
 
 ## Commands
 
@@ -96,12 +126,15 @@ Pass a `WiFiClientSecure` (ESP32) and port 8883. Pin the CA certificate with
 
 ## Examples
 
-- `BasicSensor` — W5500/W5100 Ethernet on ESP32 or Arduino Mega
+- `BasicSensor` — Arduino Mega with an Ethernet shield (Arduino Ethernet library)
+- `EthernetW5500` — ESP32 / ESP32-S3 on W5500 Ethernet with TLS
+- `DualNetwork` — Wi-Fi and W5500 with failover; the priority set from a serial menu (standing in
+  for an HMI) or the `set_network` command
 - `GeneratorController` — relay control with `gen_start` / `gen_stop` over TLS
 - `DeepSleepSensor` — wake, send, deep sleep (use a *sleepy* profile)
 - `OtaUpdate` — ESP32 taking firmware updates from the platform (set `firmwareVersion`)
 - `MassProduction` — one image for every unit: provisions itself with a provisioning key, stores its credentials, and forgets them on a long press of BOOT
-- `RmsTestRun` — no hardware needed: an ESP32 on Wi-Fi sends random but believable values for every
+- `RmsTestRun` — no sensors needed: an ESP32 on Wi-Fi and/or W5500 sends random but believable values for every
   Telecom RMS key (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`,
   for trying out dashboards, alarms and commands
 - `GpsTracker` — ESP32 with a serial GPS (TinyGPS++): position every 10 s, optional ignition input for trips; needs the `TinyGPSPlus` library

@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PerspiceClient (ESP32, ESP32-S3): **Wi-Fi and W5500 Ethernet** with `PerspiceNetwork`. The W5500
+  runs on the ESP32's own network stack, so TLS, provisioning, OTA and NTP work over it. The
+  connection follows a priority (Ethernet first, Wi-Fi first, Ethernet only, Wi-Fi only) that an
+  HMI or command can change at run time and that is kept in NVS; the device fails over when the
+  connection in use goes down or can't reach the broker, and returns when it recovers. The
+  connection in use is reported as the `net` attribute. Examples `EthernetW5500` and
+  `DualNetwork`; `RmsTestRun` runs on either connection.
 - PerspiceClient: the `RmsTestRun` example, an ESP32 that simulates a Telecom RMS site with random
   values (mains outages, generator, fuel, battery, door) and answers `gen_start` / `gen_stop`.
 - PerspiceClient: `PERSPICE_MQTT_BUFFER_BYTES` sets the MQTT packet buffer (384 bytes on AVR).
+- CI compiles the ESP32 examples for the ESP32-S3 too.
+
+### Changed
+
+- `BasicSensor` is the Arduino Mega example; ESP32 boards use `EthernetW5500` for wired Ethernet.
 
 ### Fixed
 

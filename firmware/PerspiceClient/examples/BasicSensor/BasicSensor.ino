@@ -1,5 +1,6 @@
-// BasicSensor — sends a temperature reading every 10 seconds over wired Ethernet (W5100/W5500).
-// Works on ESP32 (W5500 on SPI) and on AVR boards such as the Mega with an Ethernet shield.
+// BasicSensor — sends a temperature reading every 10 seconds over wired Ethernet with the
+// Arduino Ethernet library, on AVR boards such as the Mega with an Ethernet shield. On an ESP32,
+// use the EthernetW5500 example instead: its W5500 driver adds TLS, provisioning and OTA.
 // Fill in the device id and token from the device's Credentials tab.
 #include <Ethernet.h>
 #include <PerspiceClient.h>

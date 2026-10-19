@@ -9,6 +9,7 @@
 
 #include "PerspiceBuffer.h"
 #include "PerspiceConfig.h"
+#include "PerspiceNetwork.h"
 
 #ifndef PERSPICE_MAX_COMMANDS
 #define PERSPICE_MAX_COMMANDS 16
@@ -41,6 +42,14 @@ class PerspiceClient {
   uint16_t pending() const { return buffer_ ? buffer_->size() : 0; }
 
 #if defined(ESP32)
+  // Wi-Fi and/or W5500 Ethernet managed by PerspiceNetwork: loop() also runs the network, waits
+  // while no connection is up, reconnects when the active connection changes, and lets the
+  // network fail over when the broker can't be reached. The "net" attribute reports the one in use.
+  void useNetwork(PerspiceNetwork& network) {
+    network_ = &network;
+    netGeneration_ = network.generation();
+  }
+
   // Flushes, disconnects cleanly and deep-sleeps for `seconds` (the device restarts afterwards).
   void sleepCycle(uint32_t seconds);
   // True while an OTA update is downloading (the device restarts when it succeeds).
@@ -95,6 +104,8 @@ class PerspiceClient {
   char otaSha_[65] = "";
   char otaUrl_[512] = "";
   uint32_t otaSize_ = 0;
+  PerspiceNetwork* network_ = nullptr;
+  uint32_t netGeneration_ = 0;
 #endif
 
   static PerspiceClient* instance_;
