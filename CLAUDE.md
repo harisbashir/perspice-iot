@@ -15,6 +15,7 @@ Claude Code. This file is the map; each area has its own guide.
 | End-to-end tests, UI screenshots | `e2e` | below |
 | Deployment (Compose, Caddy, EMQX, monitoring) | `deploy`, `scripts` | `docs/install.md`, `docs/operations.md` |
 | Original design and build plans | `docs/superpowers` | read for the "why" of a feature |
+| **Planned work (roadmap, not built yet)** | `docs/roadmap` | `docs/roadmap/CLAUDE.md`, start here when resuming |
 
 ## Toolchain
 
